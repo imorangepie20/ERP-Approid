@@ -1,0 +1,6 @@
+node_modules
+dist
+
+# Secrets (tunnel tokens, env files)
+infra/secrets/*.env
+!infra/secrets/*.env.example
