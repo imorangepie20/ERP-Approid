@@ -1,0 +1,68 @@
+package com.erpapproid.core.domain.purchase;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import com.erpapproid.core.common.entity.BaseEntity;
+import com.erpapproid.core.domain.item.ItemEntity;
+import com.erpapproid.core.domain.partner.PartnerEntity;
+
+@Getter
+@Setter
+@Entity
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PACKAGE)
+@Table(name = "receivings")
+public class ReceivingEntity extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "receiving_no", nullable = false, unique = true)
+    private String receivingNo;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "purchase_order_id", nullable = false)
+    private PurchaseOrderEntity purchaseOrder;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "vendor_id", nullable = false)
+    private PartnerEntity vendor;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "item_id", nullable = false)
+    private ItemEntity item;
+
+    @Column(name = "order_qty", nullable = false, precision = 18, scale = 4)
+    private BigDecimal orderQty;
+
+    @Column(name = "received_qty", nullable = false, precision = 18, scale = 4)
+    private BigDecimal receivedQty;
+
+    @Column(name = "defect_qty", nullable = false, precision = 18, scale = 4)
+    private BigDecimal defectQty;
+
+    @Column(name = "received_date", nullable = false)
+    private LocalDate receivedDate;
+
+    @Column(name = "status", nullable = false)
+    private String status;
+}

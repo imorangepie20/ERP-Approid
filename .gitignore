@@ -15,6 +15,9 @@ venv/
 gradle-app.setting
 !gradle-wrapper.jar
 
+# Testcontainers runtime artifact written to project root
+**/META-INF/services/org.testcontainers.dockerclient.DockerClientProviderStrategy
+
 # IDE
 .idea/
 *.iml
