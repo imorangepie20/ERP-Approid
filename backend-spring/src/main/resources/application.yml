@@ -1,20 +1,12 @@
 server:
   port: 38080
   shutdown: graceful
+  forward-headers-strategy: framework
+  max-http-request-header-size: 16KB
 
 spring:
   application:
     name: backend-spring
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15432}/${DB_NAME:erp_approid}
-    username: ${DB_USERNAME:erp}
-    password: ${DB_PASSWORD:erp_dev_pw}
-    hikari:
-      pool-name: core-hikari
-      maximum-pool-size: 10
-      minimum-idle: 2
   jpa:
     hibernate:
       ddl-auto: validate
@@ -35,18 +27,18 @@ spring:
     default-property-inclusion: non_null
 
 app:
+  web:
+    max-request-body-size-bytes: 1048576
   security:
     jwt:
-      secret: ${JWT_SECRET:erp-approid-dev-secret-key-change-in-production-32bytes}
       expiration-minutes: 60
-    internal-key: ${INTERNAL_KEY:erp-internal-dev-key}
 springdoc:
   api-docs:
     path: /v3/api-docs
-    enabled: true
+    enabled: false
   swagger-ui:
     path: /swagger-ui.html
-    enabled: true
+    enabled: false
 
 management:
   endpoints:

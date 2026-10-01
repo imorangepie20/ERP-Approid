@@ -161,10 +161,20 @@ Phase 1은 기존 HS256 access token을 사용하되, 토큰 저장 방식과 XS
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 부분 구현 |
-| 주요 작업 | 운영 secret 필수화, CORS origin 제한, Swagger 환경 분리, 보안 헤더, 입력 크기 제한 |
-| 운영 항목 | DB 백업/복구, 마이그레이션 전략, 로그 보존, 관리자 접근 정책 |
-| 완료 조건 | 기본 개발 secret으로 운영 기동 불가, 운영 체크리스트와 복구 훈련 완료 |
+| 현재 상태 | 완료 |
+| 구현 기능 | fail-safe 프로필, 운영 secret 검증, exact-origin CORS, 운영 Swagger 차단, 보안 헤더, 1MiB 요청 제한 |
+| 운영 항목 | checksum 백업/안전 복원/격리 복구훈련, append-only 마이그레이션, 로그 보존 경계, 관리자 접근 정책 |
+| 완료 조건 | 기본 개발 secret으로 운영 기동 불가, 운영 체크리스트와 실제 Flyway V8 복구 훈련 통과 |
+
+구현 메모:
+
+- 공통 설정은 개발 secret과 활성 프로필을 암묵적으로 선택하지 않으며 `local`, `test`, `prod`를 명시한다.
+- 운영 JWT secret과 internal key는 서로 다른 32 UTF-8 byte 이상의 값이어야 하고 공개 예제값을 거부한다.
+- 브라우저 CORS는 정확한 origin과 필요한 헤더만 허용하며 credentials는 사용하지 않는다.
+- Swagger/OpenAPI는 local/test에서만 활성화하고 운영에서는 비활성화한다.
+- JSON을 포함한 요청 본문은 역직렬화 전에 1MiB로 제한하며 초과 시 trace ID가 포함된 413을 반환한다.
+- PostgreSQL custom-format 백업과 SHA-256을 생성하고 격리 DB 복원 후 Flyway V8과 핵심 테이블을 검증했다.
+- 상세 절차는 [`docs/operations.md`](operations.md)에 기록했다.
 
 ## 5. Phase 1A — 인증 후 기초정보 서비스
 
@@ -571,13 +581,14 @@ FastAPI를 도입하기 전, 별도 배포·관측·보안 비용보다 독립 �
 4. [x] PLT-03: 공통 HTTP 클라이언트, 오류 모델, React Query 구성
 5. [x] PLT-04: 로그인, `/auth/me`, 보호 라우트, 로그아웃 구현
 6. [x] PLT-05: 감사·Trace ID·구조화 로그·health/metrics 구현
-7. [ ] MST-01: 품목 목록 조회를 첫 실제 API 화면으로 전환
-8. [ ] MST-01: 품목 등록·수정·삭제와 권한/감사 검증
-9. [ ] MST-02~04: 거래처, BOM, 공정 연결
-10. [ ] SAL-01~02: 견적과 수주 연결
-11. [ ] PRD-02 → PUR-02 → LOG-01: 생산완료·입고·출하의 재고 트랜잭션 연결
-12. [ ] Phase 1 핵심 E2E와 CI 필수 체크 구성
-13. [ ] ANL-01/02 구현 방식 결정 후 실제 대시보드와 MRP 연결
+7. [x] PLT-06: 운영 secret·CORS·Swagger·보안 헤더·복구 훈련 구현
+8. [ ] MST-01: 품목 목록 조회를 첫 실제 API 화면으로 전환
+9. [ ] MST-01: 품목 등록·수정·삭제와 권한/감사 검증
+10. [ ] MST-02~04: 거래처, BOM, 공정 연결
+11. [ ] SAL-01~02: 견적과 수주 연결
+12. [ ] PRD-02 → PUR-02 → LOG-01: 생산완료·입고·출하의 재고 트랜잭션 연결
+13. [ ] Phase 1 핵심 E2E와 CI 필수 체크 구성
+14. [ ] ANL-01/02 구현 방식 결정 후 실제 대시보드와 MRP 연결
 
 ## 14. 범위 결정이 필요한 항목
 

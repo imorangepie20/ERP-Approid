@@ -1,8 +1,8 @@
 x-default-logging: &default-logging
   driver: local
   options:
-    max-size: "10m"
-    max-file: "3"
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILE:-3}"
 
 services:
   postgres:
@@ -40,6 +40,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?Copy .env.example to .env and set DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Copy .env.example to .env and set JWT_SECRET}
       INTERNAL_KEY: ${INTERNAL_KEY:?Copy .env.example to .env and set INTERNAL_KEY}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://127.0.0.1:3000}
     ports:
       - "127.0.0.1:${BACKEND_HOST_PORT:-38080}:38080"
     depends_on:

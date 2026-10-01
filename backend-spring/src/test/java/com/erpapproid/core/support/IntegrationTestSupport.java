@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -29,6 +30,7 @@ import com.erpapproid.core.domain.user.UserRepository;
  * Flyway V1~V8 마이그레이션과 시드 데이터가 그대로 적용된다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 public abstract class IntegrationTestSupport {
 
     protected static final String ADMIN_USERNAME = "admin";

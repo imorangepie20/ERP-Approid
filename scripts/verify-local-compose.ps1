@@ -77,6 +77,31 @@ function Assert-Healthy {
     Write-Host "[PASS] $Service is healthy"
 }
 
+function Invoke-WebRequestAllowHttpError {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Uri,
+        [Parameter(Mandatory = $true)]
+        [string]$Method,
+        [hashtable]$Headers = @{}
+    )
+
+    try {
+        return Invoke-WebRequest `
+            -Uri $Uri `
+            -Method $Method `
+            -Headers $Headers `
+            -TimeoutSec 15 `
+            -UseBasicParsing
+    }
+    catch {
+        if ($_.Exception.Response) {
+            return $_.Exception.Response
+        }
+        throw
+    }
+}
+
 Push-Location $repositoryRoot
 try {
     if (-not (Test-Path -LiteralPath $composeFile -PathType Leaf)) {
@@ -112,6 +137,52 @@ try {
         throw "Actuator health did not report UP."
     }
     Write-Host "[PASS] Public Actuator health reported UP"
+
+    $securityHeaderResponse = Invoke-WebRequest `
+        -Uri "$($BackendBaseUrl.TrimEnd('/'))/actuator/health" `
+        -Method Get `
+        -TimeoutSec 15 `
+        -UseBasicParsing
+    foreach ($header in @(
+            "Content-Security-Policy",
+            "X-Frame-Options",
+            "X-Content-Type-Options",
+            "Referrer-Policy",
+            "Permissions-Policy"
+        )) {
+        if (-not $securityHeaderResponse.Headers[$header]) {
+            throw "Backend response is missing security header '$header'."
+        }
+    }
+    Write-Host "[PASS] Backend security headers are present"
+
+    $allowedOrigin = $FrontendBaseUrl.TrimEnd('/')
+    $preflightHeaders = @{
+        Origin = $allowedOrigin
+        "Access-Control-Request-Method" = "POST"
+        "Access-Control-Request-Headers" = "Authorization,Content-Type,X-Trace-Id"
+    }
+    $allowedPreflight = Invoke-WebRequestAllowHttpError `
+        -Uri "$($BackendBaseUrl.TrimEnd('/'))/api/core/items" `
+        -Method Options `
+        -Headers $preflightHeaders
+    if ([int]$allowedPreflight.StatusCode -ne 200 `
+            -or $allowedPreflight.Headers["Access-Control-Allow-Origin"] -ne $allowedOrigin `
+            -or $allowedPreflight.Headers["Access-Control-Allow-Credentials"]) {
+        throw "Configured CORS origin was not accepted with the expected credential-free policy."
+    }
+    $deniedPreflight = Invoke-WebRequestAllowHttpError `
+        -Uri "$($BackendBaseUrl.TrimEnd('/'))/api/core/items" `
+        -Method Options `
+        -Headers @{
+            Origin = "https://attacker.example"
+            "Access-Control-Request-Method" = "POST"
+        }
+    if ([int]$deniedPreflight.StatusCode -ne 403 `
+            -or $deniedPreflight.Headers["Access-Control-Allow-Origin"]) {
+        throw "Unconfigured CORS origin was not rejected."
+    }
+    Write-Host "[PASS] CORS allows only the configured frontend origin"
 
     $loginBody = @{ username = "admin"; password = "admin123" } | ConvertTo-Json
     $loginResponse = Invoke-RestMethod `
@@ -152,6 +223,17 @@ try {
         -UseBasicParsing
     if ($frontendResponse.StatusCode -ne 200) {
         throw "Expected frontend HTTP 200, received $($frontendResponse.StatusCode)."
+    }
+    foreach ($header in @(
+            "Content-Security-Policy",
+            "X-Frame-Options",
+            "X-Content-Type-Options",
+            "Referrer-Policy",
+            "Permissions-Policy"
+        )) {
+        if (-not $frontendResponse.Headers[$header]) {
+            throw "Frontend response is missing security header '$header'."
+        }
     }
     Write-Host "[PASS] Frontend returned HTTP 200"
 

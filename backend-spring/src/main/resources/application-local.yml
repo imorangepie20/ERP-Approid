@@ -1,4 +1,27 @@
 spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15432}/${DB_NAME:erp_approid}
+    username: ${DB_USERNAME:erp}
+    password: ${DB_PASSWORD:erp_dev_pw}
+    hikari:
+      pool-name: core-hikari
+      maximum-pool-size: 10
+      minimum-idle: 2
   jpa:
     hibernate:
       ddl-auto: validate
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:erp-approid-dev-secret-key-change-in-production-32bytes}
+    internal-key: ${INTERNAL_KEY:erp-internal-dev-key}
+    cors:
+      allowed-origins:
+        - ${CORS_ALLOWED_ORIGIN:http://127.0.0.1:3000}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

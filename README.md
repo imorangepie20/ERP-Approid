@@ -48,8 +48,8 @@ docker compose up --build --detach --wait
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-compose.ps1
 ```
 
-검증 스크립트는 컨테이너 health, Flyway V8, Actuator health, 관리자 로그인과 `/auth/me`,
-관리자 metrics 접근, 프런트 HTTP 응답을 확인합니다.
+검증 스크립트는 컨테이너 health, Flyway V8, Actuator health, 보안 헤더와 CORS 경계,
+관리자 로그인과 `/auth/me`, 관리자 metrics 접근, 프런트 HTTP 응답을 확인합니다.
 
 ## 현재 구현 상태
 
@@ -60,6 +60,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-c
 | PLT-03 프런트 API 기반 | 완료 | 타입 생성, HTTP 클라이언트, React Query, 공통 비동기 상태 UI |
 | PLT-04 인증과 권한 UI | 완료 | 로그인, 세션 복원·만료, 보호 라우트, 로그아웃, 역할별 UI 제어 |
 | PLT-05 감사·추적·관측성 | 완료 | 동기 fail-closed 감사, actor/trace/snapshot, JSON 로그, health/metrics |
+| PLT-06 운영 보안·설정 | 완료 | 운영 secret 검증, CORS·Swagger 분리, 보안 헤더, 요청 제한, 백업·복구 훈련 |
 | MST-01 품목 화면 연동 | 예정 | 첫 번째 실제 API 기반 CRUD 화면으로 전환 |
 | 분석 FastAPI | 미구현 | 분석 서비스 분리 여부를 결정한 뒤 ANL-04에서 구현 |
 
@@ -160,10 +161,12 @@ npm run generate:api-types
 ```powershell
 Set-Location backend-spring
 .\gradlew.bat test
+$env:SPRING_PROFILES_ACTIVE = "local"
 .\gradlew.bat bootRun
 ```
 
-백엔드를 직접 실행할 때는 PostgreSQL이 `localhost:15432`에서 실행 중이어야 합니다.
+백엔드를 직접 실행할 때는 PostgreSQL이 `localhost:15432`에서 실행 중이어야 합니다. 프로필을
+지정하지 않은 기동은 개발 설정을 암묵적으로 선택하지 않으므로 `local`을 명시해야 합니다.
 
 ## 환경 변수
 
@@ -177,6 +180,8 @@ Set-Location backend-spring
 | `FRONTEND_HOST_PORT` | 호스트 프런트 포트 |
 | `JWT_SECRET` | 로컬 JWT 서명 키 |
 | `INTERNAL_KEY` | 내부 API 인증 키 |
+| `CORS_ALLOWED_ORIGIN` | 로컬 Core API가 허용할 정확한 브라우저 Origin |
+| `LOG_MAX_SIZE`, `LOG_MAX_FILE` | 컨테이너별 로컬 로그 회전 크기와 파일 수 |
 | `VITE_API_CORE_URL` | 브라우저에서 접근할 Core API URL |
 | `VITE_API_ANALYTICS_URL` | 향후 Analytics API URL |
 
@@ -191,20 +196,21 @@ Set-Location backend-spring
 - [프로젝트 인수인계와 현재 상태](docs/PROJECT_HANDOVER.md)
 - [서비스 구현 로드맵](docs/SERVICE_IMPLEMENTATION_ROADMAP.md)
 - [로컬 통합 환경 실행](docs/setup.md)
+- [운영 보안·백업·복구 정책](docs/operations.md)
 
 ## 운영 시 주의사항
 
-현재 Compose와 예제 인증 정보는 로컬 개발 전용입니다. 운영 배포 전에는 최소한 다음 작업이
-필요합니다.
+현재 Compose와 예제 인증 정보는 로컬 개발 전용입니다. PLT-06에서 운영 프로필의 secret 검증,
+정확한 CORS origin, 운영 Swagger 차단, 보안 헤더, 1MiB 요청 제한과 복구 훈련 도구를 구현했습니다.
+실제 운영 배포 전에는 환경별 값과 외부 인프라를 연결해야 합니다.
 
-- DB, JWT, 내부 API secret을 안전한 값으로 교체
-- 허용 CORS origin 제한
-- 운영 환경의 Swagger 노출 정책 분리
-- HTTPS와 보안 헤더 적용
-- 데이터베이스 백업과 복구 절차 수립
-- 기본 관리자 계정 제거 또는 비밀번호 변경
+- `prod` 프로필과 DB/JWT/internal key/CORS 환경 변수 주입
+- TLS 종료 프록시와 HSTS 전달 경계 검증
+- 백업 파일의 암호화된 외부 저장소 및 중앙 로그 수집기 연결
+- 기본 관리자 계정 제거 또는 비밀번호 변경과 관리자별 고유 계정 발급
+- `scripts/test-postgres-recovery.ps1`을 이용한 분기별 복구 훈련
 
-운영 준비 항목은 로드맵의 PLT-05와 PLT-06에서 추적합니다.
+세부 체크리스트와 안전한 복원 절차는 [운영 정책](docs/operations.md)을 따릅니다.
 
 ## 서비스 종료
 

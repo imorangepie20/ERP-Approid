@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
         List<ErrorResponse.FieldError> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(fe -> new ErrorResponse.FieldError(
                         fe.getField(),
-                        fe.getRejectedValue() == null ? null : fe.getRejectedValue().toString(),
+                        sanitizeRejectedValue(fe.getField(), fe.getRejectedValue()),
                         fe.getDefaultMessage()))
                 .toList();
         log.warn("validation error: {} field(s)", errors.size());
@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
         List<ErrorResponse.FieldError> errors = ex.getConstraintViolations().stream()
                 .map(cv -> new ErrorResponse.FieldError(
                         cv.getPropertyPath().toString(),
-                        cv.getInvalidValue() == null ? null : cv.getInvalidValue().toString(),
+                        sanitizeRejectedValue(cv.getPropertyPath().toString(), cv.getInvalidValue()),
                         cv.getMessage()))
                 .toList();
         return build(ErrorCode.INVALID_INPUT, "입력값 검증에 실패했습니다.", errors);
@@ -136,5 +136,19 @@ public class GlobalExceptionHandler {
                 .build();
         HttpStatus status = errorCode.getStatus();
         return ResponseEntity.status(status).body(body);
+    }
+
+    static String sanitizeRejectedValue(String field, Object rejectedValue) {
+        if (rejectedValue == null) {
+            return null;
+        }
+        String normalizedField = field == null ? "" : field.toLowerCase(java.util.Locale.ROOT);
+        if (normalizedField.contains("password") || normalizedField.contains("secret")
+                || normalizedField.contains("token") || normalizedField.contains("authorization")
+                || normalizedField.endsWith("key") || normalizedField.contains("internalkey")) {
+            return "[REDACTED]";
+        }
+        String value = rejectedValue.toString();
+        return value.length() <= 128 ? value : value.substring(0, 128) + "…";
     }
 }

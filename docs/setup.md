@@ -45,8 +45,8 @@ PostgreSQL 포트는 항상 5432다.
 
 ## 상태 검증
 
-세 컨테이너의 health 상태, Flyway V8 적용, 공개 Actuator health, 개발 관리자 로그인,
-관리자 전용 metrics, 프런트 HTTP 응답을 한 번에 검증한다.
+세 컨테이너의 health 상태, Flyway V8 적용, 공개 Actuator health, 보안 헤더, 허용·거부 CORS,
+개발 관리자 로그인, 관리자 전용 metrics, 프런트 HTTP 응답을 한 번에 검증한다.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-compose.ps1
@@ -80,7 +80,8 @@ OpenAPI 타입 생성과 실제 호출 검증은 ANL-04에서 추가한다.
 ```powershell
 Copy-Item .env.example .env.compose-test
 # .env.compose-test의 DB_HOST_PORT, BACKEND_HOST_PORT, FRONTEND_HOST_PORT를 빈 포트로 변경하고,
-# VITE_API_CORE_URL 포트를 BACKEND_HOST_PORT와 같은 값(아래 예시는 48080)으로 맞춘다.
+# VITE_API_CORE_URL 포트를 BACKEND_HOST_PORT와 같은 값(아래 예시는 48080)으로 맞추고,
+# CORS_ALLOWED_ORIGIN을 프런트 주소(아래 예시는 http://127.0.0.1:43080)로 맞춘다.
 docker compose --project-name erp-test --env-file .env.compose-test up --build --detach --wait
 & .\scripts\verify-local-compose.ps1 `
   -ProjectName erp-test `
@@ -106,6 +107,11 @@ curl --fail --silent http://127.0.0.1:3000/ >/dev/null
 `GET /api/core/auth/me`를 호출하면 현재 사용자와 역할을 확인할 수 있다. 운영 배포 전 초기 계정을
 반드시 제거하거나 비밀번호를 변경해야 한다.
 
+Spring Boot를 Compose 밖에서 직접 실행할 때는 안전을 위해 기본 활성 프로필이 없다. 로컬 실행은
+`SPRING_PROFILES_ACTIVE=local`, 자동화 테스트는 `test`, 운영은 `prod`를 명시한다. `prod`는 DB 연결값,
+서로 다른 32바이트 이상의 JWT/internal key, 정확한 `CORS_ALLOWED_ORIGINS`가 없거나 공개 예제값이면
+기동을 중단하며 Swagger/OpenAPI를 노출하지 않는다.
+
 ## 운영 명령
 
 ```powershell
@@ -121,6 +127,9 @@ docker compose logs --follow backend-spring
 # 서비스 종료(데이터 유지)
 docker compose down
 ```
+
+데이터베이스 백업·안전 복원·격리 복구훈련과 운영 체크리스트는
+[운영 정책](operations.md)에 정리되어 있다.
 
 ## 데이터 초기화
 
