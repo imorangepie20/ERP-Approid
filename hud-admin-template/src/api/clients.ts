@@ -3,7 +3,8 @@ import { createHttpClient, type ApiError } from './http'
 
 export interface ApiClientAuthOptions {
     getAccessToken?: () => string | null | undefined
-    onUnauthorized?: (error: ApiError) => void | Promise<void>
+    getAuthGeneration?: () => number | undefined
+    onUnauthorized?: (error: ApiError, authGeneration?: number) => void | Promise<void>
 }
 
 export interface ApiClientOptions extends ApiClientAuthOptions {
@@ -27,12 +28,14 @@ export function createApiClients(
             baseUrl: config.coreUrl,
             fetch: coreOptions?.fetch,
             getAccessToken: coreOptions?.getAccessToken,
+            getAuthGeneration: coreOptions?.getAuthGeneration,
             onUnauthorized: coreOptions?.onUnauthorized,
         }),
         analytics: createHttpClient({
             baseUrl: config.analyticsUrl,
             fetch: analyticsOptions?.fetch,
             getAccessToken: analyticsOptions?.getAccessToken,
+            getAuthGeneration: analyticsOptions?.getAuthGeneration,
             onUnauthorized: analyticsOptions?.onUnauthorized,
         }),
     }

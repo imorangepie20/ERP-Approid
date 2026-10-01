@@ -116,6 +116,16 @@ try {
     }
     Write-Host "[PASS] Admin login returned an access token"
 
+    $meResponse = Invoke-RestMethod `
+        -Uri "$($BackendBaseUrl.TrimEnd('/'))/api/core/auth/me" `
+        -Method Get `
+        -Headers @{ Authorization = "Bearer $($loginResponse.accessToken)" } `
+        -TimeoutSec 15
+    if ($meResponse.username -ne "admin" -or -not ($meResponse.roles -contains "ADMIN")) {
+        throw "Authenticated user response did not match the admin account."
+    }
+    Write-Host "[PASS] Authenticated /auth/me returned the current admin user"
+
     $frontendResponse = Invoke-WebRequest `
         -Uri "$($FrontendBaseUrl.TrimEnd('/'))/" `
         -Method Get `

@@ -43,7 +43,8 @@ export class ApiError extends Error {
 export interface HttpClientOptions {
     baseUrl: string
     getAccessToken?: () => string | null | undefined
-    onUnauthorized?: (error: ApiError) => void | Promise<void>
+    getAuthGeneration?: () => number | undefined
+    onUnauthorized?: (error: ApiError, authGeneration?: number) => void | Promise<void>
     fetch?: typeof globalThis.fetch
 }
 
@@ -141,6 +142,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
         if (!headers.has('Accept')) headers.set('Accept', 'application/json')
 
         const accessToken = options.getAccessToken?.()
+        const authGeneration = options.getAuthGeneration?.()
         if (accessToken && !headers.has('Authorization')) {
             headers.set('Authorization', `Bearer ${accessToken}`)
         }
@@ -194,7 +196,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
             })
             if (response.status === 401 && options.onUnauthorized) {
                 try {
-                    const callbackResult = options.onUnauthorized(error)
+                    const callbackResult = options.onUnauthorized(error, authGeneration)
                     if (callbackResult) void callbackResult.catch(() => undefined)
                 } catch {
                     // Session cleanup failures must never replace the API contract error.

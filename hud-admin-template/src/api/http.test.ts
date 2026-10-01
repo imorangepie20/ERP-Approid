@@ -52,6 +52,30 @@ describe('createHttpClient', () => {
         expect(onUnauthorized).toHaveBeenCalledOnce()
     })
 
+    it('passes the authentication generation captured when the request started to a late 401 callback', async () => {
+        let resolveResponse!: (response: Response) => void
+        const response = new Promise<Response>(resolve => { resolveResponse = resolve })
+        const onUnauthorized = vi.fn()
+        let generation = 7
+        const client = createHttpClient({
+            baseUrl: 'https://core.example.test/api/core',
+            getAccessToken: () => 'token-a',
+            getAuthGeneration: () => generation,
+            onUnauthorized,
+            fetch: vi.fn<typeof fetch>().mockReturnValue(response),
+        })
+
+        const request = client.get('items')
+        generation = 8
+        resolveResponse(new Response(JSON.stringify({
+            code: 'UNAUTHORIZED',
+            message: '인증이 필요합니다.',
+        }), { status: 401, headers: { 'Content-Type': 'application/json' } }))
+
+        await expect(request).rejects.toMatchObject({ status: 401 })
+        expect(onUnauthorized).toHaveBeenCalledWith(expect.any(ApiError), 7)
+    })
+
     it('keeps the original 401 ApiError when the unauthorized callback throws', async () => {
         const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
             code: 'AUTH_UNAUTHORIZED',

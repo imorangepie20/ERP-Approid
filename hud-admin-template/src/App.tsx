@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
+import { PublicOnly, RequireAuth } from './auth/RouteGuards'
 
 // Dashboard
 import Dashboard from './pages/dashboard/Dashboard'
@@ -52,7 +53,6 @@ import Settings from './pages/Settings'
 
 // Auth
 import Login from './pages/auth/Login'
-import Register from './pages/auth/Register'
 
 // Misc Pages
 import Error404 from './pages/Error404'
@@ -63,13 +63,12 @@ function App() {
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
                 {/* Auth Pages (No Layout) */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+                <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
                 <Route path="/coming-soon" element={<ComingSoon />} />
                 <Route path="/404" element={<Error404 />} />
 
                 {/* Main Layout Pages */}
-                <Route path="/" element={<MainLayout />}>
+                <Route path="/" element={<RequireAuth><MainLayout /></RequireAuth>}>
                     <Route index element={<Dashboard />} />
                     <Route path="analytics" element={<Analytics />} />
 

@@ -4,17 +4,20 @@ import 'pretendard/dist/web/variable/pretendardvariable.css'
 import './index.css'
 import App from './App.tsx'
 import { ApiProvider } from './api/ApiProvider'
+import { AuthProvider } from './auth/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { DataProvider } from './store/DataContext'
 
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <ApiProvider>
-            <ThemeProvider>
-                <DataProvider>
-                    <App />
-                </DataProvider>
-            </ThemeProvider>
+            <AuthProvider>
+                <ThemeProvider>
+                    <DataProvider>
+                        <App />
+                    </DataProvider>
+                </ThemeProvider>
+            </AuthProvider>
         </ApiProvider>
     </StrictMode>,
 )

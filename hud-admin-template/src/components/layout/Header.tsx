@@ -13,6 +13,7 @@ import {
   Sun, Moon,
 } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
+import { useAuth } from '../../auth/AuthContext'
 
 interface HeaderProps {
     onMenuToggle: () => void
@@ -30,6 +31,7 @@ const Header = ({ onMenuToggle }: HeaderProps) => {
     const [showNotifications, setShowNotifications] = useState(false)
     const [showProfile, setShowProfile] = useState(false)
     const { isDark, toggleTheme } = useTheme()
+    const { user, logout } = useAuth()
 
     return (
         <header className="h-16 bg-hud-bg-secondary/80 backdrop-blur-md border-b border-hud-border-secondary px-6 flex items-center justify-between sticky top-0 z-40">
@@ -145,7 +147,7 @@ const Header = ({ onMenuToggle }: HeaderProps) => {
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-hud-accent-primary to-hud-accent-secondary flex items-center justify-center">
                             <User size={16} className="text-hud-bg-primary" />
                         </div>
-                        <span className="hidden md:block text-sm text-hud-text-primary">Admin</span>
+                        <span className="hidden md:block text-sm text-hud-text-primary">{user?.name}</span>
                         <ChevronDown size={16} className="hidden md:block text-hud-text-muted" />
                     </button>
 
@@ -153,8 +155,10 @@ const Header = ({ onMenuToggle }: HeaderProps) => {
                     {showProfile && (
                         <div className="absolute right-0 mt-2 w-48 bg-hud-bg-secondary border border-hud-border-secondary rounded-lg shadow-hud-glow animate-fade-in overflow-hidden">
                             <div className="px-4 py-3 border-b border-hud-border-secondary">
-                                <p className="font-semibold text-hud-text-primary">Admin User</p>
-                                <p className="text-xs text-hud-text-muted">admin@hudadmin.com</p>
+                                <p className="font-semibold text-hud-text-primary">{user?.name}</p>
+                                <p className="text-xs text-hud-text-muted">
+                                    @{user?.username} · {user?.roles.join(', ')}
+                                </p>
                             </div>
                             <div className="py-1">
                                 <Link
@@ -187,13 +191,14 @@ const Header = ({ onMenuToggle }: HeaderProps) => {
                                 </Link>
                             </div>
                             <div className="border-t border-hud-border-secondary py-1">
-                                <Link
-                                    to="/login"
-                                    className="flex items-center gap-3 px-4 py-2 text-sm text-hud-accent-danger hover:bg-hud-bg-hover transition-hud"
+                                <button
+                                    type="button"
+                                    onClick={logout}
+                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-hud-accent-danger hover:bg-hud-bg-hover transition-hud"
                                 >
                                     <LogOut size={16} />
-                                    Logout
-                                </Link>
+                                    로그아웃
+                                </button>
                             </div>
                         </div>
                     )}

@@ -5,10 +5,14 @@ import RowActions from '../../components/common/RowActions'
 import { useData, useCollection, nextId } from '../../store/DataContext'
 import type { Bom } from '../../store/types'
 import { useFormModal } from '../../hooks/useFormModal'
+import { Authorize } from '../../auth/authorization'
+import { useAuth } from '../../auth/AuthContext'
 
 const ItemBom = () => {
     const boms = useCollection('boms')
     const { items, create, update, remove } = useData()
+    const { user } = useAuth()
+    const roles = user?.roles ?? []
 
     const { openCreate, openEdit, modal, confirmDelete } = useFormModal<Bom>({
         title: 'BOM',
@@ -68,7 +72,16 @@ const ItemBom = () => {
         { key: 'substitute', label: '대체자재', render: row => <span className="font-mono text-hud-text-muted">{row.substitute}</span> },
         {
             key: 'actions', label: '관리', sortable: false,
-            render: row => <RowActions onEdit={() => openEdit(row)} onDelete={() => confirmDelete(row)} />
+            render: row => (
+                <div className="flex items-center justify-end gap-1">
+                    <Authorize roles={roles} anyOf={['ADMIN', 'PRODUCTION']}>
+                        <RowActions onEdit={() => openEdit(row)} />
+                    </Authorize>
+                    <Authorize roles={roles} anyOf={['ADMIN']}>
+                        <RowActions onDelete={() => confirmDelete(row)} />
+                    </Authorize>
+                </div>
+            )
         },
     ]
 
@@ -82,9 +95,11 @@ const ItemBom = () => {
                 rowKey="id"
                 searchPlaceholder="모품목, 자품목 검색..."
                 toolbar={
-                    <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate}>
-                        BOM 등록
-                    </Button>
+                    <Authorize roles={roles} anyOf={['ADMIN', 'PRODUCTION']}>
+                        <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate}>
+                            BOM 등록
+                        </Button>
+                    </Authorize>
                 }
             />
             {modal}

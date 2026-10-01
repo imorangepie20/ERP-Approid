@@ -6,10 +6,14 @@ import RowActions from '../../components/common/RowActions'
 import { useData, useCollection, nextId, formatWon } from '../../store/DataContext'
 import type { Item } from '../../store/types'
 import { useFormModal } from '../../hooks/useFormModal'
+import { Authorize } from '../../auth/authorization'
+import { useAuth } from '../../auth/AuthContext'
 
 const Items = () => {
     const items = useCollection('items')
     const { create, update, remove } = useData()
+    const { user } = useAuth()
+    const roles = user?.roles ?? []
 
     const { openCreate, openEdit, modal, confirmDelete } = useFormModal<Item>({
         title: '품목',
@@ -79,7 +83,11 @@ const Items = () => {
         { key: 'safetyStock', label: '안전재고', render: row => <span className="font-mono text-hud-text-muted">{row.safetyStock.toLocaleString()}</span> },
         {
             key: 'actions', label: '관리', sortable: false,
-            render: row => <RowActions onEdit={() => openEdit(row)} onDelete={() => confirmDelete(row)} />
+            render: row => (
+                <Authorize roles={roles} anyOf={['ADMIN']}>
+                    <RowActions onEdit={() => openEdit(row)} onDelete={() => confirmDelete(row)} />
+                </Authorize>
+            )
         },
     ]
 
@@ -93,9 +101,11 @@ const Items = () => {
                 rowKey="id"
                 searchPlaceholder="품번, 품명 검색..."
                 toolbar={
-                    <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate}>
-                        품목 등록
-                    </Button>
+                    <Authorize roles={roles} anyOf={['ADMIN']}>
+                        <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate}>
+                            품목 등록
+                        </Button>
+                    </Authorize>
                 }
             />
             {modal}

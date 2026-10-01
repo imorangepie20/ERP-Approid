@@ -18,6 +18,9 @@ import {
     Users,
     DollarSign,
 } from 'lucide-react'
+import { useAuth } from '../../auth/AuthContext'
+import { hasAnyRole } from '../../auth/authorization'
+import type { Role } from '../../auth/types'
 
 interface SidebarProps {
     collapsed: boolean
@@ -28,7 +31,17 @@ interface MenuItem {
     title: string
     icon: React.ReactNode
     path?: string
-    children?: { title: string; path: string }[]
+    roles?: readonly Role[]
+    children?: { title: string; path: string; roles?: readonly Role[] }[]
+}
+
+function visibleMenuItems(items: MenuItem[], roles: readonly Role[]): MenuItem[] {
+    return items.flatMap(item => {
+        if (item.roles && !hasAnyRole(roles, item.roles)) return []
+        if (!item.children) return [item]
+        const children = item.children.filter(child => !child.roles || hasAnyRole(roles, child.roles))
+        return children.length > 0 ? [{ ...item, children }] : []
+    })
 }
 
 const menuItems: MenuItem[] = [
@@ -109,9 +122,11 @@ const menuItems: MenuItem[] = [
     { title: 'Settings', icon: <Settings size={20} />, path: '/settings' },
 ]
 
-const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
+const Sidebar = ({ collapsed }: SidebarProps) => {
     const location = useLocation()
+    const { user } = useAuth()
     const [expandedMenus, setExpandedMenus] = useState<string[]>([])
+    const items = visibleMenuItems(menuItems, user?.roles ?? [])
 
     const toggleMenu = (title: string) => {
         setExpandedMenus(prev =>
@@ -151,7 +166,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
             {/* Navigation */}
             <nav className="py-4 overflow-y-auto h-[calc(100%-4rem)]">
                 <ul className="space-y-1 px-3">
-                    {menuItems.map((item) => (
+                    {items.map((item) => (
                         <li key={item.title}>
                             {item.children ? (
                                 // Menu with children
