@@ -100,7 +100,9 @@ curl --fail --silent --header 'Content-Type: application/json' \
 curl --fail --silent http://127.0.0.1:3000/ >/dev/null
 ```
 
-개발용 초기 계정은 `admin` / `admin123`이다. 운영 배포 전 반드시 제거하거나 비밀번호를 변경해야 한다.
+개발용 초기 계정은 `admin` / `admin123`이다. 로그인 뒤 받은 access token으로
+`GET /api/core/auth/me`를 호출하면 현재 사용자와 역할을 확인할 수 있다. 운영 배포 전 초기 계정을
+반드시 제거하거나 비밀번호를 변경해야 한다.
 
 ## 운영 명령
 

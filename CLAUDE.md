@@ -4,14 +4,14 @@
 
 ERP-Approid is a manufacturing ERP MVP. The repository contains a React admin UI and a
 Spring Boot core API. Treat `docs/desc.md` as product scope, but verify all design documents
-against code: FastAPI analytics and end-to-end Compose are planned, not implemented.
+against code: the PostgreSQL/Spring/Nginx Compose baseline exists, while FastAPI analytics is planned.
 
 ## Tech Stack
 
 - Frontend: React 18, TypeScript 5.6, Vite 6, React Router 6, Tailwind 3
 - Backend: Java 21, Spring Boot 3.5, Spring Security, JPA, Flyway
 - Database: PostgreSQL; money is integer KRW, quantities are decimal
-- Tests: JUnit 5 + Testcontainers; no frontend test runner yet
+- Tests: JUnit 5 + Testcontainers, Vitest + Testing Library
 
 ## Project Structure
 
@@ -33,7 +33,8 @@ Frontend, from `hud-admin-template/`:
 - Install: `npm ci`
 - Dev: `npm run dev` (port 3000)
 - Build: `npm run build`
-- Lint: `npm run lint` (currently blocked: ESLint flat config is missing)
+- Lint: `npm run lint`
+- Test: `npm run test`
 
 Backend, from `backend-spring/`:
 
@@ -44,10 +45,10 @@ Backend, from `backend-spring/`:
 
 ## Current Caveats
 
-- The frontend does not call the backend. DataContext mutations are memory-only.
-- Login is a visual template; there is no JWT client or protected route.
+- Authentication calls the Spring API; business screens still use memory-only DataContext until MST-01 onward.
+- Login, session restoration/expiry, protected routes, logout, and the first role-controlled item/BOM actions are implemented.
 - Many pages use hardcoded local arrays rather than DataContext.
-- `backend-fastapi/`, root Compose, `src/api/`, and generated OpenAPI types do not exist.
+- `backend-fastapi/` is not implemented. Root Compose, `src/api/`, and generated Spring OpenAPI types exist.
 - Springdoc is pinned to 2.8.14 because 2.8.17 breaks Spring MVC resource path initialization;
   `OpenApiIntegrationTest` guards the OpenAPI JSON and Swagger UI entry points.
 - Preserve user changes in `backend-spring/build.gradle.kts`; do not revert them implicitly.

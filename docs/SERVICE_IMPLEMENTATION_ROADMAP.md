@@ -115,14 +115,29 @@ FastAPI와 pgAdmin은 아직 구현되지 않은 선택 서비스이므로 이�
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 백엔드 있음, 프런트 미구현 |
-| 백엔드 | `/auth/login`, `/auth/me`, JWT 60분, 역할 기반 `@PreAuthorize` |
-| 프런트 | 로그인, 세션 복원, 로그아웃, 보호 라우트, 권한별 메뉴/버튼 제어 |
+| 현재 상태 | Phase 1 구현 완료 |
+| 백엔드 | `/auth/login`, `/auth/me`, 설정 기반 JWT 만료, DB의 현재 사용자·역할을 사용하는 `@PreAuthorize` |
+| 프런트 | 로그인, 세션 복원·만료, 로그아웃, 보호 라우트, 역할별 버튼 제어 |
 | 후속 범위 | refresh token, 비밀번호 변경, 계정 잠금, 로그인 이력, SSO |
 | 완료 조건 | 비로그인 직접 접근 차단, 역할별 200/403 분기, 만료 토큰 처리 테스트 통과 |
 
 Phase 1은 기존 HS256 access token을 사용하되, 토큰 저장 방식과 XSS 위험을 설계 결정으로
 기록해야 한다. refresh token과 SSO는 Phase 3 후보로 둔다.
+
+구현 결과:
+
+- JWT 필터가 서명·만료를 검증한 뒤 DB에서 활성 사용자와 현재 역할을 다시 읽는다. 토큰 발급 후
+  비활성화된 사용자는 401이며 변경된 역할은 다음 요청부터 반영된다.
+- `expiresIn`은 JWT 만료 설정에서 파생하고 `/auth/me` principal 회귀를 통합 테스트로 고정했다.
+- 프런트는 인증 응답을 런타임 검증하고 `sessionStorage`에 access token과 절대 만료시각만 저장한다.
+  사용자·역할은 새로고침 때 `/auth/me`로 복원한다.
+- 동시 401 정리는 한 번만 실행하며 이전 세션 요청의 늦은 401이 새 세션을 지우지 않는다. 일반
+  업무 요청의 403은 세션을 유지하고 로그아웃·401·만료 시 사용자별 Query 캐시를 제거한다.
+- MainLayout 하위 라우트를 인증으로 보호하고 내부 경로만 로그인 후 복귀 대상으로 허용한다.
+- 품목 등록·수정·삭제는 `ADMIN`, BOM 등록·수정은 `ADMIN`/`PRODUCTION`, BOM 삭제는 `ADMIN`에게만
+  표시한다. 최종 권한 경계는 서버 `@PreAuthorize`다.
+- 브라우저 저장 위험과 HttpOnly 쿠키/BFF 전환 조건은
+  [`docs/decisions/auth-session-storage.md`](decisions/auth-session-storage.md)에 기록했다.
 
 ### PLT-05. 감사·추적·관측성 서비스
 
@@ -545,7 +560,7 @@ FastAPI를 도입하기 전, 별도 배포·관측·보안 비용보다 독립 �
 2. [x] PLT-01: ESLint 설정 추가와 프런트 기본 테스트 환경 구성
 3. [x] PLT-02: PostgreSQL + Spring 루트 Compose와 `.env.example` 작성
 4. [x] PLT-03: 공통 HTTP 클라이언트, 오류 모델, React Query 구성
-5. [ ] PLT-04: 로그인, `/auth/me`, 보호 라우트, 로그아웃 구현
+5. [x] PLT-04: 로그인, `/auth/me`, 보호 라우트, 로그아웃 구현
 6. [ ] MST-01: 품목 목록 조회를 첫 실제 API 화면으로 전환
 7. [ ] MST-01: 품목 등록·수정·삭제와 권한/감사 검증
 8. [ ] MST-02~04: 거래처, BOM, 공정 연결

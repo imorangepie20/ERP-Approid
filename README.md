@@ -47,7 +47,7 @@ docker compose up --build --detach --wait
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-compose.ps1
 ```
 
-검증 스크립트는 컨테이너 health, Flyway V7, 관리자 로그인 토큰, 프런트 HTTP 응답을 확인합니다.
+검증 스크립트는 컨테이너 health, Flyway V7, 관리자 로그인과 `/auth/me`, 프런트 HTTP 응답을 확인합니다.
 
 ## 현재 구현 상태
 
@@ -56,7 +56,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-c
 | PLT-01 빌드와 테스트 | 완료 | Spring 통합 테스트, OpenAPI 회귀 테스트, ESLint, Vitest 구성 |
 | PLT-02 로컬 통합 환경 | 완료 | PostgreSQL, Spring, Nginx 프런트 Compose와 smoke 검증 |
 | PLT-03 프런트 API 기반 | 완료 | 타입 생성, HTTP 클라이언트, React Query, 공통 비동기 상태 UI |
-| PLT-04 인증과 권한 UI | 다음 작업 | 로그인, 세션 복원, 보호 라우트, 권한별 UI 제어 |
+| PLT-04 인증과 권한 UI | 완료 | 로그인, 세션 복원·만료, 보호 라우트, 로그아웃, 역할별 UI 제어 |
 | MST-01 품목 화면 연동 | 예정 | 첫 번째 실제 API 기반 CRUD 화면으로 전환 |
 | 분석 FastAPI | 미구현 | 분석 서비스 분리 여부를 결정한 뒤 ANL-04에서 구현 |
 

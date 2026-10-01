@@ -106,10 +106,13 @@ FastAPI 집계 엔드포인트는 페이지네이션 없이 전체 집계를 반
 }
 ```
 
-오류: `401 INVALID_CREDENTIALS`
+오류: `401 UNAUTHORIZED`
 
 ### GET /auth/me
 현재 사용자 정보. 응답 `200`: `UserResponse` (위 `user` 객체).
+
+서버는 JWT의 서명·만료·subject를 검증한 뒤 DB에서 현재 사용자 상태와 역할을 다시 읽는다.
+비활성·삭제 사용자는 `401 UNAUTHORIZED`이며, 발급 뒤 변경된 역할은 다음 요청부터 반영된다.
 
 **롤 정의** (`desc.md` 1.4 대상 사용자):
 
