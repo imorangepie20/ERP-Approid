@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
 
@@ -12,5 +12,9 @@ export default defineConfig({
     server: {
         host: true,     // 외부 접속 허용 (0.0.0.0)
         port: 3000,     // 포트 번호
+    },
+    test: {
+        environment: 'jsdom',
+        setupFiles: './src/test/setup.ts',
     },
 })

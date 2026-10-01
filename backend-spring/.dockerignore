@@ -1,0 +1,9 @@
+.git
+.gitignore
+.gradle
+build
+*.log
+.env
+.env.*
+!/.env.example
+META-INF

@@ -16,10 +16,7 @@ const PurchaseMrp = () => {
     // ============================================================
     const suggestions = useMemo<MrpSuggestion[]>(() => {
         const materialItems = items.filter(i => i.type === '자재')
-        let seq = 0
-
-        return materialItems.map(mi => {
-            seq += 1
+        return materialItems.map((mi, index) => {
             // 진행중인 작업오더 기준 소요량(단순화: 작업오더 수량 × 안전재고 정책)
             const activeQty = workOrders
                 .filter(w => w.status === '진행중' || w.status === '지시')
@@ -30,7 +27,7 @@ const PurchaseMrp = () => {
             const suggestedQty = shortfall > 0 ? Math.ceil(shortfall * 1.1) : 0
 
             return {
-                id: `MRP-${String(seq).padStart(3, '0')}`,
+                id: `MRP-${String(index + 1).padStart(3, '0')}`,
                 item: mi.name,
                 unit: mi.unit,
                 requirement,

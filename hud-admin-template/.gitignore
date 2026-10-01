@@ -1,5 +1,6 @@
 node_modules
 dist
+.vitest/
 
 # Secrets (tunnel tokens, env files)
 infra/secrets/*.env
