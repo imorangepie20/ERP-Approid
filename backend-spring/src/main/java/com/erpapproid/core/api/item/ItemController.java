@@ -8,6 +8,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -23,6 +24,7 @@ import com.erpapproid.core.api.item.ItemDto.Response;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.bom.BomRepository;
 import com.erpapproid.core.domain.inventory.InventoryTransactionRepository;
 import com.erpapproid.core.domain.item.ItemEntity;
@@ -66,6 +68,7 @@ public class ItemController {
     @Operation(summary = "품목 생성")
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         if (itemRepository.existsByItemNo(request.getItemNo())) {
             throw new DomainException(ErrorCode.ITEM_NO_DUPLICATE,
@@ -85,13 +88,14 @@ public class ItemController {
                 .leadTimeDays(request.getLeadTimeDays() == null ? 0 : request.getLeadTimeDays())
                 .build();
         ItemEntity saved = itemRepository.save(entity);
-        auditService.record("CREATE", "ITEM", saved.getItemNo(), toResponse(saved));
+        auditService.record(AuditEvent.sensitiveCreated("ITEM", saved.getItemNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @Operation(summary = "품목 수정")
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
         ItemEntity entity = itemRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
@@ -99,13 +103,15 @@ public class ItemController {
         Response before = toResponse(entity);
         applyRequest(entity, request);
         ItemEntity saved = itemRepository.save(entity);
-        auditService.recordSensitive("UPDATE", "ITEM", saved.getItemNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange(
+                "UPDATE", "ITEM", saved.getItemNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "품목 삭제")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         ItemEntity entity = itemRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
@@ -117,8 +123,9 @@ public class ItemController {
             throw new DomainException(ErrorCode.ITEM_IN_USE,
                     "재고 이력이 있는 품목은 삭제할 수 없습니다.");
         }
+        Response before = toResponse(entity);
         itemRepository.delete(entity);
-        auditService.record("DELETE", "ITEM", entity.getItemNo(), null);
+        auditService.record(AuditEvent.sensitiveDeleted("ITEM", entity.getItemNo(), before));
         return ResponseEntity.noContent().build();
     }
 

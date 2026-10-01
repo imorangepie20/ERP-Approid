@@ -26,6 +26,7 @@ import com.erpapproid.core.common.domain.Constants;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.item.ItemEntity;
 import com.erpapproid.core.domain.item.ItemRepository;
 import com.erpapproid.core.domain.partner.PartnerEntity;
@@ -74,6 +75,7 @@ public class QuotationController {
     @Operation(summary = "견적 생성")
     @PostMapping
     @PreAuthorize("hasRole('SALES')")
+    @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         PartnerEntity customer = partnerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new DomainException(ErrorCode.PARTNER_NOT_FOUND,
@@ -93,13 +95,15 @@ public class QuotationController {
                 .status(Constants.DRAFT)
                 .build();
         QuotationEntity saved = quotationRepository.save(entity);
-        auditService.record("CREATE", "QUOTATION", saved.getQuotationNo(), toResponse(saved));
+        auditService.record(AuditEvent.sensitiveCreated(
+                "QUOTATION", saved.getQuotationNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @Operation(summary = "견적 수정 (작성중만)")
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('SALES')")
+    @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
         QuotationEntity entity = quotationRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.QUOTATION_NOT_FOUND,
@@ -111,13 +115,15 @@ public class QuotationController {
         Response before = toResponse(entity);
         applyRequest(entity, request);
         QuotationEntity saved = quotationRepository.save(entity);
-        auditService.record("UPDATE", "QUOTATION", saved.getQuotationNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange(
+                "UPDATE", "QUOTATION", saved.getQuotationNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "견적 삭제 (작성중만)")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SALES')")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         QuotationEntity entity = quotationRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.QUOTATION_NOT_FOUND,
@@ -126,14 +132,17 @@ public class QuotationController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "작성중 상태의 견적만 삭제할 수 있습니다: " + entity.getQuotationNo());
         }
+        Response before = toResponse(entity);
         quotationRepository.delete(entity);
-        auditService.record("DELETE", "QUOTATION", entity.getQuotationNo(), null);
+        auditService.record(AuditEvent.sensitiveDeleted(
+                "QUOTATION", entity.getQuotationNo(), before));
         return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "견적 발송 (작성중 → 발송완료)")
     @PostMapping("/{id}/send")
     @PreAuthorize("hasRole('SALES')")
+    @Transactional
     public ResponseEntity<Response> send(@PathVariable Long id) {
         QuotationEntity entity = quotationRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.QUOTATION_NOT_FOUND,
@@ -142,12 +151,14 @@ public class QuotationController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "작성중 상태의 견적만 발송할 수 있습니다: " + entity.getQuotationNo());
         }
+        Response before = toResponse(entity);
         entity.setStatus(Constants.SENT);
         if (entity.getValidUntil() != null && entity.getValidUntil().isBefore(LocalDate.now())) {
             entity.setStatus(Constants.EXPIRED);
         }
         QuotationEntity saved = quotationRepository.save(entity);
-        auditService.record("SEND", "QUOTATION", saved.getQuotationNo(), toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange(
+                "SEND", "QUOTATION", saved.getQuotationNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 

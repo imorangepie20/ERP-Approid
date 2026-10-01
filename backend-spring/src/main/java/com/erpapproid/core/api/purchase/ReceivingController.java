@@ -28,6 +28,7 @@ import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.common.seq.DomainNumberGenerator;
 import com.erpapproid.core.common.seq.DomainNumberGenerator.Prefix;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.inventory.InventoryTransactionEntity;
 import com.erpapproid.core.domain.inventory.InventoryTransactionRepository;
 import com.erpapproid.core.domain.inventory.LotEntity;
@@ -100,6 +101,7 @@ public class ReceivingController {
         String status = defectQty.compareTo(BigDecimal.ZERO) > 0
                 ? Constants.RC_PARTIAL : Constants.RC_PASS;
 
+        java.util.Map<String, Object> purchaseOrderBefore = purchaseOrderSnapshot(purchaseOrder);
         ReceivingEntity receiving = ReceivingEntity.builder()
                 .receivingNo(numberGenerator.next(Prefix.RECEIVING))
                 .purchaseOrder(purchaseOrder)
@@ -145,9 +147,14 @@ public class ReceivingController {
                 .build();
         InventoryTransactionEntity savedTxn = inventoryTransactionRepository.save(txn);
 
-        auditService.record("CREATE", "RECEIVING", savedReceiving.getReceivingNo(),
-                toResponse(savedReceiving));
-        auditService.record("CREATE", "LOT", savedLot.getLotNo(), null);
+        auditService.record(AuditEvent.created(
+                "RECEIVING", savedReceiving.getReceivingNo(), toResponse(savedReceiving)));
+        auditService.record(AuditEvent.changed("RECEIVE", "PURCHASE_ORDER",
+                purchaseOrder.getPurchaseOrderNo(), purchaseOrderBefore,
+                purchaseOrderSnapshot(purchaseOrder)));
+        auditService.record(AuditEvent.created("LOT", savedLot.getLotNo(), lotSnapshot(savedLot)));
+        auditService.record(AuditEvent.created(
+                "INVENTORY_TRANSACTION", savedTxn.getTxnNo(), transactionSnapshot(savedTxn)));
         CreateResult result = CreateResult.builder()
                 .receiving(toResponse(savedReceiving))
                 .lotNo(savedLot.getLotNo())
@@ -159,12 +166,14 @@ public class ReceivingController {
     @Operation(summary = "입고 이력 삭제")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('MATERIAL')")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         ReceivingEntity entity = receivingRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND,
                         "입고를 찾을 수 없습니다: " + id));
+        Response before = toResponse(entity);
         receivingRepository.delete(entity);
-        auditService.record("DELETE", "RECEIVING", entity.getReceivingNo(), null);
+        auditService.record(AuditEvent.deleted("RECEIVING", entity.getReceivingNo(), before));
         return ResponseEntity.noContent().build();
     }
 
@@ -185,5 +194,34 @@ public class ReceivingController {
                 .receivedDate(entity.getReceivedDate())
                 .status(entity.getStatus())
                 .build();
+    }
+
+    private java.util.Map<String, Object> purchaseOrderSnapshot(PurchaseOrderEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "purchaseOrderNo", entity.getPurchaseOrderNo(),
+                "receivedQty", entity.getReceivedQty(),
+                "status", entity.getStatus());
+    }
+
+    private java.util.Map<String, Object> lotSnapshot(LotEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "lotNo", entity.getLotNo(),
+                "itemId", entity.getItem().getId(),
+                "warehouse", entity.getWarehouse(),
+                "qty", entity.getQty(),
+                "status", entity.getStatus());
+    }
+
+    private java.util.Map<String, Object> transactionSnapshot(InventoryTransactionEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "txnNo", entity.getTxnNo(),
+                "itemId", entity.getItem().getId(),
+                "lotId", entity.getLot().getId(),
+                "warehouse", entity.getWarehouse(),
+                "type", entity.getTxnType(),
+                "qty", entity.getQty());
     }
 }

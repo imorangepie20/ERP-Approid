@@ -26,7 +26,7 @@ import com.erpapproid.core.domain.user.UserRepository;
 
 /**
  * Testcontainers (PostgreSQL 16) 기반 통합 테스트 베이스.
- * Flyway V1~V7 마이그레이션과 시드 데이터가 그대로 적용된다.
+ * Flyway V1~V8 마이그레이션과 시드 데이터가 그대로 적용된다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class IntegrationTestSupport {
@@ -117,12 +117,25 @@ public abstract class IntegrationTestSupport {
         return new HttpEntity<>(requestBody, headers);
     }
 
+    protected HttpEntity<?> authEntity(String token, Object requestBody, String traceId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(token);
+        headers.set("X-Trace-Id", traceId);
+        return new HttpEntity<>(requestBody, headers);
+    }
+
     protected ResponseEntity<JsonNode> get(String path, String token) {
         return rest.exchange(path, HttpMethod.GET, authEntity(token, null), JsonNode.class);
     }
 
     protected ResponseEntity<JsonNode> post(String path, String token, Object requestBody) {
         return rest.exchange(path, HttpMethod.POST, authEntity(token, requestBody), JsonNode.class);
+    }
+
+    protected ResponseEntity<JsonNode> post(String path, String token, Object requestBody, String traceId) {
+        return rest.exchange(
+                path, HttpMethod.POST, authEntity(token, requestBody, traceId), JsonNode.class);
     }
 
     protected ResponseEntity<JsonNode> post(String path, Object requestBody) {

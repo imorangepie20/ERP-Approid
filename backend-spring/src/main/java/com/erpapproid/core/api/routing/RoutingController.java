@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -21,6 +22,7 @@ import com.erpapproid.core.api.routing.RoutingDto.Response;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.item.ItemEntity;
 import com.erpapproid.core.domain.item.ItemRepository;
 import com.erpapproid.core.domain.routing.RoutingEntity;
@@ -54,6 +56,7 @@ public class RoutingController {
     @Operation(summary = "공정 생성")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'PRODUCTION')")
+    @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         ItemEntity item = itemRepository.findById(request.getItemId())
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
@@ -72,13 +75,14 @@ public class RoutingController {
                 .isSubcontract(request.getIsSubcontract() != null && request.getIsSubcontract())
                 .build();
         RoutingEntity saved = routingRepository.save(entity);
-        auditService.record("CREATE", "ROUTING", saved.getRoutingNo(), toResponse(saved));
+        auditService.record(AuditEvent.created("ROUTING", saved.getRoutingNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @Operation(summary = "공정 수정")
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRODUCTION')")
+    @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
         RoutingEntity entity = routingRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.ROUTING_NOT_FOUND,
@@ -100,19 +104,22 @@ public class RoutingController {
             entity.setIsSubcontract(request.getIsSubcontract());
         }
         RoutingEntity saved = routingRepository.save(entity);
-        auditService.record("UPDATE", "ROUTING", saved.getRoutingNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.changed(
+                "UPDATE", "ROUTING", saved.getRoutingNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "공정 삭제")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         RoutingEntity entity = routingRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.ROUTING_NOT_FOUND,
                         "공정을 찾을 수 없습니다: " + id));
+        Response before = toResponse(entity);
         routingRepository.delete(entity);
-        auditService.record("DELETE", "ROUTING", entity.getRoutingNo(), null);
+        auditService.record(AuditEvent.deleted("ROUTING", entity.getRoutingNo(), before));
         return ResponseEntity.noContent().build();
     }
 

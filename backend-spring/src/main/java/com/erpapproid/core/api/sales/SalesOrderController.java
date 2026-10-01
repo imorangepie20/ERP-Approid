@@ -29,6 +29,7 @@ import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.common.seq.DomainNumberGenerator;
 import com.erpapproid.core.common.seq.DomainNumberGenerator.Prefix;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.item.ItemEntity;
 import com.erpapproid.core.domain.item.ItemRepository;
 import com.erpapproid.core.domain.partner.PartnerEntity;
@@ -90,7 +91,8 @@ public class SalesOrderController {
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         SalesOrderEntity entity = buildFromRequest(request);
         SalesOrderEntity saved = salesOrderRepository.save(entity);
-        auditService.record("CREATE", "SALES_ORDER", saved.getSalesOrderNo(), toResponse(saved));
+        auditService.record(AuditEvent.sensitiveCreated(
+                "SALES_ORDER", saved.getSalesOrderNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
@@ -106,6 +108,7 @@ public class SalesOrderController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "발송완료 상태의 견적만 수주할 수 있습니다. 현재 상태: " + quotation.getStatus());
         }
+        java.util.Map<String, Object> quotationBefore = quotationSnapshot(quotation);
         SalesOrderEntity entity = SalesOrderEntity.builder()
                 .salesOrderNo(numberGenerator.next(Prefix.SALES_ORDER))
                 .quotation(quotation)
@@ -121,7 +124,10 @@ public class SalesOrderController {
         SalesOrderEntity saved = salesOrderRepository.save(entity);
         quotation.setStatus(Constants.ORDERED);
         quotationRepository.save(quotation);
-        auditService.record("CREATE", "SALES_ORDER", saved.getSalesOrderNo(), toResponse(saved));
+        auditService.record(AuditEvent.sensitiveCreated(
+                "SALES_ORDER", saved.getSalesOrderNo(), toResponse(saved)));
+        auditService.record(AuditEvent.changed("ORDER", "QUOTATION", quotation.getQuotationNo(),
+                quotationBefore, quotationSnapshot(quotation)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
@@ -157,9 +163,10 @@ public class SalesOrderController {
                 .build();
         SalesOrderEntity savedOrder = salesOrderRepository.save(order);
         WorkOrderEntity savedWorkOrder = workOrderRepository.save(workOrder);
-        auditService.record("CONFIRM", "SALES_ORDER", savedOrder.getSalesOrderNo(),
-                before, toResponse(savedOrder));
-        auditService.record("CREATE", "WORK_ORDER", savedWorkOrder.getWorkOrderNo(), null);
+        auditService.record(AuditEvent.sensitiveChange("CONFIRM", "SALES_ORDER",
+                savedOrder.getSalesOrderNo(), before, toResponse(savedOrder)));
+        auditService.record(AuditEvent.created(
+                "WORK_ORDER", savedWorkOrder.getWorkOrderNo(), workOrderSnapshot(savedWorkOrder)));
         return ResponseEntity.ok(ConfirmResult.builder()
                 .salesOrder(toResponse(savedOrder))
                 .workOrderNo(savedWorkOrder.getWorkOrderNo())
@@ -181,7 +188,8 @@ public class SalesOrderController {
         Response before = toResponse(entity);
         applyRequest(entity, request);
         SalesOrderEntity saved = salesOrderRepository.save(entity);
-        auditService.record("UPDATE", "SALES_ORDER", saved.getSalesOrderNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange(
+                "UPDATE", "SALES_ORDER", saved.getSalesOrderNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
@@ -201,7 +209,8 @@ public class SalesOrderController {
         Response before = toResponse(entity);
         entity.setStatus(Constants.CANCELLED);
         SalesOrderEntity saved = salesOrderRepository.save(entity);
-        auditService.record("CANCEL", "SALES_ORDER", saved.getSalesOrderNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange(
+                "CANCEL", "SALES_ORDER", saved.getSalesOrderNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
@@ -217,8 +226,10 @@ public class SalesOrderController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "대기 상태의 수주만 삭제할 수 있습니다: " + entity.getSalesOrderNo());
         }
+        Response before = toResponse(entity);
         salesOrderRepository.delete(entity);
-        auditService.record("DELETE", "SALES_ORDER", entity.getSalesOrderNo(), null);
+        auditService.record(AuditEvent.sensitiveDeleted(
+                "SALES_ORDER", entity.getSalesOrderNo(), before));
         return ResponseEntity.noContent().build();
     }
 
@@ -283,5 +294,21 @@ public class SalesOrderController {
                 .orderedAt(entity.getOrderedAt())
                 .status(entity.getStatus())
                 .build();
+    }
+
+    private java.util.Map<String, Object> quotationSnapshot(QuotationEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "quotationNo", entity.getQuotationNo(),
+                "status", entity.getStatus());
+    }
+
+    private java.util.Map<String, Object> workOrderSnapshot(WorkOrderEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "workOrderNo", entity.getWorkOrderNo(),
+                "itemId", entity.getItem().getId(),
+                "qty", entity.getQty(),
+                "status", entity.getStatus());
     }
 }

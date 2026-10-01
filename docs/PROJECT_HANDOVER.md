@@ -19,7 +19,7 @@ ERP-Approid는 중소 제조업의 견적·수주·생산·구매·재고·출�
 | 프런트 빌드 | 정상 | `npm run build` 성공 |
 | 프런트 품질 게이트 | 차단 | 테스트 스크립트가 없고 `npm run lint`는 ESLint 설정 부재로 실패 |
 | Spring 도메인 API | 구현·검증됨 | 16개 컨트롤러, 78개 핸들러, 5대 업무 흐름, 통합 테스트 15개 통과 |
-| DB | 설계·마이그레이션 있음 | PostgreSQL용 Flyway V1~V7, 18개 JPA 엔티티와 시드가 존재 |
+| DB | 설계·마이그레이션 있음 | PostgreSQL용 Flyway V1~V8, 18개 JPA 엔티티와 시드가 존재 |
 | 인증/권한 | 백엔드만 구현 | JWT와 역할 권한은 있으나 프런트 로그인/라우트 보호는 동작하지 않음 |
 | 분석 서비스 | 미구현 | 설계 문서의 `backend-fastapi`와 `/api/analytics`가 저장소에 없음 |
 | 통합 실행 환경 | 미구현 | 설계 문서의 루트 `docker-compose.yml`, 백엔드 Dockerfile, `docs/setup.md`가 없음 |
@@ -63,8 +63,8 @@ ERP-Approid/
 │   ├── src/main/java/.../domain/   JPA 엔티티와 Repository
 │   ├── src/main/java/.../security/ JWT, Security 필터
 │   ├── src/main/java/.../common/   예외, 감사 기반, 번호 생성, Trace ID
-│   ├── src/main/resources/db/      Flyway V1~V7
-│   └── src/test/                   Testcontainers 통합 테스트 1개 클래스
+│   ├── src/main/resources/db/      Flyway V1~V8
+│   └── src/test/                   단위·계약·Testcontainers 통합 테스트
 ├── hud-admin-template/             React 관리자 웹
 │   ├── src/pages/                  ERP 화면 + 원본 템플릿 화면
 │   ├── src/store/                  DataContext, 타입, 시드 데이터
@@ -87,7 +87,7 @@ ERP-Approid/
 | 백엔드 언어 | Java | Toolchain 21 |
 | 백엔드 프레임워크 | Spring Boot | 3.5.0, Spring Framework 6.2.7 |
 | 데이터 | Spring Data JPA, PostgreSQL | 로컬 기본 포트 15432 |
-| 마이그레이션 | Flyway | V1~V7 |
+| 마이그레이션 | Flyway | V1~V8 |
 | 보안 | Spring Security, JJWT | JWT HS256, 기본 만료 60분 |
 | API 문서 | springdoc-openapi | 2.8.14 고정, OpenAPI/Swagger UI 회귀 테스트 포함 |
 | 백엔드 테스트 | JUnit 5, Testcontainers | PostgreSQL 컨테이너 사용 |
@@ -173,7 +173,7 @@ POST /api/core/sales-orders/{id}/confirm
   -> SalesOrder 상태를 확정으로 변경
   -> WorkOrder 생성
   -> 같은 @Transactional 경계에서 저장
-  -> AuditService에 비동기 감사 기록 요청
+  -> 같은 트랜잭션에서 AuditService 감사 기록(실패 시 전체 롤백)
   -> 수주 DTO + 작업오더 번호 응답
 ```
 
@@ -257,10 +257,9 @@ Spring Boot 3.5 호환 계열 안에서 2.8.14로 고정하고 `/v3/api-docs`와
 ### P1 — 첫 통합 전에 고쳐야 할 위험
 
 1. **인증 UI 미구현**: 로그인 화면이 장식이고 보호 라우트가 없다.
-2. **감사 컨텍스트 유실 가능성**: `AuditService.record()`가 `@Async`인데 SecurityContext/MDC를
-   비동기 스레드로 전달하는 `TaskDecorator` 구성이 없다. `actor_id`와 `trace_id`가 NULL로 기록될
-   가능성이 높다. 감사 실패도 로그만 남기고 본 트랜잭션은 성공한다.
-3. **JPA 생성자 감사 주체 미설정**: `@CreatedBy`, `@LastModifiedBy`가 있지만 `AuditorAware` Bean이 없다.
+2. **감사 정책 적용 완료**: PLT-05에서 비동기 self-invocation을 제거하고 동기 fail-closed 정책,
+   `AuditorAware`, trace 검증, before/after snapshot, JSON 로그와 health/metrics를 적용했다.
+3. **감사 운영 정책 후속 필요**: 장기 보존·파티셔닝·관리자 조회와 외부 로그 수집은 운영 단계에서 확정한다.
 4. **번호 생성의 다중 인스턴스 경쟁**: `DomainNumberGenerator`는 프로세스 메모리 카운터다.
    DB 유니크 제약은 중복을 막지만 코드 주석과 달리 충돌 재시도 로직은 보이지 않는다.
 5. **개발용 비밀 기본값**: DB 비밀번호, JWT secret, internal key가 기본값으로 동작한다.
@@ -331,8 +330,8 @@ Cloudflare Tunnel을 붙인다. 호스트에는 `127.0.0.1:9080`으로만 바인
 3. **한 개 수직 흐름 연결**: 로그인 → JWT → 품목 목록/CRUD를 먼저 연결한다. 공통 API 클라이언트,
    오류 정규화, 로딩 상태, 401 처리 패턴을 여기서 확정한다.
 4. **5대 흐름 서버화**: DataContext의 다섯 업무 액션을 순서대로 API 호출로 교체하고 중복 규칙을 제거한다.
-5. **감사/보안 보강**: 비동기 컨텍스트 전파 또는 동기 감사 정책, `AuditorAware`, origin 제한,
-   운영 secret 필수화, Swagger 환경 분리를 적용한다.
+5. **운영 보안 보강**: 감사 기반은 완료했으며 origin 제한, 운영 secret 필수화, Swagger 환경 분리와
+   로그 보존 정책을 적용한다.
 6. **품질 게이트 추가**: ESLint flat config, 프런트 단위 테스트, 백엔드 테스트, 두 빌드를 CI 필수 항목으로 둔다.
 7. **분석 서비스 범위 재확정**: 당장 필요한 KPI는 Spring SQL 집계로 시작할지, 설계대로 FastAPI를
    도입할지 결정한 뒤 구현한다.
@@ -371,7 +370,7 @@ admin 로그인을 거쳐 품목 목록을 조회·수정하며, CI가 이를 �
 - FastAPI 분석 서비스를 계속 별도 서비스로 만들 것인가, 초기에는 Spring에 합칠 것인가?
 - Zorin OS/Cloudflare 배포 경로가 실제 운영 표준인가, 단순 데모 배포인가?
 - 프런트에 보이는 Phase 2~4 화면을 유지할지, 실제 구현 전에는 메뉴에서 숨길지?
-- 감사 로그 실패 시 업무 트랜잭션도 실패시켜야 하는 규제/고객 요구가 있는가?
+- 감사 로그는 Phase 1에서 업무와 같은 트랜잭션으로 실패시키며, 비동기 전환 시 outbox 요구를 재검토한다.
 - 단일 공장/단일 인스턴스 가정이 언제까지 유효한가?
 - 운영 DB와 비밀, 백업, 관측성의 책임 주체는 누구인가?
 

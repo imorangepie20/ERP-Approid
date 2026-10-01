@@ -37,7 +37,10 @@ npx openapi-typescript http://localhost:38000/openapi.json -o src/api/analytics.
 | --- | --- | --- |
 | `Authorization: Bearer {JWT}` | 보호 자원 | HS256, 만료 60분 |
 | `X-Internal-Key: {key}` | `/internal/*` 전용 | FastAPI → Spring 내부 호출 |
-| `X-Trace-Id` | 선택 | 전달 시 감사 로그에 기록, 미전달 시 서버 발급 |
+| `X-Trace-Id` | 선택 | 안전한 문자(`[A-Za-z0-9._:-]`) 1~64자는 보존, 그 외에는 서버가 32자 ID로 교체 |
+
+`X-Trace-Id`는 API 로그와 감사 로그의 상관관계 조회에만 사용하며 인증·인가나 보안 판정의
+식별자로 사용하지 않는다. 모든 응답은 실제 적용된 값을 같은 헤더로 반환한다.
 
 ### 2.2 공통 오류 응답
 

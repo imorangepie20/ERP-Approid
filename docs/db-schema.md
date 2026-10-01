@@ -136,7 +136,8 @@ production_plans ──> items
 | trace_id | VARCHAR(64) | | 분산 추적 |
 | occurred_at | TIMESTAMPTZ | NOT NULL DEFAULT now() | |
 
-인덱스: `(entity_type, entity_no)`, `(occurred_at DESC)`, `(sensitive) WHERE sensitive`
+인덱스: `(entity_type, entity_no)`, `(occurred_at DESC)`, `(sensitive) WHERE sensitive`,
+`(trace_id) WHERE trace_id IS NOT NULL`
 
 ---
 
@@ -457,7 +458,8 @@ backend-spring/src/main/resources/db/migration/
 ├── V4__init_production.sql      # production_plans, work_orders
 ├── V5__init_inventory.sql       # purchase_orders, receivings, lots, inventory_transactions
 ├── V6__seed_users.sql           # users + roles (로그인 필수)
-└── V7__seed_domain.sql          # desc.md 시드 데이터
+├── V7__seed_domain.sql          # desc.md 시드 데이터
+└── V8__audit_trace_index.sql    # trace_id 기반 감사 상관관계 조회 인덱스
 ```
 
 - `updated_at` 자동 갱신: `V1`에 공통 트리거 함수 `set_updated_at()` 생성
@@ -469,10 +471,10 @@ backend-spring/src/main/resources/db/migration/
 
 ## 8. 검증 기준
 
-1. **DDL 실행**: Flyway `V1~V7` 실행 시 오류 없이 14개 테이블 + 인덱스 생성
+1. **DDL 실행**: Flyway `V1~V8` 실행 시 오류 없이 14개 테이블 + 인덱스 생성
 2. **제약 검증**: 시드 데이터 삽입 시 체크/유니크/FK 위반 0건
 3. **정합 검증**: `items.stock` = `SUM(inventory_transactions.qty)` 일치 (14개 품목)
 4. **권한 검증**: `erp_ro`로 INSERT 시도 → 거부, `erp_app`은 성공
 5. **성능**: 시드 기준 주요 목록 쿼리(`sales_orders`, `work_orders`,
    `inventory_transactions`) 100ms 이하 (10만 건은 Phase 2 부하 테스트)
-6. **Testcontainers**: `V1~V7` 적용 후 통합 테스트 통과
+6. **Testcontainers**: `V1~V8` 적용 후 통합 테스트 통과

@@ -6,6 +6,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -21,6 +22,7 @@ import com.erpapproid.core.api.partner.PartnerDto.Response;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.partner.PartnerEntity;
 import com.erpapproid.core.domain.partner.PartnerRepository;
 import com.erpapproid.core.domain.purchase.PurchaseOrderRepository;
@@ -64,6 +66,7 @@ public class PartnerController {
     @Operation(summary = "거래처 생성")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SALES')")
+    @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         PartnerEntity entity = PartnerEntity.builder()
                 .partnerNo(request.getPartnerNo())
@@ -73,13 +76,15 @@ public class PartnerController {
                 .partnerType(request.getPartnerType())
                 .build();
         PartnerEntity saved = partnerRepository.save(entity);
-        auditService.record("CREATE", "PARTNER", saved.getPartnerNo(), toResponse(saved));
+        auditService.record(AuditEvent.sensitiveCreated(
+                "PARTNER", saved.getPartnerNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @Operation(summary = "거래처 수정")
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SALES')")
+    @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
         PartnerEntity entity = partnerRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PARTNER_NOT_FOUND,
@@ -87,13 +92,15 @@ public class PartnerController {
         Response before = toResponse(entity);
         applyRequest(entity, request);
         PartnerEntity saved = partnerRepository.save(entity);
-        auditService.record("UPDATE", "PARTNER", saved.getPartnerNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange(
+                "UPDATE", "PARTNER", saved.getPartnerNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "거래처 삭제")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         PartnerEntity entity = partnerRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PARTNER_NOT_FOUND,
@@ -104,8 +111,9 @@ public class PartnerController {
             throw new DomainException(ErrorCode.PARTNER_IN_USE,
                     "거래처를 참조 중인 데이터가 있습니다.");
         }
+        Response before = toResponse(entity);
         partnerRepository.delete(entity);
-        auditService.record("DELETE", "PARTNER", entity.getPartnerNo(), null);
+        auditService.record(AuditEvent.sensitiveDeleted("PARTNER", entity.getPartnerNo(), before));
         return ResponseEntity.noContent().build();
     }
 

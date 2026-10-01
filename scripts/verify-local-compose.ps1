@@ -99,10 +99,19 @@ try {
             "exec", "-T", "postgres", "sh", "-c",
             "psql -U `"`$POSTGRES_USER`" -d `"`$POSTGRES_DB`" -Atc '$flywayQuery'"
         ) | Select-Object -Last 1).Trim()
-    if ($flywayVersion -ne "7") {
-        throw "Expected Flyway version 7, received '$flywayVersion'."
+    if ($flywayVersion -ne "8") {
+        throw "Expected Flyway version 8, received '$flywayVersion'."
     }
-    Write-Host "[PASS] Flyway successfully applied through version 7"
+    Write-Host "[PASS] Flyway successfully applied through version 8"
+
+    $healthResponse = Invoke-RestMethod `
+        -Uri "$($BackendBaseUrl.TrimEnd('/'))/actuator/health" `
+        -Method Get `
+        -TimeoutSec 15
+    if ($healthResponse.status -ne "UP") {
+        throw "Actuator health did not report UP."
+    }
+    Write-Host "[PASS] Public Actuator health reported UP"
 
     $loginBody = @{ username = "admin"; password = "admin123" } | ConvertTo-Json
     $loginResponse = Invoke-RestMethod `
@@ -125,6 +134,16 @@ try {
         throw "Authenticated user response did not match the admin account."
     }
     Write-Host "[PASS] Authenticated /auth/me returned the current admin user"
+
+    $metricsResponse = Invoke-RestMethod `
+        -Uri "$($BackendBaseUrl.TrimEnd('/'))/actuator/metrics" `
+        -Method Get `
+        -Headers @{ Authorization = "Bearer $($loginResponse.accessToken)" } `
+        -TimeoutSec 15
+    if (-not $metricsResponse.names -or -not ($metricsResponse.names -contains "jvm.memory.used")) {
+        throw "Actuator metrics response did not contain expected JVM metrics."
+    }
+    Write-Host "[PASS] ADMIN token can access Actuator metrics"
 
     $frontendResponse = Invoke-WebRequest `
         -Uri "$($FrontendBaseUrl.TrimEnd('/'))/" `

@@ -24,6 +24,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    public static final String AUTHENTICATED_USER_ATTRIBUTE =
+            JwtAuthenticationFilter.class.getName() + ".authenticatedUser";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -73,6 +75,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
         MDC.put("user", username);
+        request.setAttribute(AUTHENTICATED_USER_ATTRIBUTE, username);
     }
 
     private String resolveToken(HttpServletRequest request) {

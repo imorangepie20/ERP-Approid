@@ -6,7 +6,6 @@ import java.util.List;
 
 import javax.crypto.spec.SecretKeySpec;
 
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
@@ -16,9 +15,6 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtTokenProvider {
@@ -72,8 +68,4 @@ public class JwtTokenProvider {
         return properties.getJwt().getExpirationMinutes() * 60L;
     }
 
-    @Async
-    public void logTokenIssue(String username) {
-        log.debug("JWT issued for user {}", username);
-    }
 }

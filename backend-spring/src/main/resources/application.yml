@@ -40,9 +40,6 @@ app:
       secret: ${JWT_SECRET:erp-approid-dev-secret-key-change-in-production-32bytes}
       expiration-minutes: 60
     internal-key: ${INTERNAL_KEY:erp-internal-dev-key}
-  audit:
-    enabled: true
-
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -51,7 +48,22 @@ springdoc:
     path: /swagger-ui.html
     enabled: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 logging:
+  structured:
+    format:
+      console: logstash
   level:
     com.erpapproid.core: INFO
     org.hibernate.SQL: WARN

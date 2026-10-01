@@ -46,7 +46,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:38080/v3/api-docs"]
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:38080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 12

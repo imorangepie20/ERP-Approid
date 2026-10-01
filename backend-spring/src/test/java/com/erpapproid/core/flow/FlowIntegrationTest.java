@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.erpapproid.core.domain.audit.AuditLogRepository;
+import com.erpapproid.core.domain.sales.SalesOrderRepository;
 import com.erpapproid.core.support.IntegrationTestSupport;
 
 /**
@@ -37,9 +38,13 @@ class FlowIntegrationTest extends IntegrationTestSupport {
     private static final long PURCHASE_ORDER_FOR_VALIDATION = 5L;
     private static final long WORK_ORDER_OPEN = 4L;
     private static final long SHIPMENT_TO_CONFIRM = 4L;
+    private static final String RECEIVING_TRACE_ID = "flow-receiving-trace";
 
     @Autowired
     private AuditLogRepository auditLogRepository;
+
+    @Autowired
+    private SalesOrderRepository salesOrderRepository;
 
     private String adminToken;
     private String salesToken;
@@ -66,6 +71,10 @@ class FlowIntegrationTest extends IntegrationTestSupport {
         assertThat(result.get("quotationNo").asText()).isEqualTo("QT-2609-003");
         createdSalesOrderId = result.get("id").asLong();
 
+        Long salesUserId = userRepository.findByUsername("sales").orElseThrow().getId();
+        assertThat(salesOrderRepository.findById(createdSalesOrderId).orElseThrow().getCreatedBy())
+                .isEqualTo(salesUserId);
+
         JsonNode quotation = get("/api/core/quotations/" + QUOTATION_SENT, adminToken).getBody();
         assertThat(quotation.get("status").asText()).isEqualTo("수주완료");
     }
@@ -88,9 +97,10 @@ class FlowIntegrationTest extends IntegrationTestSupport {
     void flow3_purchase_order_to_receiving() {
         ResponseEntity<JsonNode> response = post("/api/core/receivings", adminToken,
                 body("purchaseOrderId", PURCHASE_ORDER_OPEN,
-                        "receivedQty", 600, "defectQty", 0));
+                        "receivedQty", 600, "defectQty", 0), RECEIVING_TRACE_ID);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getHeaders().getFirst("X-Trace-Id")).isEqualTo(RECEIVING_TRACE_ID);
         JsonNode result = response.getBody();
         assertThat(result).isNotNull();
         assertThat(result.get("receiving").get("status").asText()).isEqualTo("합격");
@@ -103,6 +113,16 @@ class FlowIntegrationTest extends IntegrationTestSupport {
         assertThat(purchaseOrder.get("status").asText()).isEqualTo("입고완료");
         assertThat(purchaseOrder.get("receivedQty").decimalValue())
                 .isEqualByComparingTo(BigDecimal.valueOf(600));
+
+        assertThat(auditLogRepository.findAllByTraceIdOrderByOccurredAtAsc(RECEIVING_TRACE_ID))
+                .hasSize(4)
+                .allSatisfy(log -> {
+                    assertThat(log.getActorId()).isNotNull();
+                    assertThat(log.getAfterJson()).isNotNull();
+                })
+                .extracting(log -> log.getEntityType())
+                .containsExactlyInAnyOrder(
+                        "RECEIVING", "PURCHASE_ORDER", "LOT", "INVENTORY_TRANSACTION");
     }
 
     @Test
@@ -213,15 +233,24 @@ class FlowIntegrationTest extends IntegrationTestSupport {
 
     @Test
     @Order(13)
-    void audit_logs_are_recorded() throws InterruptedException {
-        long count = 0;
-        for (int attempt = 0; attempt < 20; attempt++) {
-            count = auditLogRepository.count();
-            if (count > 0) {
-                break;
-            }
-            Thread.sleep(100);
-        }
-        assertThat(count).isGreaterThan(0);
+    void audit_logs_are_recorded_synchronously() {
+        assertThat(auditLogRepository.count()).isGreaterThan(0);
+        assertThat(auditLogRepository.findAll())
+                .allSatisfy(log -> {
+                    assertThat(log.getTraceId()).matches("[A-Za-z0-9][A-Za-z0-9._:-]{0,63}");
+                    assertThat(log.getActorId()).isNotNull();
+                    assertThat(log.getBeforeJson() != null || log.getAfterJson() != null).isTrue();
+                });
+    }
+
+    @Test
+    @Order(14)
+    void actuator_health_is_public_but_metrics_require_admin() {
+        assertThat(rest.getForEntity("/actuator/health", JsonNode.class).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        assertThat(rest.getForEntity("/actuator/metrics", JsonNode.class).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(get("/actuator/metrics", adminToken).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(get("/actuator/metrics", salesToken).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 }

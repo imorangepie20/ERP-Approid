@@ -16,6 +16,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -37,6 +38,8 @@ public class SecurityConfig {
     private static final String[] PUBLIC_PATHS = {
             "/api/core/auth/login",
             "/api/core/internal/**",
+            "/actuator/health",
+            "/actuator/health/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html"
@@ -82,6 +85,22 @@ public class SecurityConfig {
     }
 
     @Bean
+    public AccessDeniedHandler accessDeniedHandler(ObjectMapper objectMapper) {
+        return (request, response, accessDeniedException) -> {
+            ErrorResponse body = ErrorResponse.builder()
+                    .code(ErrorCode.FORBIDDEN.getCode())
+                    .message("요청을 수행할 권한이 없습니다.")
+                    .timestamp(java.time.Instant.now())
+                    .traceId(org.slf4j.MDC.get(TraceIdFilter.TRACE_ID_KEY))
+                    .build();
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
+            response.getWriter().write(objectMapper.writeValueAsString(body));
+        };
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper)
             throws Exception {
         return http
@@ -93,9 +112,13 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS).permitAll()
+                        .requestMatchers("/actuator/metrics", "/actuator/metrics/**").hasRole("ADMIN")
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated())
-                .exceptionHandling(eh -> eh.authenticationEntryPoint(authenticationEntryPoint(objectMapper)))
+                .exceptionHandling(eh -> eh
+                        .authenticationEntryPoint(authenticationEntryPoint(objectMapper))
+                        .accessDeniedHandler(accessDeniedHandler(objectMapper)))
                 .addFilterBefore(traceIdFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(internalKeyFilter, JwtAuthenticationFilter.class)

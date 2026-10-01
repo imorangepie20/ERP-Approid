@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +19,7 @@ import com.erpapproid.core.common.domain.Constants;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.sales.ReceivableEntity;
 import com.erpapproid.core.domain.sales.ReceivableRepository;
 
@@ -60,6 +62,7 @@ public class ReceivableController {
     @Operation(summary = "수납 완료")
     @PostMapping("/{id}/collect")
     @PreAuthorize("hasAnyRole('ACCOUNTING', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> collect(@PathVariable Long id) {
         ReceivableEntity entity = receivableRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND,
@@ -72,7 +75,8 @@ public class ReceivableController {
         entity.setStatus(Constants.COLLECTED);
         entity.setOverdueDays(0);
         ReceivableEntity saved = receivableRepository.save(entity);
-        auditService.record("COLLECT", "RECEIVABLE", saved.getReceivableNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange(
+                "COLLECT", "RECEIVABLE", saved.getReceivableNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 

@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -20,6 +21,7 @@ import com.erpapproid.core.api.bom.BomDto.Response;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.bom.BomEntity;
 import com.erpapproid.core.domain.bom.BomRepository;
 import com.erpapproid.core.domain.item.ItemEntity;
@@ -55,6 +57,7 @@ public class BomController {
     @Operation(summary = "BOM 생성")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'PRODUCTION')")
+    @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         ItemEntity parent = itemRepository.findById(request.getParentId())
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
@@ -75,13 +78,14 @@ public class BomController {
                 .substituteNo(request.getSubstituteNo())
                 .build();
         BomEntity saved = bomRepository.save(entity);
-        auditService.record("CREATE", "BOM", saved.getBomNo(), toResponse(saved));
+        auditService.record(AuditEvent.created("BOM", saved.getBomNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @Operation(summary = "BOM 수정")
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRODUCTION')")
+    @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
         BomEntity entity = bomRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND,
@@ -97,19 +101,22 @@ public class BomController {
             entity.setSubstituteNo(request.getSubstituteNo());
         }
         BomEntity saved = bomRepository.save(entity);
-        auditService.record("UPDATE", "BOM", saved.getBomNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.changed(
+                "UPDATE", "BOM", saved.getBomNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "BOM 삭제")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         BomEntity entity = bomRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND,
                         "BOM을 찾을 수 없습니다: " + id));
+        Response before = toResponse(entity);
         bomRepository.delete(entity);
-        auditService.record("DELETE", "BOM", entity.getBomNo(), null);
+        auditService.record(AuditEvent.deleted("BOM", entity.getBomNo(), before));
         return ResponseEntity.noContent().build();
     }
 

@@ -1,96 +1,76 @@
 package com.erpapproid.core.domain.audit;
 
 import org.slf4j.MDC;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.erpapproid.core.common.web.TraceIdFilter;
+import com.erpapproid.core.security.CurrentActorProvider;
+
+import io.micrometer.core.instrument.MeterRegistry;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * 감사 로그 서비스. api-spec.md 2.4 / desc.md 3.12:
  * 모든 쓰기 엔드포인트는 audit_logs 에 기록한다.
  * 원가/단가/결산 변경은 sensitive = true 로 별도 보존한다.
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuditService {
 
-    private static final String SYSTEM = "system";
-
     private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
+    private final CurrentActorProvider currentActorProvider;
+    private final MeterRegistry meterRegistry;
 
-    @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(String action, String entityType, String entityNo,
-                       Object before, Object after, boolean sensitive) {
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void record(AuditEvent event) {
         try {
+            Long actorId = currentActorProvider.currentActorId()
+                    .orElseThrow(() -> new IllegalStateException("Authenticated audit actor is required"));
             AuditLogEntity entity = AuditLogEntity.builder()
-                    .actorId(currentActorId())
-                    .action(action)
-                    .entityType(entityType)
-                    .entityNo(entityNo)
-                    .beforeJson(toJson(before))
-                    .afterJson(toJson(after))
-                    .sensitive(sensitive)
+                    .actorId(actorId)
+                    .action(event.action())
+                    .entityType(event.entityType())
+                    .entityNo(event.entityNo())
+                    .beforeJson(toJson(event.beforeSnapshot()))
+                    .afterJson(toJson(event.afterSnapshot()))
+                    .sensitive(event.sensitive())
                     .traceId(MDC.get(TraceIdFilter.TRACE_ID_KEY))
                     .occurredAt(java.time.Instant.now())
                     .build();
             auditLogRepository.save(entity);
-        } catch (Exception ex) {
-            log.warn("audit log failed for {} {}: {}", entityType, entityNo, ex.getMessage());
+            incrementRecordedAfterCommit();
+        } catch (RuntimeException ex) {
+            meterRegistry.counter("erp.audit.events", "outcome", "failed").increment();
+            throw ex;
         }
     }
 
-    public void record(String action, String entityType, String entityNo, Object after) {
-        record(action, entityType, entityNo, null, after, false);
-    }
-
-    public void record(String action, String entityType, String entityNo,
-                       Object before, Object after) {
-        record(action, entityType, entityNo, before, after, false);
-    }
-
-    public void recordSensitive(String action, String entityType, String entityNo,
-                                Object before, Object after) {
-        record(action, entityType, entityNo, before, after, true);
-    }
-
-    private Long currentActorId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || SYSTEM.equals(auth.getPrincipal())) {
-            return null;
-        }
-        Object principal = auth.getPrincipal();
-        if (principal instanceof com.erpapproid.core.security.UserPrincipal up) {
-            return up.getId();
-        }
-        return null;
+    private void incrementRecordedAfterCommit() {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                meterRegistry.counter("erp.audit.events", "outcome", "recorded").increment();
+            }
+        });
     }
 
     private String toJson(Object value) {
         if (value == null) {
             return null;
         }
-        if (value instanceof String s) {
-            return s;
-        }
         try {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException ex) {
-            log.warn("audit json serialization failed: {}", ex.getMessage());
-            return null;
+            throw new IllegalStateException("Failed to serialize audit snapshot", ex);
         }
     }
 }

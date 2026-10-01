@@ -11,7 +11,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -21,10 +20,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import com.erpapproid.core.domain.item.ItemEntity;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import jakarta.persistence.EntityListeners;
 
 @Getter
 @Setter
 @Entity
+@EntityListeners(AuditingEntityListener.class)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PACKAGE)
@@ -65,15 +69,10 @@ public class InventoryTransactionEntity {
     private LocalDate txnDate;
 
     @Column(name = "created_at", nullable = false, updatable = false)
+    @CreatedDate
     private java.time.Instant createdAt;
 
     @Column(name = "created_by")
+    @CreatedBy
     private Long createdBy;
-
-    @PrePersist
-    void onCreate() {
-        if (createdAt == null) {
-            createdAt = java.time.Instant.now();
-        }
-    }
 }

@@ -26,6 +26,7 @@ import com.erpapproid.core.common.domain.Constants;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.item.ItemEntity;
 import com.erpapproid.core.domain.item.ItemRepository;
 import com.erpapproid.core.domain.partner.PartnerEntity;
@@ -74,6 +75,7 @@ public class PurchaseOrderController {
     @Operation(summary = "발주 생성")
     @PostMapping
     @PreAuthorize("hasAnyRole('MATERIAL', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         PartnerEntity vendor = partnerRepository.findById(request.getVendorId())
                 .orElseThrow(() -> new DomainException(ErrorCode.PARTNER_NOT_FOUND,
@@ -93,13 +95,15 @@ public class PurchaseOrderController {
                 .receivedQty(BigDecimal.ZERO)
                 .build();
         PurchaseOrderEntity saved = purchaseOrderRepository.save(entity);
-        auditService.record("CREATE", "PURCHASE_ORDER", saved.getPurchaseOrderNo(), toResponse(saved));
+        auditService.record(AuditEvent.sensitiveCreated(
+                "PURCHASE_ORDER", saved.getPurchaseOrderNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @Operation(summary = "발주 수정 (발주만)")
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('MATERIAL')")
+    @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
         PurchaseOrderEntity entity = purchaseOrderRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PURCHASE_ORDER_NOT_FOUND,
@@ -123,14 +127,15 @@ public class PurchaseOrderController {
             entity.setDueDate(request.getDueDate());
         }
         PurchaseOrderEntity saved = purchaseOrderRepository.save(entity);
-        auditService.record("UPDATE", "PURCHASE_ORDER", saved.getPurchaseOrderNo(),
-                before, toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange("UPDATE", "PURCHASE_ORDER",
+                saved.getPurchaseOrderNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "발주 삭제 (발주만)")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('MATERIAL')")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         PurchaseOrderEntity entity = purchaseOrderRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PURCHASE_ORDER_NOT_FOUND,
@@ -139,14 +144,17 @@ public class PurchaseOrderController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "발주 상태의 발주서만 삭제할 수 있습니다: " + entity.getPurchaseOrderNo());
         }
+        Response before = toResponse(entity);
         purchaseOrderRepository.delete(entity);
-        auditService.record("DELETE", "PURCHASE_ORDER", entity.getPurchaseOrderNo(), null);
+        auditService.record(AuditEvent.sensitiveDeleted(
+                "PURCHASE_ORDER", entity.getPurchaseOrderNo(), before));
         return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "발주 취소")
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('MATERIAL', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> cancel(@PathVariable Long id) {
         PurchaseOrderEntity entity = purchaseOrderRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PURCHASE_ORDER_NOT_FOUND,
@@ -159,8 +167,8 @@ public class PurchaseOrderController {
         Response before = toResponse(entity);
         entity.setStatus(Constants.PO_CANCEL);
         PurchaseOrderEntity saved = purchaseOrderRepository.save(entity);
-        auditService.record("CANCEL", "PURCHASE_ORDER", saved.getPurchaseOrderNo(),
-                before, toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange("CANCEL", "PURCHASE_ORDER",
+                saved.getPurchaseOrderNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 

@@ -79,7 +79,7 @@ PLT-01의 남은 작업은 이 검증 명령과 `gradlew test`를 자동 실행�
 루트 `docker-compose.yml`에 PostgreSQL 16, Spring Core API, Nginx 프런트를 구성하고
 healthcheck 기반으로 순차 기동하도록 했다. `.env.example`, 양쪽 멀티스테이지 Dockerfile,
 `docs/setup.md`, `scripts/verify-local-compose.ps1`을 추가했다. 격리 프로젝트 검증에서 세 서비스
-healthy, Flyway V1~V7 적용, `admin` 로그인 JWT 발급, 프런트 HTTP 200을 확인했다.
+healthy, Flyway V1~V8 적용, `admin` 로그인 JWT 발급, 프런트 HTTP 200을 확인한다.
 FastAPI와 pgAdmin은 아직 구현되지 않은 선택 서비스이므로 이번 로컬 기준선에서는 제외했다.
 
 ### PLT-03. 프런트 API 기반 서비스
@@ -143,10 +143,19 @@ Phase 1은 기존 HS256 access token을 사용하되, 토큰 저장 방식과 XS
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 부분 구현 |
-| 기존 기능 | `audit_logs`, `X-Trace-Id`, 공통 오류 응답, 비동기 `AuditService` |
-| 보완 작업 | 비동기 SecurityContext/MDC 전파, `AuditorAware`, 감사 실패 정책, 구조화 로그, health/metrics |
+| 현재 상태 | 완료 |
+| 구현 기능 | 동기·동일 트랜잭션 fail-closed 감사, `AuditorAware`, 검증된 `X-Trace-Id`, before/after snapshot, Logstash JSON 로그, health/metrics |
+| 운영 경계 | health는 공개·상세 비공개, metrics와 기타 Actuator endpoint는 `ADMIN` 전용 |
 | 완료 조건 | 모든 쓰기에서 actor/trace/before/after가 저장되고 API 로그와 감사 로그를 trace ID로 연결 가능 |
+
+구현 메모:
+
+- 기존 `@Async` self-invocation은 실제 비동기가 아니었고 감사 유실 가능성이 있어 제거했다.
+- 모든 업무 쓰기는 감사 저장과 같은 트랜잭션을 사용하며 감사 실패 시 전체를 롤백한다.
+- CREATE는 `null → after`, UPDATE/전이는 `before → after`, DELETE는 `before → null` 규칙을 적용한다.
+- 복합 입고·생산완료·출하 흐름의 파생 엔티티도 같은 trace ID로 감사한다.
+- 비동기가 필요해질 때는 단순 `@Async`가 아니라 transactional outbox와 재시도 worker를 별도 도입한다.
+- 상세 결정은 [`docs/decisions/audit-delivery-policy.md`](decisions/audit-delivery-policy.md)에 기록했다.
 
 ### PLT-06. 운영 보안·설정 서비스
 
@@ -561,13 +570,14 @@ FastAPI를 도입하기 전, 별도 배포·관측·보안 비용보다 독립 �
 3. [x] PLT-02: PostgreSQL + Spring 루트 Compose와 `.env.example` 작성
 4. [x] PLT-03: 공통 HTTP 클라이언트, 오류 모델, React Query 구성
 5. [x] PLT-04: 로그인, `/auth/me`, 보호 라우트, 로그아웃 구현
-6. [ ] MST-01: 품목 목록 조회를 첫 실제 API 화면으로 전환
-7. [ ] MST-01: 품목 등록·수정·삭제와 권한/감사 검증
-8. [ ] MST-02~04: 거래처, BOM, 공정 연결
-9. [ ] SAL-01~02: 견적과 수주 연결
-10. [ ] PRD-02 → PUR-02 → LOG-01: 생산완료·입고·출하의 재고 트랜잭션 연결
-11. [ ] Phase 1 핵심 E2E와 CI 필수 체크 구성
-12. [ ] ANL-01/02 구현 방식 결정 후 실제 대시보드와 MRP 연결
+6. [x] PLT-05: 감사·Trace ID·구조화 로그·health/metrics 구현
+7. [ ] MST-01: 품목 목록 조회를 첫 실제 API 화면으로 전환
+8. [ ] MST-01: 품목 등록·수정·삭제와 권한/감사 검증
+9. [ ] MST-02~04: 거래처, BOM, 공정 연결
+10. [ ] SAL-01~02: 견적과 수주 연결
+11. [ ] PRD-02 → PUR-02 → LOG-01: 생산완료·입고·출하의 재고 트랜잭션 연결
+12. [ ] Phase 1 핵심 E2E와 CI 필수 체크 구성
+13. [ ] ANL-01/02 구현 방식 결정 후 실제 대시보드와 MRP 연결
 
 ## 14. 범위 결정이 필요한 항목
 
@@ -578,7 +588,7 @@ FastAPI를 도입하기 전, 별도 배포·관측·보안 비용보다 독립 �
 - 회계가 자체 원장인지 외부 회계 시스템 연동 중심인지
 - Lot 추적에 바코드/QR과 유통기한 FIFO/FEFO가 필수인지
 - 품질 부적합의 승인 단계와 특채 권한
-- 감사 로그 실패 시 업무 트랜잭션을 실패시킬지
+- 감사 정책은 Phase 1에서 동일 트랜잭션 fail-closed로 확정했으며, 비동기 전환 시 outbox 범위를 별도 결정
 - 프런트의 Phase 2~4 메뉴를 구현 전에도 노출할지
 - Zorin OS + Cloudflare Tunnel이 운영 표준인지 데모 환경인지
 

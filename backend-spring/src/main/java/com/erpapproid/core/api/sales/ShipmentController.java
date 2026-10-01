@@ -29,6 +29,7 @@ import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.common.seq.DomainNumberGenerator;
 import com.erpapproid.core.common.seq.DomainNumberGenerator.Prefix;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.inventory.InventoryTransactionEntity;
 import com.erpapproid.core.domain.inventory.InventoryTransactionRepository;
 import com.erpapproid.core.domain.partner.PartnerEntity;
@@ -83,6 +84,7 @@ public class ShipmentController {
     @Operation(summary = "출하 지시 생성")
     @PostMapping
     @PreAuthorize("hasRole('SALES')")
+    @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         SalesOrderEntity order = salesOrderRepository.findById(request.getSalesOrderId())
                 .orElseThrow(() -> new DomainException(ErrorCode.SALES_ORDER_NOT_FOUND,
@@ -110,13 +112,15 @@ public class ShipmentController {
                 .status(Constants.DISPATCH)
                 .build();
         ShipmentEntity saved = shipmentRepository.save(entity);
-        auditService.record("CREATE", "SHIPMENT", saved.getShipmentNo(), toResponse(saved));
+        auditService.record(AuditEvent.sensitiveCreated(
+                "SHIPMENT", saved.getShipmentNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @Operation(summary = "배차 (지시 → 배차)")
     @PostMapping("/{id}/dispatch")
     @PreAuthorize("hasRole('SALES')")
+    @Transactional
     public ResponseEntity<Response> dispatch(@PathVariable Long id) {
         ShipmentEntity entity = shipmentRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SHIPMENT_NOT_FOUND,
@@ -125,9 +129,11 @@ public class ShipmentController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "지시 상태의 출하만 배차할 수 있습니다: " + entity.getShipmentNo());
         }
+        Response before = toResponse(entity);
         entity.setStatus(Constants.DISPATCHED);
         ShipmentEntity saved = shipmentRepository.save(entity);
-        auditService.record("DISPATCH", "SHIPMENT", saved.getShipmentNo(), toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange(
+                "DISPATCH", "SHIPMENT", saved.getShipmentNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
@@ -150,6 +156,8 @@ public class ShipmentController {
                     "가용 재고가 부족합니다. 품목: " + order.getItem().getItemNo());
         }
 
+        Response shipmentBefore = toResponse(shipment);
+        java.util.Map<String, Object> orderBefore = salesOrderSnapshot(order);
         shipment.setStatus(Constants.SHIPPED);
         shipment.setDeliveryDate(LocalDate.now());
         ShipmentEntity savedShipment = shipmentRepository.save(shipment);
@@ -167,7 +175,7 @@ public class ShipmentController {
                 .refNo(savedShipment.getShipmentNo())
                 .txnDate(LocalDate.now())
                 .build();
-        inventoryTransactionRepository.save(txn);
+        InventoryTransactionEntity savedTxn = inventoryTransactionRepository.save(txn);
 
         PartnerEntity customer = order.getCustomer();
         ReceivableEntity receivable = ReceivableEntity.builder()
@@ -181,9 +189,14 @@ public class ShipmentController {
                 .build();
         ReceivableEntity savedReceivable = receivableRepository.save(receivable);
 
-        auditService.record("CONFIRM", "SHIPMENT", savedShipment.getShipmentNo(),
-                toResponse(savedShipment));
-        auditService.record("CREATE", "RECEIVABLE", savedReceivable.getReceivableNo(), null);
+        auditService.record(AuditEvent.sensitiveChange("CONFIRM", "SHIPMENT",
+                savedShipment.getShipmentNo(), shipmentBefore, toResponse(savedShipment)));
+        auditService.record(AuditEvent.changed("SHIP", "SALES_ORDER", order.getSalesOrderNo(),
+                orderBefore, salesOrderSnapshot(order)));
+        auditService.record(AuditEvent.created(
+                "INVENTORY_TRANSACTION", savedTxn.getTxnNo(), transactionSnapshot(savedTxn)));
+        auditService.record(AuditEvent.sensitiveCreated("RECEIVABLE",
+                savedReceivable.getReceivableNo(), receivableSnapshot(savedReceivable)));
         return ResponseEntity.ok(ConfirmResult.builder()
                 .shipment(toResponse(savedShipment))
                 .receivableNo(savedReceivable.getReceivableNo())
@@ -193,6 +206,7 @@ public class ShipmentController {
     @Operation(summary = "출하 수정 (지시/배차만)")
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('SALES')")
+    @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
         ShipmentEntity entity = shipmentRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SHIPMENT_NOT_FOUND,
@@ -213,13 +227,15 @@ public class ShipmentController {
             entity.setVehicle(request.getVehicle());
         }
         ShipmentEntity saved = shipmentRepository.save(entity);
-        auditService.record("UPDATE", "SHIPMENT", saved.getShipmentNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.sensitiveChange(
+                "UPDATE", "SHIPMENT", saved.getShipmentNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "출하 삭제 (지시만)")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SALES')")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         ShipmentEntity entity = shipmentRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SHIPMENT_NOT_FOUND,
@@ -228,8 +244,10 @@ public class ShipmentController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "지시 상태의 출하만 삭제할 수 있습니다: " + entity.getShipmentNo());
         }
+        Response before = toResponse(entity);
         shipmentRepository.delete(entity);
-        auditService.record("DELETE", "SHIPMENT", entity.getShipmentNo(), null);
+        auditService.record(AuditEvent.sensitiveDeleted(
+                "SHIPMENT", entity.getShipmentNo(), before));
         return ResponseEntity.noContent().build();
     }
 
@@ -249,5 +267,32 @@ public class ShipmentController {
                 .vehicle(entity.getVehicle())
                 .status(entity.getStatus())
                 .build();
+    }
+
+    private java.util.Map<String, Object> salesOrderSnapshot(SalesOrderEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "salesOrderNo", entity.getSalesOrderNo(),
+                "status", entity.getStatus());
+    }
+
+    private java.util.Map<String, Object> transactionSnapshot(InventoryTransactionEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "txnNo", entity.getTxnNo(),
+                "itemId", entity.getItem().getId(),
+                "warehouse", entity.getWarehouse(),
+                "type", entity.getTxnType(),
+                "qty", entity.getQty());
+    }
+
+    private java.util.Map<String, Object> receivableSnapshot(ReceivableEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "receivableNo", entity.getReceivableNo(),
+                "salesOrderId", entity.getSalesOrder().getId(),
+                "amount", entity.getAmount(),
+                "dueDate", entity.getDueDate(),
+                "status", entity.getStatus());
     }
 }

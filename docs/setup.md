@@ -1,6 +1,6 @@
 # 로컬 통합 환경 실행
 
-루트 Compose는 PostgreSQL 16, Spring Boot API, React 정적 프런트를 함께 실행한다. Spring Boot가 시작될 때 Flyway가 데이터베이스 마이그레이션 V1~V7을 적용하며, 각 서비스의 healthcheck가 통과한 뒤 다음 서비스가 시작된다.
+루트 Compose는 PostgreSQL 16, Spring Boot API, React 정적 프런트를 함께 실행한다. Spring Boot가 시작될 때 Flyway가 데이터베이스 마이그레이션 V1~V8을 적용하며, 각 서비스의 healthcheck가 통과한 뒤 다음 서비스가 시작된다.
 
 > `.env.example`의 값은 로컬 개발 전용 공개 예시다. 운영 또는 공유 환경에서는 DB 비밀번호, JWT secret, internal key를 각각 새로 생성해야 한다.
 > 이 Compose는 로컬 개발 전용이다. 공유 서버나 운영 환경에 그대로 배포해서는 안 된다.
@@ -34,6 +34,7 @@ docker compose up --build --detach --wait
 | --- | --- |
 | 프런트 | http://127.0.0.1:3000 |
 | Spring API | http://127.0.0.1:38080 |
+| Actuator health | http://127.0.0.1:38080/actuator/health |
 | Swagger UI | http://127.0.0.1:38080/swagger-ui.html |
 | PostgreSQL | `127.0.0.1:15432` |
 
@@ -44,7 +45,8 @@ PostgreSQL 포트는 항상 5432다.
 
 ## 상태 검증
 
-세 컨테이너의 health 상태, Flyway V7 적용, 개발 관리자 로그인, 프런트 HTTP 응답을 한 번에 검증한다.
+세 컨테이너의 health 상태, Flyway V8 적용, 공개 Actuator health, 개발 관리자 로그인,
+관리자 전용 metrics, 프런트 HTTP 응답을 한 번에 검증한다.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-compose.ps1
@@ -93,7 +95,7 @@ PowerShell이 없는 Linux/macOS에서는 Compose 상태와 동일한 계약을 
 docker compose ps
 docker compose exec -T postgres sh -c \
   'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT COALESCE(MAX(version::integer), 0) FROM flyway_schema_history WHERE success = true;"'
-curl --fail --silent http://127.0.0.1:38080/v3/api-docs >/dev/null
+curl --fail --silent http://127.0.0.1:38080/actuator/health >/dev/null
 curl --fail --silent --header 'Content-Type: application/json' \
   --data '{"username":"admin","password":"admin123"}' \
   http://127.0.0.1:38080/api/core/auth/login | grep '"accessToken"'

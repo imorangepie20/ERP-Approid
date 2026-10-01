@@ -23,14 +23,16 @@ import jakarta.servlet.http.HttpServletResponse;
 public class TraceIdFilter extends OncePerRequestFilter {
 
     public static final String TRACE_ID_KEY = "traceId";
-    private static final String TRACE_ID_HEADER = "X-Trace-Id";
+    public static final String TRACE_ID_HEADER = "X-Trace-Id";
+    private static final java.util.regex.Pattern SAFE_TRACE_ID =
+            java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9._:-]{0,63}");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String traceId = request.getHeader(TRACE_ID_HEADER);
-        if (traceId == null || traceId.isBlank()) {
-            traceId = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        if (traceId == null || !SAFE_TRACE_ID.matcher(traceId).matches()) {
+            traceId = UUID.randomUUID().toString().replace("-", "");
         }
         MDC.put(TRACE_ID_KEY, traceId);
         response.setHeader(TRACE_ID_HEADER, traceId);

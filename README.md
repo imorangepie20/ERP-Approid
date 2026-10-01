@@ -35,6 +35,7 @@ docker compose up --build --detach --wait
 | --- | --- |
 | 프런트엔드 | http://127.0.0.1:3000 |
 | Spring Core API | http://127.0.0.1:38080 |
+| 상태 확인 | http://127.0.0.1:38080/actuator/health |
 | Swagger UI | http://127.0.0.1:38080/swagger-ui.html |
 | PostgreSQL | `127.0.0.1:15432` |
 
@@ -47,7 +48,8 @@ docker compose up --build --detach --wait
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-compose.ps1
 ```
 
-검증 스크립트는 컨테이너 health, Flyway V7, 관리자 로그인과 `/auth/me`, 프런트 HTTP 응답을 확인합니다.
+검증 스크립트는 컨테이너 health, Flyway V8, Actuator health, 관리자 로그인과 `/auth/me`,
+관리자 metrics 접근, 프런트 HTTP 응답을 확인합니다.
 
 ## 현재 구현 상태
 
@@ -57,6 +59,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-c
 | PLT-02 로컬 통합 환경 | 완료 | PostgreSQL, Spring, Nginx 프런트 Compose와 smoke 검증 |
 | PLT-03 프런트 API 기반 | 완료 | 타입 생성, HTTP 클라이언트, React Query, 공통 비동기 상태 UI |
 | PLT-04 인증과 권한 UI | 완료 | 로그인, 세션 복원·만료, 보호 라우트, 로그아웃, 역할별 UI 제어 |
+| PLT-05 감사·추적·관측성 | 완료 | 동기 fail-closed 감사, actor/trace/snapshot, JSON 로그, health/metrics |
 | MST-01 품목 화면 연동 | 예정 | 첫 번째 실제 API 기반 CRUD 화면으로 전환 |
 | 분석 FastAPI | 미구현 | 분석 서비스 분리 여부를 결정한 뒤 ANL-04에서 구현 |
 
@@ -72,9 +75,15 @@ Spring Core API에는 다음 업무 영역의 데이터 모델과 API가 구현�
 - 견적, 수주, 출하, 미수금
 - 생산계획과 작업오더
 - 발주, 입고, 재고, Lot 추적
-- 공통 오류 응답, Trace ID, 감사 로그
+- 공통 오류 응답, 검증된 Trace ID, actor·before·after 감사 로그
+- Logstash JSON 요청 로그, 공개 health, 관리자 전용 metrics
 
 핵심 상태 전이는 서버 트랜잭션에서 처리합니다.
+
+업무 쓰기와 감사 로그는 같은 트랜잭션에서 저장됩니다. 감사 actor, snapshot 직렬화 또는 감사 저장이
+실패하면 업무 변경도 함께 롤백됩니다. 클라이언트가 보낸 `X-Trace-Id`는 안전한 문자 1~64자만
+수용하며, 잘못된 값은 서버가 새 ID로 교체합니다. 이 값은 상관관계 조회용이며 인증·권한 판단에는
+사용하지 않습니다.
 
 1. 견적을 수주로 전환
 2. 수주 확정과 작업오더 생성

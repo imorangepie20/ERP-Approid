@@ -19,6 +19,7 @@ import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.common.seq.DomainNumberGenerator;
 import com.erpapproid.core.common.seq.DomainNumberGenerator.Prefix;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.inventory.InventoryTransactionEntity;
 import com.erpapproid.core.domain.inventory.InventoryTransactionRepository;
 import com.erpapproid.core.domain.inventory.LotEntity;
@@ -57,19 +58,23 @@ public class LotController {
     @Operation(summary = "Lot 보류")
     @PostMapping("/{id}/hold")
     @PreAuthorize("hasAnyRole('MATERIAL', 'QUALITY', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> hold(@PathVariable Long id) {
         LotEntity entity = lotRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.LOT_NOT_FOUND,
                         "Lot을 찾을 수 없습니다: " + id));
+        Response before = toResponse(entity);
         entity.setStatus(Constants.LOT_HOLD);
         LotEntity saved = lotRepository.save(entity);
-        auditService.record("HOLD", "LOT", saved.getLotNo(), toResponse(saved));
+        auditService.record(AuditEvent.changed(
+                "HOLD", "LOT", saved.getLotNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "Lot 보류 해제")
     @PostMapping("/{id}/release")
     @PreAuthorize("hasAnyRole('MATERIAL', 'QUALITY', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> release(@PathVariable Long id) {
         LotEntity entity = lotRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.LOT_NOT_FOUND,
@@ -78,9 +83,11 @@ public class LotController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "보류 상태의 Lot만 해제할 수 있습니다: " + entity.getLotNo());
         }
+        Response before = toResponse(entity);
         entity.setStatus(Constants.LOT_OK);
         LotEntity saved = lotRepository.save(entity);
-        auditService.record("RELEASE", "LOT", saved.getLotNo(), toResponse(saved));
+        auditService.record(AuditEvent.changed(
+                "RELEASE", "LOT", saved.getLotNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
@@ -96,6 +103,7 @@ public class LotController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "이미 폐기된 Lot입니다: " + entity.getLotNo());
         }
+        Response before = toResponse(entity);
         entity.setStatus(Constants.LOT_DISPOSED);
         LotEntity saved = lotRepository.save(entity);
 
@@ -110,9 +118,17 @@ public class LotController {
                 .refNo(saved.getLotNo())
                 .txnDate(LocalDate.now())
                 .build();
-        inventoryTransactionRepository.save(txn);
+        InventoryTransactionEntity savedTxn = inventoryTransactionRepository.save(txn);
 
-        auditService.record("DISPOSE", "LOT", saved.getLotNo(), toResponse(saved));
+        auditService.record(AuditEvent.changed(
+                "DISPOSE", "LOT", saved.getLotNo(), before, toResponse(saved)));
+        auditService.record(AuditEvent.created("INVENTORY_TRANSACTION", savedTxn.getTxnNo(),
+                java.util.Map.of(
+                        "txnNo", savedTxn.getTxnNo(),
+                        "itemId", savedTxn.getItem().getId(),
+                        "lotId", saved.getId(),
+                        "qty", savedTxn.getQty(),
+                        "type", savedTxn.getTxnType())));
         return ResponseEntity.ok(toResponse(saved));
     }
 

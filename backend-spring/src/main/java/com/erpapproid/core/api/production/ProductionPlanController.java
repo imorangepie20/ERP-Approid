@@ -8,6 +8,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,6 +24,7 @@ import com.erpapproid.core.common.domain.Constants;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.item.ItemEntity;
 import com.erpapproid.core.domain.item.ItemRepository;
 import com.erpapproid.core.domain.production.ProductionPlanEntity;
@@ -57,6 +59,7 @@ public class ProductionPlanController {
     @Operation(summary = "생산계획 생성")
     @PostMapping
     @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         ItemEntity item = itemRepository.findById(request.getItemId())
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
@@ -76,13 +79,15 @@ public class ProductionPlanController {
                 .status(Constants.PLAN_DRAFT)
                 .build();
         ProductionPlanEntity saved = planRepository.save(entity);
-        auditService.record("CREATE", "PRODUCTION_PLAN", saved.getPlanNo(), toResponse(saved));
+        auditService.record(AuditEvent.created(
+                "PRODUCTION_PLAN", saved.getPlanNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @Operation(summary = "생산계획 수정")
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
         ProductionPlanEntity entity = planRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND,
@@ -101,13 +106,15 @@ public class ProductionPlanController {
             entity.setGapQty(request.getGapQty());
         }
         ProductionPlanEntity saved = planRepository.save(entity);
-        auditService.record("UPDATE", "PRODUCTION_PLAN", saved.getPlanNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.changed(
+                "UPDATE", "PRODUCTION_PLAN", saved.getPlanNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "생산계획 확정")
     @PostMapping("/{id}/confirm")
     @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> confirm(@PathVariable Long id) {
         return transition(id, Constants.PLAN_CONFIRMED, "확정");
     }
@@ -115,6 +122,7 @@ public class ProductionPlanController {
     @Operation(summary = "생산계획 종결")
     @PostMapping("/{id}/close")
     @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> close(@PathVariable Long id) {
         return transition(id, Constants.PLAN_CLOSED, "종결");
     }
@@ -130,10 +138,11 @@ public class ProductionPlanController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "생산계획 상태를 " + from + " → " + to + " 로 전이할 수 없습니다.");
         }
+        Response before = toResponse(entity);
         entity.setStatus(to);
         ProductionPlanEntity saved = planRepository.save(entity);
-        auditService.record(label.toUpperCase(), "PRODUCTION_PLAN", saved.getPlanNo(),
-                toResponse(saved));
+        auditService.record(AuditEvent.changed(label.toUpperCase(), "PRODUCTION_PLAN",
+                saved.getPlanNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 

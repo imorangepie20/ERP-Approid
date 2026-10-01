@@ -30,6 +30,7 @@ import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.common.seq.DomainNumberGenerator;
 import com.erpapproid.core.common.seq.DomainNumberGenerator.Prefix;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.inventory.InventoryTransactionEntity;
 import com.erpapproid.core.domain.inventory.InventoryTransactionRepository;
 import com.erpapproid.core.domain.inventory.LotEntity;
@@ -85,6 +86,7 @@ public class WorkOrderController {
     @Operation(summary = "작업오더 생성 (독립)")
     @PostMapping
     @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         ItemEntity item = itemRepository.findById(request.getItemId())
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
@@ -108,13 +110,15 @@ public class WorkOrderController {
                 .status(Constants.WO_OPEN)
                 .build();
         WorkOrderEntity saved = workOrderRepository.save(entity);
-        auditService.record("CREATE", "WORK_ORDER", saved.getWorkOrderNo(), toResponse(saved));
+        auditService.record(AuditEvent.created(
+                "WORK_ORDER", saved.getWorkOrderNo(), toResponse(saved)));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @Operation(summary = "진척 업데이트")
     @PostMapping("/{id}/progress")
     @PreAuthorize("hasRole('PRODUCTION')")
+    @Transactional
     public ResponseEntity<Response> progress(@PathVariable Long id,
                                              @Valid @RequestBody CompleteRequest request) {
         WorkOrderEntity entity = workOrderRepository.findById(id)
@@ -131,7 +135,8 @@ public class WorkOrderController {
             entity.setStatus(Constants.WO_PROGRESS);
         }
         WorkOrderEntity saved = workOrderRepository.save(entity);
-        auditService.record("PROGRESS", "WORK_ORDER", saved.getWorkOrderNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.changed(
+                "PROGRESS", "WORK_ORDER", saved.getWorkOrderNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
@@ -150,6 +155,7 @@ public class WorkOrderController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "이미 완료된 작업오더입니다: " + entity.getWorkOrderNo());
         }
+        Response before = toResponse(entity);
         if (request != null) {
             applyActuals(entity, request);
         }
@@ -188,8 +194,11 @@ public class WorkOrderController {
                 .build();
         InventoryTransactionEntity savedTxn = inventoryTransactionRepository.save(txn);
 
-        auditService.record("COMPLETE", "WORK_ORDER", saved.getWorkOrderNo(), toResponse(saved));
-        auditService.record("CREATE", "LOT", savedLot.getLotNo(), null);
+        auditService.record(AuditEvent.changed(
+                "COMPLETE", "WORK_ORDER", saved.getWorkOrderNo(), before, toResponse(saved)));
+        auditService.record(AuditEvent.created("LOT", savedLot.getLotNo(), lotSnapshot(savedLot)));
+        auditService.record(AuditEvent.created(
+                "INVENTORY_TRANSACTION", savedTxn.getTxnNo(), transactionSnapshot(savedTxn)));
         return ResponseEntity.ok(CompleteResult.builder()
                 .workOrder(toResponse(saved))
                 .lotNo(savedLot.getLotNo())
@@ -200,6 +209,7 @@ public class WorkOrderController {
     @Operation(summary = "작업오더 마감 (완료 → 마감)")
     @PostMapping("/{id}/close")
     @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
     public ResponseEntity<Response> close(@PathVariable Long id) {
         WorkOrderEntity entity = workOrderRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND,
@@ -208,15 +218,18 @@ public class WorkOrderController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "완료 상태의 작업오더만 마감할 수 있습니다: " + entity.getWorkOrderNo());
         }
+        Response before = toResponse(entity);
         entity.setStatus(Constants.WO_CLOSED);
         WorkOrderEntity saved = workOrderRepository.save(entity);
-        auditService.record("CLOSE", "WORK_ORDER", saved.getWorkOrderNo(), toResponse(saved));
+        auditService.record(AuditEvent.changed(
+                "CLOSE", "WORK_ORDER", saved.getWorkOrderNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "작업오더 수정 (지시만)")
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('PRODUCTION')")
+    @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
         WorkOrderEntity entity = workOrderRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND,
@@ -236,13 +249,15 @@ public class WorkOrderController {
             entity.setDueDate(request.getDueDate());
         }
         WorkOrderEntity saved = workOrderRepository.save(entity);
-        auditService.record("UPDATE", "WORK_ORDER", saved.getWorkOrderNo(), before, toResponse(saved));
+        auditService.record(AuditEvent.changed(
+                "UPDATE", "WORK_ORDER", saved.getWorkOrderNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
     @Operation(summary = "작업오더 삭제 (지시만)")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('PRODUCTION')")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         WorkOrderEntity entity = workOrderRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND,
@@ -251,8 +266,9 @@ public class WorkOrderController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "지시 상태의 작업오더만 삭제할 수 있습니다: " + entity.getWorkOrderNo());
         }
+        Response before = toResponse(entity);
         workOrderRepository.delete(entity);
-        auditService.record("DELETE", "WORK_ORDER", entity.getWorkOrderNo(), null);
+        auditService.record(AuditEvent.deleted("WORK_ORDER", entity.getWorkOrderNo(), before));
         return ResponseEntity.noContent().build();
     }
 
@@ -302,5 +318,25 @@ public class WorkOrderController {
                 .status(entity.getStatus())
                 .delayed(delayed)
                 .build();
+    }
+
+    private java.util.Map<String, Object> lotSnapshot(LotEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "lotNo", entity.getLotNo(),
+                "itemId", entity.getItem().getId(),
+                "warehouse", entity.getWarehouse(),
+                "qty", entity.getQty(),
+                "status", entity.getStatus());
+    }
+
+    private java.util.Map<String, Object> transactionSnapshot(InventoryTransactionEntity entity) {
+        return java.util.Map.of(
+                "id", entity.getId(),
+                "txnNo", entity.getTxnNo(),
+                "itemId", entity.getItem().getId(),
+                "warehouse", entity.getWarehouse(),
+                "type", entity.getTxnType(),
+                "qty", entity.getQty());
     }
 }
