@@ -3,6 +3,8 @@ import { ApiError, type HttpClient } from './http'
 
 type GeneratedItemResponse = components['schemas']['ItemResponse']
 type GeneratedItemPageResponse = components['schemas']['PageItemResponse']
+type GeneratedItemCreateRequest = components['schemas']['ItemCreateRequest']
+type GeneratedItemUpdateRequest = components['schemas']['ItemUpdateRequest']
 
 export type ItemSortColumn = 'itemNo' | 'name' | 'spec' | 'itemType' | 'unit' | 'price' | 'stock' | 'safetyStock'
 export type SortDirection = 'asc' | 'desc'
@@ -37,6 +39,14 @@ export interface ItemListParams {
     size: number
     sortColumn: ItemSortColumn
     sortDirection: SortDirection
+}
+
+export type CreateItemInput = Omit<GeneratedItemCreateRequest, 'itemType'> & {
+    itemType: ItemType
+}
+
+export type UpdateItemInput = Omit<GeneratedItemUpdateRequest, 'itemType'> & {
+    itemType?: ItemType
 }
 
 const itemSortColumns = new Set<ItemSortColumn>([
@@ -184,4 +194,34 @@ export async function fetchItemPage(
 
     const result = await client.get<GeneratedItemPageResponse>(`items?${query.toString()}`, { signal })
     return normalizePage(result.data, result.status, result.traceId)
+}
+
+function validateItemId(id: number) {
+    if (!Number.isSafeInteger(id) || id <= 0) {
+        throw new ApiError({
+            status: 0,
+            code: 'INVALID_ITEM_ID',
+            message: '올바른 품목 ID가 필요합니다.',
+        })
+    }
+}
+
+export async function createItem(client: HttpClient, input: CreateItemInput): Promise<ItemRow> {
+    const result = await client.post<GeneratedItemResponse>('items', input)
+    return normalizeItem(result.data, result.status, result.traceId)
+}
+
+export async function updateItem(
+    client: HttpClient,
+    id: number,
+    input: UpdateItemInput,
+): Promise<ItemRow> {
+    validateItemId(id)
+    const result = await client.patch<GeneratedItemResponse>(`items/${id}`, input)
+    return normalizeItem(result.data, result.status, result.traceId)
+}
+
+export async function deleteItem(client: HttpClient, id: number): Promise<void> {
+    validateItemId(id)
+    await client.delete(`items/${id}`)
 }

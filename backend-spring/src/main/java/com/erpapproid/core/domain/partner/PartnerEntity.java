@@ -37,6 +37,13 @@ public class PartnerEntity extends BaseEntity {
     @Column(name = "contact")
     private String contact;
 
+    @Column(name = "contact_name", length = 64)
+    private String contactName;
+
+    @Builder.Default
+    @Column(name = "lead_time_days", nullable = false)
+    private Integer leadTimeDays = 0;
+
     @Column(name = "payment_terms", nullable = false)
     private Integer paymentTerms;
 

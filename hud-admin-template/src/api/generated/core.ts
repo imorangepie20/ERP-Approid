@@ -1179,12 +1179,15 @@ export interface components {
             gapQty?: number;
             status?: string;
         };
-        PartnerRequest: {
+        PartnerCreateRequest: {
             partnerNo: string;
             name: string;
             contact?: string;
+            contactName?: string;
             /** Format: int32 */
             paymentTerms: number;
+            /** Format: int32 */
+            leadTimeDays?: number;
             partnerType: string;
         };
         PartnerResponse: {
@@ -1193,6 +1196,9 @@ export interface components {
             partnerNo?: string;
             name?: string;
             contact?: string;
+            contactName?: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
             /** Format: int32 */
             paymentTerms?: number;
             partnerType?: string;
@@ -1214,7 +1220,7 @@ export interface components {
             status?: string;
             expiringSoon?: boolean;
         };
-        ItemRequest: {
+        ItemCreateRequest: {
             /**
              * @description 품번
              * @example M-S001
@@ -1292,6 +1298,32 @@ export interface components {
             username?: string;
             name?: string;
             roles?: string[];
+        };
+        PartnerUpdateRequest: {
+            name?: string;
+            contact?: string;
+            contactName?: string;
+            /** Format: int32 */
+            paymentTerms?: number;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            partnerType?: string;
+        };
+        ItemUpdateRequest: {
+            name?: string;
+            spec?: string;
+            category?: string;
+            /**
+             * @description 제품 / 반제품 / 자재
+             * @example 자재
+             */
+            itemType?: string;
+            unit?: string;
+            /** Format: int64 */
+            price?: number;
+            safetyStock?: number;
+            /** Format: int32 */
+            leadTimeDays?: number;
         };
         Pageable: {
             /** Format: int32 */
@@ -2298,10 +2330,12 @@ export interface operations {
     };
     list_8: {
         parameters: {
-            query: {
+            query?: {
                 partnerType?: string;
                 keyword?: string;
-                pageable: components["schemas"]["Pageable"];
+                page?: number;
+                size?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;
@@ -2329,7 +2363,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PartnerRequest"];
+                "application/json": components["schemas"]["PartnerCreateRequest"];
             };
         };
         responses: {
@@ -2445,7 +2479,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ItemRequest"];
+                "application/json": components["schemas"]["ItemCreateRequest"];
             };
         };
         responses: {
@@ -2996,7 +3030,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PartnerRequest"];
+                "application/json": components["schemas"]["PartnerUpdateRequest"];
             };
         };
         responses: {
@@ -3064,7 +3098,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ItemRequest"];
+                "application/json": components["schemas"]["ItemUpdateRequest"];
             };
         };
         responses: {

@@ -8,10 +8,12 @@ import type { PurchaseOrder } from '../../store/types'
 import { useFormModal } from '../../hooks/useFormModal'
 import { useState } from 'react'
 import ReceiveModal from '../../components/purchase/ReceiveModal'
+import { usePartnerSelection } from '../../hooks/usePartnerSelection'
 
 const PurchaseOrders = () => {
     const purchaseOrders = useCollection('purchaseOrders')
-    const { items, partners, create, update, remove, receivePurchaseOrder } = useData()
+    const { items, create, update, remove, receivePurchaseOrder } = useData()
+    const partnerSelection = usePartnerSelection('발주처')
     const [receiveOpen, setReceiveOpen] = useState(false)
     const [receiveTarget, setReceiveTarget] = useState<PurchaseOrder | null>(null)
 
@@ -31,12 +33,19 @@ const PurchaseOrders = () => {
     const { openCreate, openEdit, modal, confirmDelete } = useFormModal<PurchaseOrder>({
         title: '발주',
         subtitle: '발주처·품목·수량·단가를 입력하세요.',
+        toValues: record => partnerSelection.toValues(record, 'vendorId', record.vendor),
+        validate: values => partnerSelection.find(values.vendorId) ? null : '발주처를 다시 선택하세요.',
         onCreate: values => {
+            const vendor = partnerSelection.find(values.vendorId)
+            if (!vendor) return
             const qty = Number(values.qty) || 0
             const unitPrice = Number(values.unitPrice) || 0
             create('purchaseOrders', {
                 id: nextId('PO', purchaseOrders),
-                vendor: values.vendor,
+                vendor: vendor.name,
+                vendorId: vendor.id,
+                paymentTerms: vendor.paymentTerms,
+                leadTimeDays: vendor.leadTimeDays,
                 item: values.item,
                 qty,
                 unitPrice,
@@ -47,10 +56,15 @@ const PurchaseOrders = () => {
             } as PurchaseOrder)
         },
         onUpdate: (id, values) => {
+            const vendor = partnerSelection.find(values.vendorId)
+            if (!vendor) return
             const qty = Number(values.qty) || 0
             const unitPrice = Number(values.unitPrice) || 0
             update('purchaseOrders', id, {
-                vendor: values.vendor,
+                vendor: vendor.name,
+                vendorId: vendor.id,
+                paymentTerms: vendor.paymentTerms,
+                leadTimeDays: vendor.leadTimeDays,
                 item: values.item,
                 qty,
                 unitPrice,
@@ -60,10 +74,8 @@ const PurchaseOrders = () => {
         },
         onDelete: id => remove('purchaseOrders', id),
         fields: () => [
-            {
-                key: 'vendor', label: '발주처', type: 'select', required: true,
-                options: partners.filter(p => p.type === '발주처').map(p => ({ label: p.name, value: p.name })),
-            },
+            partnerSelection.field('vendorId', '발주처', true),
+            ...partnerSelection.termsFields,
             {
                 key: 'item', label: '품목', type: 'select', required: true,
                 options: items.filter(i => i.type === '자재').map(i => ({ label: i.name, value: i.name })),
@@ -106,6 +118,7 @@ const PurchaseOrders = () => {
 
     return (
         <>
+            {partnerSelection.status}
             <DataTable<PurchaseOrder>
                 title="발주 관리"
                 subtitle={`총 ${purchaseOrders.length}건`}
@@ -114,7 +127,7 @@ const PurchaseOrders = () => {
                 rowKey="id"
                 searchPlaceholder="발주번호, 발주처, 품목 검색..."
                 toolbar={
-                    <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate}>
+                    <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate} disabled={!partnerSelection.ready}>
                         발주 등록
                     </Button>
                 }

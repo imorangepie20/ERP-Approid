@@ -4,22 +4,23 @@
 | --- | --- |
 | 분석 기준일 | 2026-10-02 (Asia/Seoul) |
 | 기준 브랜치 | `main` |
-| 최근 커밋 | `502189e feat(security): harden production configuration and recovery` |
-| 현재 판단 | 운영 기반과 인증을 갖추고 품목 목록을 첫 실데이터 화면으로 연결한 MVP 개발 단계 |
+| 최근 커밋 | `b1aa8b4 feat(items): connect item list to core API` |
+| 현재 판단 | 운영 기반·인증과 품목·거래처 마스터 CRUD 및 실제 거래처 선택 연동을 갖춘 MVP 개발 단계 |
 
 ## 1. 한눈에 보는 결론
 
 ERP-Approid는 중소 제조업의 견적·수주·생산·구매·재고·출하 흐름을 다루는 웹 ERP다.
 저장소는 React/Vite 프런트엔드와 Spring Boot 백엔드를 루트 Compose로 함께 실행한다. 인증과
-품목 목록 조회는 실제 PostgreSQL까지 연결됐고, 품목 쓰기와 나머지 업무 화면은 순차 전환 중이다.
+품목·거래처 마스터 CRUD는 실제 PostgreSQL까지 연결됐다. 견적·수주·발주의 거래처 선택도
+실제 API를 사용하지만 거래 문서 저장은 아직 DataContext이며 SAL/PUR 단계에서 전환한다.
 
 | 영역 | 상태 | 판단 근거 |
 | --- | --- | --- |
 | 프런트 UI | 주의 | 화면과 라우팅은 풍부하나 데이터는 대부분 시드/하드코딩이며 새로고침 시 초기화됨 |
 | 프런트 빌드 | 정상 | `npm run build` 성공 |
-| 프런트 품질 게이트 | 정상 | ESLint 오류 0, Vitest 80개와 프로덕션 빌드 통과 |
-| Spring 도메인 API | 구현·검증됨 | 5대 업무 흐름과 품목 목록 계약을 Testcontainers로 검증 |
-| DB | 설계·마이그레이션 있음 | PostgreSQL용 Flyway V1~V8, 18개 JPA 엔티티와 시드가 존재 |
+| 프런트 품질 게이트 | 정상 | ESLint 오류 0, Vitest 107개와 프로덕션 빌드 통과 |
+| Spring 도메인 API | 구현·검증됨 | 5대 업무 흐름과 품목 CRUD 계약을 Testcontainers로 검증 |
+| DB | 설계·마이그레이션 있음 | PostgreSQL용 Flyway V1~V9, 거래처 담당자·리드타임 추가, JPA 엔티티와 시드 존재 |
 | 인증/권한 | 구현·검증됨 | 로그인, 세션 복원·만료, 보호 라우트, 역할별 UI와 서버 권한 경계 적용 |
 | 분석 서비스 | 미구현 | 설계 문서의 `backend-fastapi`와 `/api/analytics`가 저장소에 없음 |
 | 통합 실행 환경 | 구현·검증됨 | 루트 Compose, 서비스 healthcheck, `.env.example`, 설정·복구 문서와 smoke 스크립트 존재 |
@@ -27,17 +28,17 @@ ERP-Approid는 중소 제조업의 견적·수주·생산·구매·재고·출�
 
 가장 중요한 사실은 다음 두 가지다.
 
-1. 품목 목록은 실제 Spring/PostgreSQL 조회로 전환됐다. 품목 쓰기와 나머지 업무 화면은 여전히
+1. 품목·거래처 마스터 CRUD와 거래처 선택은 실제 Spring/PostgreSQL로 전환됐다. 거래 문서와 나머지 업무 화면은 여전히
    `DataContext` 또는 화면 내부 프로토타입을 사용하므로 서버 전환이 남아 있다.
 2. `springdoc-openapi 2.8.17` 경로 패턴 회귀는 2.8.14 핀과 OpenAPI 회귀 테스트로 해결됐다.
-   이후 인증·감사·보안·복구와 품목 목록 계약 테스트가 추가돼 전체 테스트 스위트로 회귀를 막는다.
+   이후 인증·감사·보안·복구와 품목 CRUD 계약 테스트가 추가돼 전체 테스트 스위트로 회귀를 막는다.
 
 ## 2. 현재 아키텍처
 
 ```mermaid
 flowchart LR
     U[사용자 브라우저] --> F[React 18 + Vite]
-    F -->|품목 목록 REST + JWT| B[Spring Boot 3.5 Core API]
+    F -->|품목·거래처 CRUD 및 거래처 선택 REST + JWT| B[Spring Boot 3.5 Core API]
     F -->|그 외 프로토타입 화면| M[DataContext 메모리 상태]
     M --> S[seed.ts / seed2.ts]
 
@@ -52,7 +53,7 @@ flowchart LR
 ```
 
 프런트의 `src/api/`에는 Core/Analytics HTTP 클라이언트, 생성 타입, React Query 기반이 있다.
-Core API는 인증과 품목 목록에서 사용 중이며 FastAPI 분석 서비스는 아직 구현되지 않았다.
+Core API는 인증, 품목·거래처 마스터와 업무 폼의 거래처 선택에서 사용 중이며 FastAPI 분석 서비스는 아직 구현되지 않았다.
 
 ## 3. 저장소 지도
 
@@ -105,8 +106,8 @@ Node 엔진 범위는 `package.json`에 고정되어 있지 않다.
 - `src/layouts/MainLayout.tsx`: 보호 라우트 안에서 사이드바/헤더/본문을 표시한다.
 - `src/components/layout/Sidebar.tsx`: ERP 모듈별 메뉴를 구성한다.
 
-`src/pages/`의 업무 화면 중 DataContext를 사용하는 페이지는 9개다. 품목 목록은 실제 API로
-전환됐지만 쓰기 기능은 다음 단계까지 비활성화되어 있다.
+`src/pages/`의 업무 화면 중 DataContext를 사용하는 페이지는 9개다. 품목 마스터는 실제 API의
+목록·등록·수정·삭제와 ADMIN 권한 경계로 전환됐다.
 
 - BOM
 - 수주, 견적, 출하
@@ -127,7 +128,7 @@ Node 엔진 범위는 `package.json`에 고정되어 있지 않다.
   -> 같은 탭에서만 화면 반영
 ```
 
-품목 목록은 공통 HTTP 클라이언트, React Query, 생성된 OpenAPI 타입과 `AsyncState`를 사용한다.
+품목 마스터는 공통 HTTP 클라이언트, React Query, 생성된 OpenAPI 타입과 `AsyncState`를 사용한다.
 나머지 메모리 화면의 변경은 새로고침하면 `seed.ts`, `seed2.ts`의 초기 데이터로 돌아간다.
 
 ### 5.3 인증 상태
@@ -138,11 +139,15 @@ Node 엔진 범위는 `package.json`에 고정되어 있지 않다.
 
 ### 5.4 프런트 품질 상태
 
-| 명령 | 2026-10-01 결과 | 비고 |
+| 명령 | 2026-10-02 결과 | 비고 |
 | --- | --- | --- |
 | `npm run build` | 성공 | TypeScript와 Vite 프로덕션 번들 생성 |
-| `npm run lint` | 성공 | 오류 0, 기존 경고 53개 |
-| `npm run test` | 성공 | Vitest 18개 파일, 80개 테스트 |
+| `npm run lint` | 성공 | 오류 0, 경고 52개 |
+| `npm run test` | 성공 | Vitest 22개 파일, 107개 테스트 |
+
+MST-02 마일스톤에서 백엔드 전체 138개를 실행했다. 기존 인증 테스트의 거래처 유형
+입력(`고객`)이 새 검증과 맞지 않는 1건을 `고객사`로 수정했고, 인증·거래처 11개를 대상으로
+재검증해 11개 모두 통과했다. 실행 중인 서버의 등록 201·부분 수정 200·삭제 204, Flyway V9와 Compose smoke를 확인했다.
 
 ## 6. Spring 백엔드 상세
 
@@ -227,7 +232,7 @@ Spring Boot 3.5 호환 계열 안에서 2.8.14로 고정하고 `/v3/api-docs`와
 
 - RED: 2.8.17에서 새 테스트 2개 모두 동일한 `PatternParseException`으로 실패
 - GREEN: 2.8.14에서 OpenAPI 테스트 2개 통과
-- 현재 전체 검증에는 기존 업무 흐름, OpenAPI, 인증·권한, 감사·보안과 품목 목록 계약이 포함됨
+- 현재 전체 검증에는 기존 업무 흐름, OpenAPI, 인증·권한, 감사·보안과 품목 CRUD 계약이 포함됨
 - Docker 및 PostgreSQL Testcontainer 연결 성공
 
 ## 7. 설계 문서와 구현의 차이
@@ -242,7 +247,7 @@ Spring Boot 3.5 호환 계열 안에서 2.8.14로 고정하고 `/v3/api-docs`와
 | 프런트 `src/api/`, 생성 타입, 인증 HTTP 클라이언트 | 구현 |
 | `VITE_API_CORE_URL`, `VITE_API_ANALYTICS_URL` 예시 | 구현 |
 | Spring `service/`, 별도 DTO/Mapper 계층 | DTO는 있으나 컨트롤러가 Repository와 업무 로직을 직접 담당 |
-| 프런트 API 연동 완료 조건 | 인증·품목 목록 완료, 품목 쓰기와 나머지 화면 미완료 |
+| 프런트 API 연동 완료 조건 | 인증·품목·거래처 CRUD 및 거래처 선택 완료, 거래 문서 API 저장은 미완료 |
 | 전체 E2E | 미구현 |
 
 `docs/desc.md`, `docs/db-schema.md`, `docs/api-spec.md`는 요구사항과 목표 설계를 이해하는 데 유용하지만,
@@ -253,16 +258,15 @@ Spring Boot 3.5 호환 계열 안에서 2.8.14로 고정하고 `/v3/api-docs`와
 
 ### P0 — 바로 해결해야 하는 차단 항목
 
-1. **업무 화면 전환 미완료**: 품목 목록 외 화면은 사용자가 보는 프로토타입 데이터와 DB 데이터가 별개다.
+1. **업무 화면 전환 미완료**: 품목·거래처 마스터 및 거래처 선택 외 업무 데이터는 프로토타입과 DB가 별개다.
 2. **운영 토폴로지 결정 필요**: 로컬 Compose는 재현 가능하지만 실제 운영 프록시·비밀 저장소·중앙 로그 저장소는 아직 선정하지 않았다.
 
 ### P1 — 첫 통합 전에 고쳐야 할 위험
 
-1. **품목 쓰기 미연결**: ADMIN UI는 권한 경계를 유지하되 실제 mutation 연결 전까지 비활성화돼 있다.
-2. **감사 정책 적용 완료**: PLT-05에서 비동기 self-invocation을 제거하고 동기 fail-closed 정책,
+1. **감사 정책 적용 완료**: PLT-05에서 비동기 self-invocation을 제거하고 동기 fail-closed 정책,
    `AuditorAware`, trace 검증, before/after snapshot, JSON 로그와 health/metrics를 적용했다.
-3. **감사 운영 정책 후속 필요**: 장기 보존·파티셔닝·관리자 조회와 외부 로그 수집은 운영 단계에서 확정한다.
-4. **번호 생성의 다중 인스턴스 경쟁**: `DomainNumberGenerator`는 프로세스 메모리 카운터다.
+2. **감사 운영 정책 후속 필요**: 장기 보존·파티셔닝·관리자 조회와 외부 로그 수집은 운영 단계에서 확정한다.
+3. **번호 생성의 다중 인스턴스 경쟁**: `DomainNumberGenerator`는 프로세스 메모리 카운터다.
    DB 유니크 제약은 중복을 막지만 코드 주석과 달리 충돌 재시도 로직은 보이지 않는다.
 5. **운영 보안 기준선 완료**: PLT-06에서 활성 프로필과 개발 secret의 암묵적 공통 기본값을 제거하고,
    운영 secret 강도·예제값·동일값을 검증한다.
@@ -312,7 +316,7 @@ cd backend-spring
 | `JWT_SECRET` | HS256 서명 키 |
 | `INTERNAL_KEY` | 향후 FastAPI → Spring 내부 호출 키 |
 | `SPRING_PROFILES_ACTIVE` | `local`, `test`, `prod` 중 명시(기본값 없음) |
-| `CORS_ALLOWED_ORIGIN(S)` | local 단일 origin 또는 prod exact-origin 목록 |
+| `CORS_ALLOWED_ORIGINS` | local/prod exact-origin 목록(쉼표 구분) |
 
 정상 기동 후 목표 주소는 API `http://localhost:38080/api/core`, Swagger
 `http://localhost:38080/swagger-ui.html`이다. springdoc 충돌은 2.8.14 핀과 회귀 테스트로 해결되었다.
@@ -329,18 +333,17 @@ Cloudflare Tunnel을 붙인다. 호스트에는 `127.0.0.1:9080`으로만 바인
 
 ## 11. 권장 작업 순서
 
-1. **품목 쓰기 연결**: 실제 API 등록·수정·삭제, ADMIN 권한, 감사와 참조 중 삭제 409를 연결한다.
-2. **마스터 확장**: 거래처, BOM, 공정 화면을 같은 서버 상태 패턴으로 전환한다.
-3. **핵심 거래 서버화**: 견적·수주부터 생산·입고·출하 순서로 DataContext 업무 액션을 제거한다.
-4. **5대 흐름 서버화**: DataContext의 다섯 업무 액션을 순서대로 API 호출로 교체하고 중복 규칙을 제거한다.
-5. **운영 인프라 연결**: PLT-06 보안 기준선과 복구 절차는 완료했다. 실제 비밀 저장소, 원격 백업,
+1. **마스터 확장**: 거래처, BOM, 공정 화면을 같은 서버 상태 패턴으로 전환한다.
+2. **핵심 거래 서버화**: 견적·수주부터 생산·입고·출하 순서로 DataContext 업무 액션을 제거한다.
+3. **5대 흐름 서버화**: DataContext의 다섯 업무 액션을 순서대로 API 호출로 교체하고 중복 규칙을 제거한다.
+4. **운영 인프라 연결**: PLT-06 보안 기준선과 복구 절차는 완료했다. 실제 비밀 저장소, 원격 백업,
    중앙 로그 수집기와 관리자 고유 계정 발급 절차를 배포 환경에 연결한다.
-6. **품질 게이트 추가**: ESLint flat config, 프런트 단위 테스트, 백엔드 테스트, 두 빌드를 CI 필수 항목으로 둔다.
-7. **분석 서비스 범위 재확정**: 당장 필요한 KPI는 Spring SQL 집계로 시작할지, 설계대로 FastAPI를
+5. **품질 게이트 추가**: ESLint flat config, 프런트 단위 테스트, 백엔드 테스트, 두 빌드를 CI 필수 항목으로 둔다.
+6. **분석 서비스 범위 재확정**: 당장 필요한 KPI는 Spring SQL 집계로 시작할지, 설계대로 FastAPI를
    도입할지 결정한 뒤 구현한다.
 
-현재 로그인과 품목 목록 조회까지 연결됐다. 다음 현실적 완료 기준은 ADMIN이 실제 품목을
-등록·수정·삭제하고 감사·권한·409 계약을 전체 회귀 테스트와 CI로 검증하는 상태다.
+현재 로그인과 품목·거래처 마스터 CRUD, 실제 거래처 선택까지 연결됐다. 다음 현실적 완료 기준은 BOM·공정을
+동일한 서버 상태·권한·감사 패턴으로 전환하는 상태다.
 
 ## 12. 코드 규칙과 Git 관례
 

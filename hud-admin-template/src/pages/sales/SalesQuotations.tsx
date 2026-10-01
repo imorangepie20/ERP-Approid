@@ -7,21 +7,30 @@ import { useData, useCollection, nextId, formatWon, statusTone } from '../../sto
 import type { Quotation } from '../../store/types'
 import { useFormModal } from '../../hooks/useFormModal'
 import { useNavigate } from 'react-router-dom'
+import { usePartnerSelection } from '../../hooks/usePartnerSelection'
 
 const SalesQuotations = () => {
     const quotations = useCollection('quotations')
-    const { items, partners, create, update, remove, quotationToOrder } = useData()
+    const { items, create, update, remove, quotationToOrder } = useData()
+    const partnerSelection = usePartnerSelection('고객사')
     const navigate = useNavigate()
 
     const { openCreate, openEdit, modal, confirmDelete } = useFormModal<Quotation>({
         title: '견적',
         subtitle: '고객사·품목·단가·유효기간을 입력하세요.',
+        toValues: record => partnerSelection.toValues(record, 'customerId', record.customer),
+        validate: values => partnerSelection.find(values.customerId) ? null : '고객사를 다시 선택하세요.',
         onCreate: values => {
+            const customer = partnerSelection.find(values.customerId)
+            if (!customer) return
             const qty = Number(values.qty) || 0
             const unitPrice = Number(values.unitPrice) || 0
             create('quotations', {
                 id: nextId('QT', quotations),
-                customer: values.customer,
+                customer: customer.name,
+                customerId: customer.id,
+                paymentTerms: customer.paymentTerms,
+                leadTimeDays: customer.leadTimeDays,
                 item: values.item,
                 qty,
                 unitPrice,
@@ -32,10 +41,15 @@ const SalesQuotations = () => {
             } as Quotation)
         },
         onUpdate: (id, values) => {
+            const customer = partnerSelection.find(values.customerId)
+            if (!customer) return
             const qty = Number(values.qty) || 0
             const unitPrice = Number(values.unitPrice) || 0
             update('quotations', id, {
-                customer: values.customer,
+                customer: customer.name,
+                customerId: customer.id,
+                paymentTerms: customer.paymentTerms,
+                leadTimeDays: customer.leadTimeDays,
                 item: values.item,
                 qty,
                 unitPrice,
@@ -46,10 +60,8 @@ const SalesQuotations = () => {
         },
         onDelete: id => remove('quotations', id),
         fields: () => [
-            {
-                key: 'customer', label: '고객사', type: 'select', required: true,
-                options: partners.filter(p => p.type === '고객사').map(p => ({ label: p.name, value: p.name })),
-            },
+            partnerSelection.field('customerId', '고객사'),
+            ...partnerSelection.termsFields,
             {
                 key: 'item', label: '품목', type: 'select', required: true,
                 options: items.filter(i => i.type === '제품').map(i => ({ label: i.name, value: i.name })),
@@ -104,6 +116,7 @@ const SalesQuotations = () => {
 
     return (
         <>
+            {partnerSelection.status}
             <DataTable<Quotation>
                 title="견적 관리"
                 subtitle={`총 ${quotations.length}건 · 합계 ${formatWon(totalAmount)}`}
@@ -112,7 +125,7 @@ const SalesQuotations = () => {
                 rowKey="id"
                 searchPlaceholder="견적번호, 고객사, 품목 검색..."
                 toolbar={
-                    <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate}>
+                    <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate} disabled={!partnerSelection.ready}>
                         견적 등록
                     </Button>
                 }

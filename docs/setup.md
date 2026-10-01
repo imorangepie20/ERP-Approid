@@ -1,6 +1,6 @@
 # 로컬 통합 환경 실행
 
-루트 Compose는 PostgreSQL 16, Spring Boot API, React 정적 프런트를 함께 실행한다. Spring Boot가 시작될 때 Flyway가 데이터베이스 마이그레이션 V1~V8을 적용하며, 각 서비스의 healthcheck가 통과한 뒤 다음 서비스가 시작된다.
+루트 Compose는 PostgreSQL 16, Spring Boot API, React 정적 프런트를 함께 실행한다. Spring Boot가 시작될 때 Flyway가 데이터베이스 마이그레이션 V1~V9를 적용하며, 각 서비스의 healthcheck가 통과한 뒤 다음 서비스가 시작된다.
 
 > `.env.example`의 값은 로컬 개발 전용 공개 예시다. 운영 또는 공유 환경에서는 DB 비밀번호, JWT secret, internal key를 각각 새로 생성해야 한다.
 > 이 Compose는 로컬 개발 전용이다. 공유 서버나 운영 환경에 그대로 배포해서는 안 된다.
@@ -45,7 +45,7 @@ PostgreSQL 포트는 항상 5432다.
 
 ## 상태 검증
 
-세 컨테이너의 health 상태, Flyway V8 적용, 공개 Actuator health, 보안 헤더, 허용·거부 CORS,
+세 컨테이너의 health 상태, Flyway V9 적용, 공개 Actuator health, 보안 헤더, 허용·거부 CORS,
 개발 관리자 로그인, 관리자 전용 metrics, 프런트 HTTP 응답을 한 번에 검증한다.
 
 ```powershell
@@ -81,7 +81,7 @@ OpenAPI 타입 생성과 실제 호출 검증은 ANL-04에서 추가한다.
 Copy-Item .env.example .env.compose-test
 # .env.compose-test의 DB_HOST_PORT, BACKEND_HOST_PORT, FRONTEND_HOST_PORT를 빈 포트로 변경하고,
 # VITE_API_CORE_URL 포트를 BACKEND_HOST_PORT와 같은 값(아래 예시는 48080)으로 맞추고,
-# CORS_ALLOWED_ORIGIN을 프런트 주소(아래 예시는 http://127.0.0.1:43080)로 맞춘다.
+# CORS_ALLOWED_ORIGINS를 프런트 주소 목록(아래 예시는 http://127.0.0.1:43080)으로 맞춘다.
 docker compose --project-name erp-test --env-file .env.compose-test up --build --detach --wait
 & .\scripts\verify-local-compose.ps1 `
   -ProjectName erp-test `

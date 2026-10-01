@@ -9,6 +9,8 @@ import java.util.List;
 
 public interface ReceivingRepository extends JpaRepository<ReceivingEntity, Long> {
 
+    boolean existsByVendor_Id(Long vendorId);
+
     @Query("""
             select r from ReceivingEntity r
             where (:purchaseOrderId is null or r.purchaseOrder.id = :purchaseOrderId)

@@ -4,7 +4,8 @@
 현재 저장소는 React 관리 화면, Spring Boot Core API, PostgreSQL 로컬 통합 환경을 제공합니다.
 
 > 현재 개발 단계에서는 Spring Core API와 데이터베이스 업무 흐름이 구현되어 있으며,
-> 프런트 품목 목록은 실제 Spring API의 검색·정렬·페이지네이션을 사용합니다. 품목 쓰기와
+> 프런트 품목·거래처 마스터는 실제 Spring API의 검색·정렬·페이지네이션과 등록·수정·삭제를 사용합니다.
+> 견적·수주·발주 폼의 거래처 선택도 실제 API에 연결되어 있습니다.
 > 대부분의 다른 업무 화면은 아직 `DataContext` 또는 화면 내부 프로토타입 데이터를 사용합니다.
 
 ## 빠른 시작
@@ -48,7 +49,7 @@ docker compose up --build --detach --wait
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-compose.ps1
 ```
 
-검증 스크립트는 컨테이너 health, Flyway V8, Actuator health, 보안 헤더와 CORS 경계,
+검증 스크립트는 컨테이너 health, Flyway V9, Actuator health, 보안 헤더와 CORS 경계,
 관리자 로그인과 `/auth/me`, 관리자 metrics 접근, 프런트 HTTP 응답을 확인합니다.
 
 ## 현재 구현 상태
@@ -61,7 +62,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-local-c
 | PLT-04 인증과 권한 UI | 완료 | 로그인, 세션 복원·만료, 보호 라우트, 로그아웃, 역할별 UI 제어 |
 | PLT-05 감사·추적·관측성 | 완료 | 동기 fail-closed 감사, actor/trace/snapshot, JSON 로그, health/metrics |
 | PLT-06 운영 보안·설정 | 완료 | 운영 secret 검증, CORS·Swagger 분리, 보안 헤더, 요청 제한, 백업·복구 훈련 |
-| MST-01 품목 화면 연동 | 진행 중 | 실제 DB 목록·검색·정렬·페이지네이션 완료, CRUD 전환 예정 |
+| MST-01 품목 화면 연동 | 완료 | 실제 DB 목록·검색·정렬·페이지네이션·CRUD와 권한·감사 검증 |
+| MST-02 거래처 연동 | 마스터·선택 연동 완료 | `/partners` CRUD, 담당자·결제조건·리드타임, 견적·수주·발주 거래처 선택; 거래 문서 저장은 후속 SAL/PUR 단계 |
 | 분석 FastAPI | 미구현 | 분석 서비스 분리 여부를 결정한 뒤 ANL-04에서 구현 |
 
 상세한 작업 순서와 완료 조건은 [서비스 구현 로드맵](docs/SERVICE_IMPLEMENTATION_ROADMAP.md)을
@@ -92,7 +94,7 @@ Spring Core API에는 다음 업무 영역의 데이터 모델과 API가 구현�
 4. 작업오더 완료와 완제품 입고
 5. 출하 확정과 재고 감소 및 미수금 생성
 
-프런트엔드는 품목 목록을 첫 실제 API 화면으로 제공하며, 나머지 업무 화면과 품목 쓰기는
+프런트엔드는 품목·거래처 마스터 전체 CRUD와 실제 거래처 선택을 제공하며, 나머지 업무 화면은
 로드맵 순서에 따라 전환합니다.
 
 ## 아키텍처
@@ -180,7 +182,7 @@ $env:SPRING_PROFILES_ACTIVE = "local"
 | `FRONTEND_HOST_PORT` | 호스트 프런트 포트 |
 | `JWT_SECRET` | 로컬 JWT 서명 키 |
 | `INTERNAL_KEY` | 내부 API 인증 키 |
-| `CORS_ALLOWED_ORIGIN` | 로컬 Core API가 허용할 정확한 브라우저 Origin |
+| `CORS_ALLOWED_ORIGINS` | 로컬 Core API가 허용할 정확한 브라우저 Origin 목록(쉼표 구분) |
 | `LOG_MAX_SIZE`, `LOG_MAX_FILE` | 컨테이너별 로컬 로그 회전 크기와 파일 수 |
 | `VITE_API_CORE_URL` | 브라우저에서 접근할 Core API URL |
 | `VITE_API_ANALYTICS_URL` | 향후 Analytics API URL |

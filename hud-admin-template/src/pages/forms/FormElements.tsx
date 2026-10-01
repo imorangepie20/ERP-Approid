@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Eye, EyeOff, Search, Mail, Lock, User, Calendar, Upload, X } from 'lucide-react'
 import HudCard from '../../components/common/HudCard'
 import Button from '../../components/common/Button'
+import DateInput from '../../components/common/DateInput'
 
 const FormElements = () => {
     const [showPassword, setShowPassword] = useState(false)
@@ -106,8 +107,9 @@ const FormElements = () => {
                         <label className="block text-sm text-hud-text-secondary mb-2">Date Input</label>
                         <div className="relative">
                             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-hud-text-muted" size={18} />
-                            <input
+                            <DateInput
                                 type="date"
+                                aria-label="Date Input"
                                 className="w-full pl-10 pr-4 py-2.5 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-hud-text-primary placeholder-hud-text-muted focus:outline-none focus:border-hud-accent-primary transition-hud"
                             />
                         </div>

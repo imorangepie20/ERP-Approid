@@ -9,6 +9,8 @@ import java.util.List;
 
 public interface ReceivableRepository extends JpaRepository<ReceivableEntity, Long> {
 
+    boolean existsByCustomer_Id(Long customerId);
+
     @Query("""
             select r from ReceivableEntity r
             where (:status is null or r.status = :status)

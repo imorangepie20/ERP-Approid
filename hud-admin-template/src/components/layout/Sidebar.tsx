@@ -47,6 +47,7 @@ function visibleMenuItems(items: MenuItem[], roles: readonly Role[]): MenuItem[]
 const menuItems: MenuItem[] = [
     { title: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/' },
     { title: '운영분석', icon: <BarChart3 size={20} />, path: '/analytics' },
+    { title: '거래처 마스터', icon: <Users size={20} />, path: '/partners' },
     {
         title: '영업·수주',
         icon: <ShoppingBag size={20} />,

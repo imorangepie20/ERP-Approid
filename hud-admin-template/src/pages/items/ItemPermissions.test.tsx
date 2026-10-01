@@ -68,9 +68,9 @@ describe('item permissions', () => {
         const admin = renderPage(<Items />, ['ADMIN'])
         await screen.findByRole('heading', { name: '품목 마스터' })
         expect(await screen.findByText('P-A001')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: '품목 등록' })).toBeDisabled()
-        expect(screen.getAllByTitle(/수정 · 다음 단계에서 지원/).length).toBeGreaterThan(0)
-        expect(screen.getAllByTitle(/삭제 · 다음 단계에서 지원/).length).toBeGreaterThan(0)
+        expect(screen.getByRole('button', { name: '품목 등록' })).toBeEnabled()
+        expect(screen.getAllByTitle('수정').length).toBeGreaterThan(0)
+        expect(screen.getAllByTitle('삭제').length).toBeGreaterThan(0)
         admin.unmount()
         sessionStorage.clear()
 

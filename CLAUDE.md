@@ -45,7 +45,8 @@ Backend, from `backend-spring/`:
 
 ## Current Caveats
 
-- Authentication and the item list read path call the Spring API; item writes and the remaining business screens still use prototypes or memory-only DataContext.
+- Authentication, item master CRUD, partner master CRUD, and business-form partner selectors call the Spring API.
+  Sales/purchase documents and the remaining business screens still use prototypes or memory-only DataContext.
 - Login, session restoration/expiry, protected routes, logout, and role-controlled item/BOM action boundaries are implemented.
 - Many pages use hardcoded local arrays rather than DataContext.
 - `backend-fastapi/` is not implemented. Root Compose, `src/api/`, and generated Spring OpenAPI types exist.
@@ -63,13 +64,20 @@ Backend, from `backend-spring/`:
 - Return domain failures through `DomainException` and the common `ErrorResponse` shape.
 - Keep Flyway migrations append-only after they have been shared; do not use JPA schema generation.
 - Keep server state transitions authoritative; do not duplicate new business rules in React.
+- Use the common `DateInput` calendar control for editable dates; use `type: 'date'`
+  in `FormModal` fields. Keep date-only values in `YYYY-MM-DD` format.
 - Follow the existing Conventional Commit style: `feat(scope): ...`, `fix(scope): ...`, `chore: ...`.
 
 ## Testing Expectations
 
-- Run the closest relevant checks after each change.
-- For frontend changes, at minimum run `npm run build`; add tests when introducing API state.
-- For backend changes, run `.\gradlew.bat test` with Docker available.
+- Follow the proportionate verification policy in `AGENTS.md`.
+- For small, scoped changes, run only the closest relevant tests or checks; target frontend
+  test files or backend test classes/methods instead of running the full suite.
+- Run full verification only at milestone completion or immediately before committing,
+  for the affected areas. Documentation-only changes require diff checks, not app tests.
+- Broaden verification earlier only for failures or concrete evidence of wider impact;
+  briefly explain why. Reuse still-valid results instead of repeating successful checks.
+- Add or update meaningful tests when introducing API state or changing business behavior.
 - Add or update the integration flow for changes to the five core state transitions.
 - Do not describe a design document item as implemented without confirming its source files.
 

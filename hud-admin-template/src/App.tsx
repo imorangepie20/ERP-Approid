@@ -15,6 +15,7 @@ import SalesShipments from './pages/sales/SalesShipments'
 // Items & BOM
 import Items from './pages/items/Items'
 import ItemBom from './pages/items/ItemBom'
+import Partners from './pages/partners/Partners'
 
 // Production
 import ProductionPlan from './pages/production/ProductionPlan'
@@ -81,6 +82,7 @@ function App() {
                     {/* Items & BOM */}
                     <Route path="items" element={<Items />} />
                     <Route path="items/bom" element={<ItemBom />} />
+                    <Route path="partners" element={<Partners />} />
 
                     {/* Production */}
                     <Route path="production/plan" element={<ProductionPlan />} />

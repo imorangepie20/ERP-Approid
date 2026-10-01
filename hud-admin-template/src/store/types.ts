@@ -72,6 +72,9 @@ export type QuotationStatus = '작성중' | '발송완료' | '수주완료' | '�
 
 export interface Quotation {
     id: ID
+    customerId?: number
+    paymentTerms?: number
+    leadTimeDays?: number
     customer: string
     item: string
     qty: number
@@ -86,6 +89,9 @@ export type SalesStatus = '대기' | '확정' | '생산중' | '출하완료' | '
 
 export interface SalesOrder {
     id: ID
+    customerId?: number
+    paymentTerms?: number
+    leadTimeDays?: number
     quotationId?: ID
     customer: string
     item: string
@@ -149,6 +155,9 @@ export type PurchaseStatus = '발주' | '부분입고' | '입고완료' | '취�
 
 export interface PurchaseOrder {
     id: ID
+    vendorId?: number
+    paymentTerms?: number
+    leadTimeDays?: number
     vendor: string
     item: string
     qty: number

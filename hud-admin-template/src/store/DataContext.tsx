@@ -198,6 +198,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const order: SalesOrder = {
             id: newId,
             quotationId: q.id,
+            customerId: q.customerId,
+            paymentTerms: q.paymentTerms,
+            leadTimeDays: q.leadTimeDays,
             customer: q.customer,
             item: q.item,
             qty: q.qty,
@@ -394,7 +397,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             customer: sh.customer,
             order: sh.salesOrder,
             amount: sh.amount,
-            dueDate: new Date(Date.now() + (partner?.paymentTerms ?? 30) * 86400000).toISOString().slice(0, 10),
+            dueDate: new Date(Date.now() + (so?.paymentTerms ?? partner?.paymentTerms ?? 30) * 86400000).toISOString().slice(0, 10),
             overdueDays: 0,
             status: '미수',
         }

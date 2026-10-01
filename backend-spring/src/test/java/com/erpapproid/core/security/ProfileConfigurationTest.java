@@ -47,6 +47,12 @@ class ProfileConfigurationTest {
                 .isEqualTo("${CORS_ALLOWED_ORIGINS:}");
     }
 
+    @Test
+    void local_cors_defaults_allow_both_loopback_frontend_addresses() throws IOException {
+        assertThat(value(load("application-local.yml"), "app.security.cors.allowed-origins"))
+                .isEqualTo("${CORS_ALLOWED_ORIGINS:http://127.0.0.1:3000,http://localhost:3000}");
+    }
+
     private List<PropertySource<?>> load(String name) throws IOException {
         return loader.load(name, new ClassPathResource(name));
     }

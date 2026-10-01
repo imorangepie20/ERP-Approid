@@ -16,6 +16,8 @@ public interface InventoryTransactionRepository
 
     Optional<InventoryTransactionEntity> findByTxnNo(String txnNo);
 
+    boolean existsByItemId(Long itemId);
+
     @Nullable
     @Query("""
             select coalesce(sum(t.qty), 0) from InventoryTransactionEntity t

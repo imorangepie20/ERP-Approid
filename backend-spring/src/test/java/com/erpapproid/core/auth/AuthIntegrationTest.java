@@ -85,7 +85,7 @@ class AuthIntegrationTest extends IntegrationTestSupport {
         assertThat(me.getBody().get("roles")).extracting(JsonNode::asText).containsExactly("MATERIAL");
 
         ResponseEntity<JsonNode> forbidden = post("/api/core/partners", token,
-                body("partnerType", "고객", "partnerNo", "C-TOKEN-ROLE",
+                body("partnerType", "고객사", "partnerNo", "C-TOKEN-ROLE",
                         "name", "권한 갱신 테스트", "paymentTerms", 30));
         assertThat(forbidden.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(forbidden.getBody()).isNotNull();

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Calendar, Clock, Users, Plus, Search, Filter } from 'lucide-react'
 import HudCard from '../../components/common/HudCard'
 import Button from '../../components/common/Button'
+import DateInput from '../../components/common/DateInput'
 
 const timeSlots = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00']
 
@@ -123,8 +124,9 @@ const PosTableBooking = () => {
                             <Calendar size={20} className="text-hud-accent-primary" />
                             <span className="font-semibold text-hud-text-primary">Select Date</span>
                         </div>
-                        <input
+                        <DateInput
                             type="date"
+                            aria-label="예약일"
                             value={selectedDate}
                             onChange={(e) => setSelectedDate(e.target.value)}
                             className="w-full px-4 py-2.5 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-hud-text-primary focus:outline-none focus:border-hud-accent-primary transition-hud"

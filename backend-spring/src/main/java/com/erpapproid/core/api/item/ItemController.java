@@ -21,8 +21,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.erpapproid.core.api.item.ItemDto.Request;
+import com.erpapproid.core.api.item.ItemDto.CreateRequest;
 import com.erpapproid.core.api.item.ItemDto.Response;
+import com.erpapproid.core.api.item.ItemDto.UpdateRequest;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
@@ -86,7 +87,7 @@ public class ItemController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
-    public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
+    public ResponseEntity<Response> create(@Valid @RequestBody CreateRequest request) {
         if (itemRepository.existsByItemNo(request.getItemNo())) {
             throw new DomainException(ErrorCode.ITEM_NO_DUPLICATE,
                     "이미 존재하는 품번입니다: " + request.getItemNo());
@@ -113,7 +114,10 @@ public class ItemController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
-    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
+    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody UpdateRequest request) {
+        if (!request.hasChanges()) {
+            throw invalidInput("At least one item field must be provided.");
+        }
         ItemEntity entity = itemRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
                         "품목을 찾을 수 없습니다: " + id));
@@ -136,7 +140,7 @@ public class ItemController {
         if (bomRepository.countByParentId(id) > 0 || bomRepository.countByChildId(id) > 0) {
             throw new DomainException(ErrorCode.ITEM_IN_USE, "BOM 참조 중인 품목은 삭제할 수 없습니다.");
         }
-        if (inventoryTransactionRepository.sumQtyByItemId(id).compareTo(BigDecimal.ZERO) != 0) {
+        if (inventoryTransactionRepository.existsByItemId(id)) {
             throw new DomainException(ErrorCode.ITEM_IN_USE,
                     "재고 이력이 있는 품목은 삭제할 수 없습니다.");
         }
@@ -146,7 +150,7 @@ public class ItemController {
         return ResponseEntity.noContent().build();
     }
 
-    private void applyRequest(ItemEntity entity, Request request) {
+    private void applyRequest(ItemEntity entity, UpdateRequest request) {
         if (request.getName() != null) {
             entity.setName(request.getName());
         }

@@ -40,16 +40,20 @@ class SecurityHeadersIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
-    void accepts_only_configured_cors_origin_and_does_not_allow_credentials() {
-        ResponseEntity<String> allowed = preflight("http://127.0.0.1:3000");
+    void accepts_only_configured_cors_origins_and_does_not_allow_credentials() {
+        ResponseEntity<String> loopbackIp = preflight("http://127.0.0.1:3000");
+        ResponseEntity<String> localhost = preflight("http://localhost:3000");
         ResponseEntity<String> denied = preflight("https://attacker.example");
 
-        assertThat(allowed.getStatusCode().value()).isEqualTo(200);
-        assertThat(allowed.getHeaders().getAccessControlAllowOrigin())
+        assertThat(loopbackIp.getStatusCode().value()).isEqualTo(200);
+        assertThat(loopbackIp.getHeaders().getAccessControlAllowOrigin())
                 .isEqualTo("http://127.0.0.1:3000");
-        assertThat(allowed.getHeaders().getAccessControlAllowCredentials()).isFalse();
-        assertThat(allowed.getHeaders().getAccessControlAllowHeaders())
+        assertThat(loopbackIp.getHeaders().getAccessControlAllowCredentials()).isFalse();
+        assertThat(loopbackIp.getHeaders().getAccessControlAllowHeaders())
                 .containsExactlyInAnyOrder("Authorization", "Content-Type", "X-Trace-Id");
+        assertThat(localhost.getStatusCode().value()).isEqualTo(200);
+        assertThat(localhost.getHeaders().getAccessControlAllowOrigin())
+                .isEqualTo("http://localhost:3000");
         assertThat(denied.getStatusCode().value()).isEqualTo(403);
         assertThat(denied.getHeaders().getAccessControlAllowOrigin()).isNull();
     }

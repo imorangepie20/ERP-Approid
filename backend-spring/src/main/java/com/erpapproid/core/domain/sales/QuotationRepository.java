@@ -9,6 +9,8 @@ import java.util.Optional;
 
 public interface QuotationRepository extends JpaRepository<QuotationEntity, Long> {
 
+    boolean existsByCustomer_Id(Long customerId);
+
     Optional<QuotationEntity> findByQuotationNo(String quotationNo);
 
     @Query("""

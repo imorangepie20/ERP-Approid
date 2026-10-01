@@ -9,6 +9,8 @@ import java.util.Optional;
 
 public interface ShipmentRepository extends JpaRepository<ShipmentEntity, Long> {
 
+    boolean existsByCustomer_Id(Long customerId);
+
     Optional<ShipmentEntity> findByShipmentNo(String shipmentNo);
 
     @Query("""

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Calendar, Clock, Tag, Hash, AtSign, DollarSign, Star } from 'lucide-react'
 import HudCard from '../../components/common/HudCard'
 import Button from '../../components/common/Button'
+import DateInput from '../../components/common/DateInput'
 
 const FormPlugins = () => {
     const [selectedDate, setSelectedDate] = useState('2026-01-15')
@@ -35,8 +36,9 @@ const FormPlugins = () => {
                         <label className="block text-sm text-hud-text-secondary mb-2">Date Picker</label>
                         <div className="relative">
                             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-hud-text-muted" size={18} />
-                            <input
+                            <DateInput
                                 type="date"
+                                aria-label="Date Picker"
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2.5 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-hud-text-primary focus:outline-none focus:border-hud-accent-primary transition-hud"
@@ -56,8 +58,9 @@ const FormPlugins = () => {
                     </div>
                     <div>
                         <label className="block text-sm text-hud-text-secondary mb-2">DateTime Picker</label>
-                        <input
+                        <DateInput
                             type="datetime-local"
+                            aria-label="DateTime Picker"
                             defaultValue="2026-01-15T09:30"
                             className="w-full px-4 py-2.5 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-hud-text-primary focus:outline-none focus:border-hud-accent-primary transition-hud"
                         />

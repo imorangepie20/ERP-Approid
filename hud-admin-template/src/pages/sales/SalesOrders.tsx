@@ -6,20 +6,29 @@ import RowActions from '../../components/common/RowActions'
 import { useData, useCollection, nextId, formatWon, statusTone } from '../../store/DataContext'
 import type { SalesOrder } from '../../store/types'
 import { useFormModal } from '../../hooks/useFormModal'
+import { usePartnerSelection } from '../../hooks/usePartnerSelection'
 
 const SalesOrders = () => {
     const orders = useCollection('salesOrders')
-    const { items, partners, create, update, remove, confirmSalesOrder } = useData()
+    const { items, create, update, remove, confirmSalesOrder } = useData()
+    const partnerSelection = usePartnerSelection('고객사')
 
     const { openCreate, openEdit, modal, confirmDelete } = useFormModal<SalesOrder>({
         title: '수주',
         subtitle: '고객사·품목·수량·납기를 입력하세요.',
+        toValues: record => partnerSelection.toValues(record, 'customerId', record.customer),
+        validate: values => partnerSelection.find(values.customerId) ? null : '고객사를 다시 선택하세요.',
         onCreate: values => {
+            const customer = partnerSelection.find(values.customerId)
+            if (!customer) return
             const qty = Number(values.qty) || 0
             const unitPrice = Number(values.unitPrice) || 0
             create('salesOrders', {
                 id: nextId('SO', orders),
-                customer: values.customer,
+                customer: customer.name,
+                customerId: customer.id,
+                paymentTerms: customer.paymentTerms,
+                leadTimeDays: customer.leadTimeDays,
                 item: values.item,
                 qty,
                 unitPrice,
@@ -30,10 +39,15 @@ const SalesOrders = () => {
             } as SalesOrder)
         },
         onUpdate: (id, values) => {
+            const customer = partnerSelection.find(values.customerId)
+            if (!customer) return
             const qty = Number(values.qty) || 0
             const unitPrice = Number(values.unitPrice) || 0
             update('salesOrders', id, {
-                customer: values.customer,
+                customer: customer.name,
+                customerId: customer.id,
+                paymentTerms: customer.paymentTerms,
+                leadTimeDays: customer.leadTimeDays,
                 item: values.item,
                 qty,
                 unitPrice,
@@ -43,10 +57,8 @@ const SalesOrders = () => {
         },
         onDelete: id => remove('salesOrders', id),
         fields: () => [
-            {
-                key: 'customer', label: '고객사', type: 'select', required: true,
-                options: partners.filter(p => p.type === '고객사').map(p => ({ label: p.name, value: p.name })),
-            },
+            partnerSelection.field('customerId', '고객사'),
+            ...partnerSelection.termsFields,
             {
                 key: 'item', label: '품목', type: 'select', required: true,
                 options: items.filter(i => i.type === '제품').map(i => ({ label: i.name, value: i.name })),
@@ -100,6 +112,7 @@ const SalesOrders = () => {
 
     return (
         <>
+            {partnerSelection.status}
             <DataTable<SalesOrder>
                 title="수주 현황"
                 subtitle={`총 ${orders.length}건 · 유효 금액 ${formatWon(totalAmount)}`}
@@ -108,7 +121,7 @@ const SalesOrders = () => {
                 rowKey="id"
                 searchPlaceholder="수주번호, 고객사, 품목 검색..."
                 toolbar={
-                    <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate}>
+                    <Button variant="primary" glow leftIcon={<Plus size={18} />} onClick={openCreate} disabled={!partnerSelection.ready}>
                         수주 등록
                     </Button>
                 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createHttpClient } from './http'
-import { fetchItemPage } from './items'
+import { createItem, deleteItem, fetchItemPage, updateItem } from './items'
 
 const validPage = {
     content: [{
@@ -140,5 +140,91 @@ describe('items API', () => {
             totalElements: 11,
             totalPages: 2,
         })
+    })
+})
+
+describe('item mutations', () => {
+    it('creates an item with the documented request body and normalizes the response', async () => {
+        const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+            expect(init?.method).toBe('POST')
+            expect(JSON.parse(String(init?.body))).toEqual({
+                itemNo: 'T-001',
+                name: '테스트 품목',
+                spec: 'SPEC',
+                category: '테스트',
+                itemType: '자재',
+                unit: 'EA',
+                price: 1000,
+                safetyStock: 5,
+                leadTimeDays: 2,
+            })
+            return Response.json({
+                id: 91,
+                itemNo: 'T-001',
+                name: '테스트 품목',
+                spec: 'SPEC',
+                category: '테스트',
+                itemType: '자재',
+                unit: 'EA',
+                price: 1000,
+                stock: 0,
+                safetyStock: 5,
+                leadTimeDays: 2,
+            }, { status: 201 })
+        })
+        const client = createHttpClient({ baseUrl: 'https://core.example.test/api/core', fetch: fetchMock })
+
+        const result = await createItem(client, {
+            itemNo: 'T-001',
+            name: '테스트 품목',
+            spec: 'SPEC',
+            category: '테스트',
+            itemType: '자재',
+            unit: 'EA',
+            price: 1000,
+            safetyStock: 5,
+            leadTimeDays: 2,
+        })
+
+        expect(new URL(String(fetchMock.mock.calls[0][0])).pathname).toBe('/api/core/items')
+        expect(result).toMatchObject({ id: 91, itemNo: 'T-001', stock: 0 })
+    })
+
+    it('partially updates an item without sending its immutable item number', async () => {
+        const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+            expect(init?.method).toBe('PATCH')
+            expect(JSON.parse(String(init?.body))).toEqual({ price: 2000, safetyStock: 8 })
+            return Response.json({
+                id: 91,
+                itemNo: 'T-001',
+                name: '테스트 품목',
+                spec: '',
+                category: '',
+                itemType: '자재',
+                unit: 'EA',
+                price: 2000,
+                stock: 0,
+                safetyStock: 8,
+                leadTimeDays: 2,
+            })
+        })
+        const client = createHttpClient({ baseUrl: 'https://core.example.test/api/core', fetch: fetchMock })
+
+        const result = await updateItem(client, 91, { price: 2000, safetyStock: 8 })
+
+        expect(new URL(String(fetchMock.mock.calls[0][0])).pathname).toBe('/api/core/items/91')
+        expect(result.price).toBe(2000)
+    })
+
+    it('deletes an item by numeric database id', async () => {
+        const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+            expect(init?.method).toBe('DELETE')
+            return new Response(null, { status: 204 })
+        })
+        const client = createHttpClient({ baseUrl: 'https://core.example.test/api/core', fetch: fetchMock })
+
+        await deleteItem(client, 91)
+
+        expect(new URL(String(fetchMock.mock.calls[0][0])).pathname).toBe('/api/core/items/91')
     })
 })
