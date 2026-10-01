@@ -10,6 +10,9 @@ import {
 } from 'lucide-react'
 import HudCard from './HudCard'
 import Button from './Button'
+import { AsyncState, type AsyncStateProps } from './AsyncState'
+
+export type DataTableSortDirection = 'asc' | 'desc'
 
 export interface DataTableColumn<T> {
     key: string
@@ -18,6 +21,22 @@ export interface DataTableColumn<T> {
     sortable?: boolean
     className?: string
 }
+
+export interface DataTableRemoteState {
+    searchQuery: string
+    currentPage: number
+    rowsPerPage: number
+    totalElements: number
+    totalPages: number
+    sortColumn: string | null
+    sortDirection: DataTableSortDirection
+    onSearchQueryChange: (value: string) => void
+    onPageChange: (page: number) => void
+    onRowsPerPageChange: (size: number) => void
+    onSortChange?: (column: string, direction: DataTableSortDirection) => void
+}
+
+type DataTableAsyncState = Pick<AsyncStateProps, 'isLoading' | 'error' | 'onRetry' | 'loadingMessage' | 'emptyMessage'>
 
 interface DataTableProps<T extends Record<string, any>> {
     title?: string
@@ -28,6 +47,9 @@ interface DataTableProps<T extends Record<string, any>> {
     searchPlaceholder?: string
     initialPageSize?: number
     toolbar?: ReactNode
+    filter?: ReactNode
+    remote?: DataTableRemoteState
+    asyncState?: DataTableAsyncState
 }
 
 function DataTable<T extends Record<string, any>>({
@@ -39,6 +61,9 @@ function DataTable<T extends Record<string, any>>({
     searchPlaceholder = '검색...',
     initialPageSize = 10,
     toolbar,
+    filter,
+    remote,
+    asyncState,
 }: DataTableProps<T>) {
     const [searchQuery, setSearchQuery] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
@@ -46,7 +71,14 @@ function DataTable<T extends Record<string, any>>({
     const [sortColumn, setSortColumn] = useState<string | null>(null)
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
+    const effectiveSearchQuery = remote?.searchQuery ?? searchQuery
+    const effectiveCurrentPage = remote?.currentPage ?? currentPage
+    const effectiveRowsPerPage = remote?.rowsPerPage ?? rowsPerPage
+    const effectiveSortColumn = remote?.sortColumn ?? sortColumn
+    const effectiveSortDirection = remote?.sortDirection ?? sortDirection
+
     const filteredData = useMemo(() => {
+        if (remote) return data
         if (!searchQuery.trim()) return data
         const q = searchQuery.toLowerCase()
         return data.filter(row =>
@@ -55,10 +87,10 @@ function DataTable<T extends Record<string, any>>({
                 return raw !== undefined && raw !== null && String(raw).toLowerCase().includes(q)
             })
         )
-    }, [data, searchQuery, columns])
+    }, [data, searchQuery, columns, remote])
 
     const sortedData = useMemo(() => {
-        if (!sortColumn) return filteredData
+        if (remote || !sortColumn) return filteredData
         return [...filteredData].sort((a, b) => {
             const aValue = a[sortColumn]
             const bValue = b[sortColumn]
@@ -69,15 +101,26 @@ function DataTable<T extends Record<string, any>>({
             if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
             return 0
         })
-    }, [filteredData, sortColumn, sortDirection])
+    }, [filteredData, sortColumn, sortDirection, remote])
 
-    const totalPages = Math.max(1, Math.ceil(sortedData.length / rowsPerPage))
-    const paginatedData = sortedData.slice(
-        (currentPage - 1) * rowsPerPage,
-        currentPage * rowsPerPage
-    )
+    const totalPages = Math.max(1, remote?.totalPages ?? Math.ceil(sortedData.length / rowsPerPage))
+    const paginatedData = remote
+        ? sortedData
+        : sortedData.slice(
+            (currentPage - 1) * rowsPerPage,
+            currentPage * rowsPerPage,
+        )
+    const totalElements = remote?.totalElements ?? sortedData.length
 
     const handleSort = (column: string) => {
+        if (remote) {
+            if (!remote.onSortChange) return
+            remote.onSortChange(
+                column,
+                effectiveSortColumn === column && effectiveSortDirection === 'asc' ? 'desc' : 'asc',
+            )
+            return
+        }
         if (sortColumn === column) {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
         } else {
@@ -106,10 +149,16 @@ function DataTable<T extends Record<string, any>>({
                     <div className="flex items-center gap-3">
                         <span className="text-sm text-hud-text-secondary">표시</span>
                         <select
-                            value={rowsPerPage}
+                            aria-label="페이지당 표시 건수"
+                            value={effectiveRowsPerPage}
                             onChange={(e) => {
-                                setRowsPerPage(Number(e.target.value))
-                                setCurrentPage(1)
+                                const size = Number(e.target.value)
+                                if (remote) {
+                                    remote.onRowsPerPageChange(size)
+                                } else {
+                                    setRowsPerPage(size)
+                                    setCurrentPage(1)
+                                }
                             }}
                             className="px-3 py-1.5 bg-hud-bg-primary border border-hud-border-secondary rounded text-sm text-hud-text-primary focus:outline-none focus:border-hud-accent-primary"
                         >
@@ -126,18 +175,24 @@ function DataTable<T extends Record<string, any>>({
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-hud-text-muted" size={16} />
                             <input
                                 type="text"
-                                value={searchQuery}
+                                value={effectiveSearchQuery}
                                 onChange={(e) => {
-                                    setSearchQuery(e.target.value)
-                                    setCurrentPage(1)
+                                    if (remote) {
+                                        remote.onSearchQueryChange(e.target.value)
+                                    } else {
+                                        setSearchQuery(e.target.value)
+                                        setCurrentPage(1)
+                                    }
                                 }}
                                 placeholder={searchPlaceholder}
                                 className="w-full pl-9 pr-4 py-2 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-sm text-hud-text-primary placeholder-hud-text-muted focus:outline-none focus:border-hud-accent-primary transition-hud"
                             />
                         </div>
-                        <Button variant="outline" size="sm" leftIcon={<Filter size={14} />}>
-                            필터
-                        </Button>
+                        {filter ?? (
+                            <Button variant="outline" size="sm" leftIcon={<Filter size={14} />}>
+                                필터
+                            </Button>
+                        )}
                         <Button variant="outline" size="sm" leftIcon={<Download size={14} />}>
                             내보내기
                         </Button>
@@ -149,29 +204,53 @@ function DataTable<T extends Record<string, any>>({
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-hud-border-secondary bg-hud-bg-primary">
-                                {columns.map((col) => (
+                                {columns.map((col) => {
+                                    const sortable = col.sortable !== false && (!remote || !!remote.onSortChange)
+                                    const activeSort = effectiveSortColumn === col.key
+                                    const ariaSort = sortable
+                                        ? activeSort
+                                            ? effectiveSortDirection === 'asc' ? 'ascending' : 'descending'
+                                            : 'none'
+                                        : undefined
+                                    return (
                                     <th
                                         key={col.key}
-                                        onClick={() => col.sortable !== false && handleSort(col.key)}
-                                        className={`text-left px-4 py-3 text-xs font-medium text-hud-text-muted uppercase tracking-wider ${col.sortable !== false ? 'cursor-pointer hover:text-hud-text-primary' : ''} transition-hud ${col.className ?? ''}`}
+                                        aria-label={col.label}
+                                        aria-sort={ariaSort}
+                                        className={`text-left px-4 py-3 text-xs font-medium text-hud-text-muted uppercase tracking-wider transition-hud ${col.className ?? ''}`}
                                     >
-                                        <div className="flex items-center gap-1">
-                                            {col.label}
-                                            {col.sortable !== false && (
-                                                <span className={`${sortColumn === col.key ? 'text-hud-accent-primary' : 'text-hud-text-muted'}`}>
-                                                    {sortColumn === col.key && sortDirection === 'asc' ? '↑' : '↓'}
+                                        {sortable ? (
+                                            <button
+                                                type="button"
+                                                aria-label={`${col.label} 정렬`}
+                                                onClick={() => handleSort(col.key)}
+                                                className="flex items-center gap-1 hover:text-hud-text-primary"
+                                            >
+                                                <span aria-hidden="true">{col.label}</span>
+                                                <span aria-hidden="true" className={activeSort ? 'text-hud-accent-primary' : 'text-hud-text-muted'}>
+                                                    {activeSort && effectiveSortDirection === 'asc' ? '↑' : '↓'}
                                                 </span>
-                                            )}
-                                        </div>
+                                            </button>
+                                        ) : (
+                                            <span>{col.label}</span>
+                                        )}
                                     </th>
-                                ))}
+                                    )
+                                })}
                             </tr>
                         </thead>
                         <tbody>
-                            {paginatedData.length === 0 ? (
+                            {asyncState?.isLoading || asyncState?.error || paginatedData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-hud-text-muted">
-                                        데이터가 없습니다.
+                                    <td colSpan={columns.length}>
+                                        <AsyncState
+                                            isLoading={asyncState?.isLoading}
+                                            error={asyncState?.error}
+                                            onRetry={asyncState?.onRetry}
+                                            loadingMessage={asyncState?.loadingMessage}
+                                            isEmpty={!asyncState?.isLoading && !asyncState?.error && paginatedData.length === 0}
+                                            emptyMessage={asyncState?.emptyMessage ?? '데이터가 없습니다.'}
+                                        />
                                     </td>
                                 </tr>
                             ) : (
@@ -192,23 +271,27 @@ function DataTable<T extends Record<string, any>>({
                 {/* Pagination */}
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-t border-hud-border-secondary">
                     <div className="text-sm text-hud-text-secondary">
-                        {sortedData.length > 0
-                            ? `${((currentPage - 1) * rowsPerPage) + 1}~${Math.min(currentPage * rowsPerPage, sortedData.length)} / 총 ${sortedData.length}건`
+                        {totalElements > 0
+                            ? `${((effectiveCurrentPage - 1) * effectiveRowsPerPage) + 1}~${Math.min(((effectiveCurrentPage - 1) * effectiveRowsPerPage) + paginatedData.length, totalElements)} / 총 ${totalElements}건`
                             : '데이터 없음'}
-                        {searchQuery && ` (필터됨: 원본 ${data.length}건)`}
+                        {!remote && searchQuery && ` (필터됨: 원본 ${data.length}건)`}
                     </div>
 
                     <div className="flex items-center gap-1">
                         <button
-                            onClick={() => setCurrentPage(1)}
-                            disabled={currentPage === 1}
+                            type="button"
+                            aria-label="첫 페이지"
+                            onClick={() => remote ? remote.onPageChange(1) : setCurrentPage(1)}
+                            disabled={effectiveCurrentPage === 1}
                             className="p-2 rounded hover:bg-hud-bg-hover text-hud-text-muted hover:text-hud-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-hud"
                         >
                             <ChevronsLeft size={16} />
                         </button>
                         <button
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
+                            type="button"
+                            aria-label="이전 페이지"
+                            onClick={() => remote ? remote.onPageChange(Math.max(1, effectiveCurrentPage - 1)) : setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={effectiveCurrentPage === 1}
                             className="p-2 rounded hover:bg-hud-bg-hover text-hud-text-muted hover:text-hud-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-hud"
                         >
                             <ChevronLeft size={16} />
@@ -217,18 +300,19 @@ function DataTable<T extends Record<string, any>>({
                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                             let pageNum = i + 1
                             if (totalPages > 5) {
-                                if (currentPage > 3) {
-                                    pageNum = currentPage - 2 + i
+                                if (effectiveCurrentPage > 3) {
+                                    pageNum = effectiveCurrentPage - 2 + i
                                 }
-                                if (currentPage > totalPages - 2) {
+                                if (effectiveCurrentPage > totalPages - 2) {
                                     pageNum = totalPages - 4 + i
                                 }
                             }
                             return (
                                 <button
                                     key={pageNum}
-                                    onClick={() => setCurrentPage(pageNum)}
-                                    className={`w-8 h-8 rounded text-sm transition-hud ${currentPage === pageNum
+                                    type="button"
+                                    onClick={() => remote ? remote.onPageChange(pageNum) : setCurrentPage(pageNum)}
+                                    className={`w-8 h-8 rounded text-sm transition-hud ${effectiveCurrentPage === pageNum
                                         ? 'bg-hud-accent-primary text-hud-bg-primary'
                                         : 'hover:bg-hud-bg-hover text-hud-text-secondary hover:text-hud-text-primary'
                                         }`}
@@ -239,15 +323,19 @@ function DataTable<T extends Record<string, any>>({
                         })}
 
                         <button
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                            disabled={currentPage === totalPages || totalPages === 0}
+                            type="button"
+                            aria-label="다음 페이지"
+                            onClick={() => remote ? remote.onPageChange(Math.min(totalPages, effectiveCurrentPage + 1)) : setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={effectiveCurrentPage === totalPages || totalElements === 0}
                             className="p-2 rounded hover:bg-hud-bg-hover text-hud-text-muted hover:text-hud-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-hud"
                         >
                             <ChevronRight size={16} />
                         </button>
                         <button
-                            onClick={() => setCurrentPage(totalPages)}
-                            disabled={currentPage === totalPages || totalPages === 0}
+                            type="button"
+                            aria-label="마지막 페이지"
+                            onClick={() => remote ? remote.onPageChange(totalPages) : setCurrentPage(totalPages)}
+                            disabled={effectiveCurrentPage === totalPages || totalElements === 0}
                             className="p-2 rounded hover:bg-hud-bg-hover text-hud-text-muted hover:text-hud-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-hud"
                         >
                             <ChevronsRight size={16} />

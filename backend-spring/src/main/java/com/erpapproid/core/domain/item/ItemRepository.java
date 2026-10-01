@@ -16,8 +16,9 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
     @Query("""
             select i from ItemEntity i
             where (:itemType is null or i.itemType = :itemType)
-              and (:keyword is null or lower(i.name) like lower(concat('%', :keyword, '%'))
-                   or lower(i.itemNo) like lower(concat('%', :keyword, '%')))
+              and (:keyword is null
+                   or lower(i.name) like lower(concat('%', cast(:keyword as string), '%')) escape '!'
+                   or lower(i.itemNo) like lower(concat('%', cast(:keyword as string), '%')) escape '!')
             """)
     Page<ItemEntity> search(String itemType, String keyword, Pageable pageable);
 }

@@ -45,8 +45,8 @@ Backend, from `backend-spring/`:
 
 ## Current Caveats
 
-- Authentication calls the Spring API; business screens still use memory-only DataContext until MST-01 onward.
-- Login, session restoration/expiry, protected routes, logout, and the first role-controlled item/BOM actions are implemented.
+- Authentication and the item list read path call the Spring API; item writes and the remaining business screens still use prototypes or memory-only DataContext.
+- Login, session restoration/expiry, protected routes, logout, and role-controlled item/BOM action boundaries are implemented.
 - Many pages use hardcoded local arrays rather than DataContext.
 - `backend-fastapi/` is not implemented. Root Compose, `src/api/`, and generated Spring OpenAPI types exist.
 - Springdoc is pinned to 2.8.14 because 2.8.17 breaks Spring MVC resource path initialization;

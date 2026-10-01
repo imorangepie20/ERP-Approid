@@ -2,7 +2,7 @@ import type { PropsWithChildren, ReactNode } from 'react'
 
 import { ApiError } from '../../api/http'
 
-interface AsyncStateProps extends PropsWithChildren {
+export interface AsyncStateProps extends PropsWithChildren {
     isLoading?: boolean
     isEmpty?: boolean
     error?: unknown

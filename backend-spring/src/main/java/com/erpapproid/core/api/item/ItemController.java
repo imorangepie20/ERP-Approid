@@ -1,10 +1,12 @@
 package com.erpapproid.core.api.item;
 
 import java.math.BigDecimal;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -41,6 +43,15 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ItemController {
 
+    private static final int MAX_KEYWORD_LENGTH = 128;
+    private static final int MAX_ITEM_TYPE_LENGTH = 16;
+    private static final int MAX_PAGE_INDEX = 10_000;
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Set<String> ALLOWED_ITEM_TYPES = Set.of(
+            "\uC81C\uD488", "\uBC18\uC81C\uD488", "\uC790\uC7AC");
+    private static final Set<String> ALLOWED_SORT_PROPERTIES = Set.of(
+            "itemNo", "name", "spec", "itemType", "unit", "price", "stock", "safetyStock");
+
     private final ItemRepository itemRepository;
     private final BomRepository bomRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
@@ -51,9 +62,15 @@ public class ItemController {
     public ResponseEntity<Page<Response>> list(
             @RequestParam(required = false) String itemType,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 20) Pageable pageable) {
-        Page<ItemEntity> page = itemRepository.search(itemType, keyword, pageable);
-        return ResponseEntity.ok(page.map(this::toResponse));
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "itemNo,asc") String sort) {
+        validateKeyword(keyword);
+        String normalizedItemType = normalizeItemType(itemType);
+        Pageable pageable = createPageable(page, size, sort);
+        String escapedKeyword = escapeLikeKeyword(keyword);
+        Page<ItemEntity> result = itemRepository.search(normalizedItemType, escapedKeyword, pageable);
+        return ResponseEntity.ok(result.map(this::toResponse));
     }
 
     @Operation(summary = "품목 상세")
@@ -154,6 +171,62 @@ public class ItemController {
         if (request.getLeadTimeDays() != null) {
             entity.setLeadTimeDays(request.getLeadTimeDays());
         }
+    }
+
+    private void validateKeyword(String keyword) {
+        if (keyword != null && keyword.length() > MAX_KEYWORD_LENGTH) {
+            throw invalidInput("keyword must not exceed 128 characters.");
+        }
+    }
+
+    private String normalizeItemType(String itemType) {
+        if (itemType == null || itemType.isBlank()) {
+            return null;
+        }
+        if (itemType.length() > MAX_ITEM_TYPE_LENGTH || !ALLOWED_ITEM_TYPES.contains(itemType)) {
+            throw invalidInput("Unsupported item type.");
+        }
+        return itemType;
+    }
+
+    private Pageable createPageable(int page, int size, String sort) {
+        if (page < 0 || page > MAX_PAGE_INDEX) {
+            throw invalidInput("page must be between 0 and 10000.");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw invalidInput("size must be between 1 and 100.");
+        }
+
+        String[] sortParts = sort.split(",", -1);
+        if (sortParts.length != 2 || !ALLOWED_SORT_PROPERTIES.contains(sortParts[0])) {
+            throw invalidInput("Unsupported item sort.");
+        }
+
+        Sort.Direction direction;
+        try {
+            direction = Sort.Direction.fromString(sortParts[1]);
+        } catch (IllegalArgumentException ex) {
+            throw invalidInput("Unsupported item sort direction.");
+        }
+        Sort requestedSort = Sort.by(direction, sortParts[0]);
+        Sort stableSort = "itemNo".equals(sortParts[0])
+                ? requestedSort
+                : requestedSort.and(Sort.by(Sort.Direction.ASC, "itemNo"));
+        return PageRequest.of(page, size, stableSort);
+    }
+
+    private String escapeLikeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        return keyword
+                .replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_");
+    }
+
+    private DomainException invalidInput(String message) {
+        return new DomainException(ErrorCode.INVALID_INPUT, message);
     }
 
     private Response toResponse(ItemEntity entity) {
