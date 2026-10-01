@@ -17,8 +17,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.erpapproid.core.domain.user.RoleEntity;
@@ -31,14 +29,12 @@ import com.erpapproid.core.domain.user.UserRepository;
  * Flyway V1~V7 마이그레이션과 시드 데이터가 그대로 적용된다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
 public abstract class IntegrationTestSupport {
 
     protected static final String ADMIN_USERNAME = "admin";
     protected static final String ADMIN_PASSWORD = "admin123";
     private static final String DEFAULT_NAME = "테스트 사용자";
 
-    @Container
     protected static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("erp_approid")

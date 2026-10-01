@@ -68,6 +68,10 @@ public class JwtTokenProvider {
         return parse(token).getPayload();
     }
 
+    public long getExpirationSeconds() {
+        return properties.getJwt().getExpirationMinutes() * 60L;
+    }
+
     @Async
     public void logTokenIssue(String username) {
         log.debug("JWT issued for user {}", username);

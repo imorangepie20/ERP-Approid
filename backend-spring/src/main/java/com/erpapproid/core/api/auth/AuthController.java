@@ -46,7 +46,7 @@ public class AuthController {
         return ResponseEntity.ok(LoginResponse.builder()
                 .accessToken(token)
                 .tokenType("Bearer")
-                .expiresIn(3600)
+                .expiresIn(jwtTokenProvider.getExpirationSeconds())
                 .user(UserResponse.builder()
                         .id(principal.getId())
                         .username(principal.getUsername())
