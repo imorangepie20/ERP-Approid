@@ -226,36 +226,57 @@ FastAPI 집계 엔드포인트는 페이지네이션 없이 전체 집계를 반
 
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/quotations` | 인증 | 쿼리: `status`, `keyword` |
-| POST | `/quotations` | `SALES` | 생성. 상태 `작성중` |
+| GET | `/quotations` | 인증 | 페이지 응답. `status`, `customerId`, `keyword`, `page`, `size`, `sort` |
+| POST | `/quotations` | `ADMIN`, `SALES` | 생성. 상태 `작성중` |
 | GET | `/quotations/{id}` | 인증 | 상세 |
-| PATCH | `/quotations/{id}` | `SALES` | `작성중` 상태만 수정 가능 |
-| DELETE | `/quotations/{id}` | `SALES` | `작성중`만 |
-| POST | `/quotations/{id}/send` | `SALES` | `작성중` → `발송완료` |
+| PATCH | `/quotations/{id}` | `ADMIN`, `SALES` | 부분 PATCH. `작성중`만 수정 가능 |
+| DELETE | `/quotations/{id}` | `ADMIN`, `SALES` | `작성중`만 |
+| POST | `/quotations/{id}/send` | `ADMIN`, `SALES` | `작성중` → `발송완료`. 이메일 전송 아님 |
+
+목록은 `Page<QuotationResponse>`, 기본 정렬은 `quotationNo,desc`다. 정렬 허용값은
+`quotationNo`, `customer.name`, `item.itemNo`, `qty`, `unitPrice`, `amount`, `dueDate`, `validUntil`, `status`다.
+두 영업 목록은 page 0~10000/size 1~100, 상태·고객사 필터와 번호/고객사 코드·이름/품번·품명 검색을 지원한다.
+검색의 `%`/`_`는 와일드카드가 아닌 문자로 취급한다. 지원하지 않는 정렬/상태/페이지는 400이다.
+
+생성은 `quotationNo`, `customerId`, `itemId`, `qty`, `unitPrice`, `dueDate`, `validUntil`을 받는다.
+고객사/제품 유형만 허용하며 번호는 32자, 수량은 양수/소수 4자리, 단가는 양의 정수 원화다.
+단가·계산 금액은 9,007,199,254,740,991원 이하다. 금액은 수량×단가, 원 미만 버림이다.
+수정은 `QuotationUpdateRequest`의 `qty`, `unitPrice`, `dueDate`, `validUntil`만 받으며 빈 PATCH는 400이다.
+번호·고객사·품목은 불변이고 단일 수량/단가 수정에도 금액을 재계산한다.
+번호 중복은 `QUOTATION_NO_DUPLICATE` 409, 유효기간(KST)이 지난 발송/전환은 `QUOTATION_EXPIRED` 409다.
+응답에는 문서 생성 당시 `paymentTerms`, `leadTimeDays`가 포함된다.
 
 ### 5.2 수주 — /sales-orders
 
 #### GET /sales-orders
 쿼리: `status`, `customerId`, `keyword`, `page`, `size`, `sort`
 
+`Page<SalesOrderResponse>`, 기본 `salesOrderNo,desc`. 정렬 허용값은 `salesOrderNo`, `customer.name`,
+`item.itemNo`, `qty`, `unitPrice`, `amount`, `dueDate`, `orderedAt`, `status`다.
+응답은 원견적 ID/번호, 조건 스냅샷 `paymentTerms`/`leadTimeDays`, 연결 `workOrderNos` 배열을 포함한다.
+
 #### POST /sales-orders
-권한: `SALES`. 신규 수주 (견적 없이 직접 등록). 응답 `201`: `SalesOrderResponse`.
+권한: `ADMIN`, `SALES`. 신규 수주 (견적 없이 직접 등록). 응답 `201`: `SalesOrderResponse`.
+`salesOrderNo`, `customerId`, `itemId`, `qty`, `unitPrice`, `dueDate`, 선택적 `orderedAt`을 받는다.
+검증/금액 규칙은 견적과 같고 번호 중복은 `SALES_ORDER_NO_DUPLICATE` 409다.
+직접 등록의 `quotationId`는 400이며 견적 전환 전용 endpoint를 사용해야 한다.
 
 #### POST /sales-orders/from-quotation/{quotationId}
-권한: `SALES`. **흐름 1: 견적 → 수주**.
+권한: `ADMIN`, `SALES`. **흐름 1: 견적 → 수주**.
 
 응답 `201`: `SalesOrderResponse`. 오류:
 - `404 QUOTATION_NOT_FOUND`
 - `409 INVALID_STATE_TRANSITION` (견적이 `작성중`/`만료`/`수주완료`인 경우)
+- `409 QUOTATION_EXPIRED` (발송 상태라도 유효기간이 지난 경우)
 
-견적은 `수주완료`로, 수주는 `대기`로 생성된다.
+견적은 `수주완료`로, 수주는 `대기`로 생성된다. 견적의 조건을 복사하며 원본 행 잠금으로 중복 전환을 방지한다.
 
 #### POST /sales-orders/{id}/confirm
 권한: `SALES`, `ADMIN`. **흐름 2: 수주 확정 → 작업오더 생성**.
 
 응답 `200`:
 ```json
-{ "salesOrder": { /* SalesOrderResponse */ }, "workOrderNo": "WO-2610-007" }
+{ "salesOrder": { /* SalesOrderResponse */ }, "workOrderNo": "WO-2610-007", "workOrderId": 7 }
 ```
 
 오류:
@@ -269,9 +290,13 @@ FastAPI 집계 엔드포인트는 페이지네이션 없이 전체 집계를 반
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/sales-orders/{id}` | 인증 | 상세 |
-| PATCH | `/sales-orders/{id}` | `SALES` | `대기` 상태만 |
-| DELETE | `/sales-orders/{id}` | `SALES` | `대기`만. `409` |
-| POST | `/sales-orders/{id}/cancel` | `SALES`, `ADMIN` | → `취소`. `409` |
+| PATCH | `/sales-orders/{id}` | `SALES`, `ADMIN` | `대기`만. `SalesOrderUpdateRequest`: qty/unitPrice/dueDate |
+| DELETE | `/sales-orders/{id}` | `SALES`, `ADMIN` | 연결 견적·작업오더 없는 직접 대기 수주만. 참조는 `409 IN_USE` |
+| POST | `/sales-orders/{id}/cancel` | `SALES`, `ADMIN` | 작업오더 없는 `대기` → `취소`. 그 외 `409 INVALID_STATE_TRANSITION` |
+
+번호·고객사·품목·수주일·원견적은 수정하지 않는다. 빈 PATCH는 400이다. 확정/수정/취소/삭제는
+원본 행 잠금을 사용한다. 확정된 수주의 작업오더·출하·재고 보상 취소는 후속 구현 범위다.
+V12 이전 문서의 조건은 현재 거래처/원견적 기준으로 보완한 값이며 역사적 조건을 재구성한 값은 아니다.
 
 ### 5.3 출하 — /shipments
 

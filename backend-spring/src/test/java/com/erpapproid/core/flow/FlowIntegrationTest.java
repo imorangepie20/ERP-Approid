@@ -46,12 +46,18 @@ class FlowIntegrationTest extends IntegrationTestSupport {
     @Autowired
     private SalesOrderRepository salesOrderRepository;
 
+    @Autowired
+    private com.erpapproid.core.domain.sales.QuotationRepository quotationRepository;
+
     private String adminToken;
     private String salesToken;
     private long createdSalesOrderId;
 
     @BeforeAll
     void prepareFixtures() {
+        var sent = quotationRepository.findById(QUOTATION_SENT).orElseThrow();
+        sent.setValidUntil(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")).plusDays(10));
+        quotationRepository.save(sent);
         createUser("sales", "sales123", "SALES");
         adminToken = loginAdmin();
         salesToken = login("sales", "sales123");

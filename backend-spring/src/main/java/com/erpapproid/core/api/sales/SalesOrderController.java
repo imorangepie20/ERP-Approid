@@ -2,6 +2,7 @@ package com.erpapproid.core.api.sales;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.erpapproid.core.api.sales.SalesOrderDto.ConfirmResult;
 import com.erpapproid.core.api.sales.SalesOrderDto.Request;
 import com.erpapproid.core.api.sales.SalesOrderDto.Response;
+import com.erpapproid.core.api.sales.SalesOrderDto.UpdateRequest;
+import com.erpapproid.core.common.api.MasterListQuery;
 import com.erpapproid.core.common.domain.Constants;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
@@ -64,13 +67,19 @@ public class SalesOrderController {
     @Operation(summary = "수주 목록")
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<Page<Response>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "salesOrderNo,desc") String sort) {
+        var pageable = MasterListQuery.pageable(page, size, sort,
+                Set.of("salesOrderNo", "customer.name", "item.itemNo", "qty", "unitPrice", "amount", "dueDate", "orderedAt", "status"), "salesOrderNo");
         return ResponseEntity.ok(
-                salesOrderRepository.search(status, customerId, keyword, pageable)
+                salesOrderRepository.findAll(SalesDocumentRules.filter("salesOrderNo", status, customerId, keyword,
+                        Set.of(Constants.WAITING, Constants.CONFIRMED, Constants.IN_PRODUCTION, Constants.SHIPPED, Constants.CANCELLED)), pageable)
                         .map(this::toResponse));
     }
 
@@ -87,7 +96,7 @@ public class SalesOrderController {
 
     @Operation(summary = "신규 수주 등록")
     @PostMapping
-    @PreAuthorize("hasRole('SALES')")
+    @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
         SalesOrderEntity entity = buildFromRequest(request);
@@ -99,16 +108,23 @@ public class SalesOrderController {
 
     @Operation(summary = "흐름 1: 견적 → 수주")
     @PostMapping("/from-quotation/{quotationId}")
-    @PreAuthorize("hasRole('SALES')")
+    @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> createFromQuotation(@PathVariable Long quotationId) {
-        QuotationEntity quotation = quotationRepository.findById(quotationId)
+        QuotationEntity quotation = quotationRepository.findForUpdate(quotationId)
                 .orElseThrow(() -> new DomainException(ErrorCode.QUOTATION_NOT_FOUND,
                         "견적을 찾을 수 없습니다: " + quotationId));
         if (!Constants.SENT.equals(quotation.getStatus())) {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "발송완료 상태의 견적만 수주할 수 있습니다. 현재 상태: " + quotation.getStatus());
         }
+        if (quotation.getValidUntil().isBefore(LocalDate.now(java.time.ZoneId.of("Asia/Seoul")))) {
+            throw new DomainException(ErrorCode.QUOTATION_EXPIRED, "유효기간이 지난 견적은 수주로 전환할 수 없습니다.");
+        }
+        if (salesOrderRepository.existsByQuotationId(quotationId)) {
+            throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION, "이미 수주로 전환한 견적입니다.");
+        }
+        SalesDocumentRules.references(quotation.getCustomer(), quotation.getItem());
         java.util.Map<String, Object> quotationBefore = quotationSnapshot(quotation);
         SalesOrderEntity entity = SalesOrderEntity.builder()
                 .salesOrderNo(numberGenerator.next(Prefix.SALES_ORDER))
@@ -118,9 +134,11 @@ public class SalesOrderController {
                 .qty(quotation.getQty())
                 .unitPrice(quotation.getUnitPrice())
                 .amount(quotation.getAmount())
+                .paymentTerms(quotation.getPaymentTerms())
+                .leadTimeDays(quotation.getLeadTimeDays())
                 .dueDate(quotation.getDueDate())
                 .status(Constants.WAITING)
-                .orderedAt(LocalDate.now())
+                .orderedAt(LocalDate.now(java.time.ZoneId.of("Asia/Seoul")))
                 .build();
         SalesOrderEntity saved = salesOrderRepository.save(entity);
         quotation.setStatus(Constants.ORDERED);
@@ -137,7 +155,7 @@ public class SalesOrderController {
     @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
     public ResponseEntity<ConfirmResult> confirm(@PathVariable Long id) {
-        SalesOrderEntity order = salesOrderRepository.findById(id)
+        SalesOrderEntity order = salesOrderRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SALES_ORDER_NOT_FOUND,
                         "수주를 찾을 수 없습니다: " + id));
         if (!Constants.WAITING.equals(order.getStatus())) {
@@ -172,15 +190,17 @@ public class SalesOrderController {
         return ResponseEntity.ok(ConfirmResult.builder()
                 .salesOrder(toResponse(savedOrder))
                 .workOrderNo(savedWorkOrder.getWorkOrderNo())
+                .workOrderId(savedWorkOrder.getId())
                 .build());
     }
 
     @Operation(summary = "수주 수정 (대기만)")
     @PatchMapping("/{id}")
-    @PreAuthorize("hasRole('SALES')")
+    @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
-    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
-        SalesOrderEntity entity = salesOrderRepository.findById(id)
+    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody UpdateRequest request) {
+        if (!request.hasChanges()) throw MasterListQuery.invalid("수정할 값을 입력하세요.");
+        SalesOrderEntity entity = salesOrderRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SALES_ORDER_NOT_FOUND,
                         "수주를 찾을 수 없습니다: " + id));
         if (!Constants.WAITING.equals(entity.getStatus())) {
@@ -195,18 +215,17 @@ public class SalesOrderController {
         return ResponseEntity.ok(toResponse(saved));
     }
 
-    @Operation(summary = "수주 취소")
+    @Operation(summary = "수주 취소 (대기만, 확정 후 보상 처리는 후속 생산 업무)")
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> cancel(@PathVariable Long id) {
-        SalesOrderEntity entity = salesOrderRepository.findById(id)
+        SalesOrderEntity entity = salesOrderRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SALES_ORDER_NOT_FOUND,
                         "수주를 찾을 수 없습니다: " + id));
-        if (Constants.SHIPPED.equals(entity.getStatus())
-                || Constants.CANCELLED.equals(entity.getStatus())) {
+        if (!Constants.WAITING.equals(entity.getStatus()) || !workOrderRepository.findBySalesOrderId(id).isEmpty()) {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
-                    "출하완료/취소 상태의 수주는 취소할 수 없습니다: " + entity.getSalesOrderNo());
+                    "작업오더가 없는 대기 상태의 수주만 취소할 수 있습니다: " + entity.getSalesOrderNo());
         }
         Response before = toResponse(entity);
         entity.setStatus(Constants.CANCELLED);
@@ -218,10 +237,10 @@ public class SalesOrderController {
 
     @Operation(summary = "수주 삭제 (대기만)")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SALES')")
+    @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        SalesOrderEntity entity = salesOrderRepository.findById(id)
+        SalesOrderEntity entity = salesOrderRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SALES_ORDER_NOT_FOUND,
                         "수주를 찾을 수 없습니다: " + id));
         if (!Constants.WAITING.equals(entity.getStatus())) {
@@ -229,6 +248,9 @@ public class SalesOrderController {
                     "대기 상태의 수주만 삭제할 수 있습니다: " + entity.getSalesOrderNo());
         }
         Response before = toResponse(entity);
+        if (entity.getQuotation() != null || !workOrderRepository.findBySalesOrderId(id).isEmpty()) {
+            throw new DomainException(ErrorCode.IN_USE, "견적이나 작업오더에 연결된 수주는 삭제할 수 없습니다. 취소를 사용하세요.");
+        }
         salesOrderRepository.delete(entity);
         auditService.record(AuditEvent.sensitiveDeleted(
                 "SALES_ORDER", entity.getSalesOrderNo(), before));
@@ -236,43 +258,40 @@ public class SalesOrderController {
     }
 
     private SalesOrderEntity buildFromRequest(Request request) {
+        if (request.getQuotationId() != null) throw MasterListQuery.invalid("견적 전환 전용 endpoint를 사용하세요.");
+        if (salesOrderRepository.existsBySalesOrderNo(request.getSalesOrderNo())) {
+            throw new DomainException(ErrorCode.SALES_ORDER_NO_DUPLICATE, "이미 사용 중인 수주번호입니다.");
+        }
         PartnerEntity customer = partnerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new DomainException(ErrorCode.PARTNER_NOT_FOUND,
                         "거래처를 찾을 수 없습니다: " + request.getCustomerId()));
         ItemEntity item = itemRepository.findById(request.getItemId())
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
                         "품목을 찾을 수 없습니다: " + request.getItemId()));
-        QuotationEntity quotation = null;
-        if (request.getQuotationId() != null) {
-            quotation = quotationRepository.findById(request.getQuotationId())
-                    .orElseThrow(() -> new DomainException(ErrorCode.QUOTATION_NOT_FOUND,
-                            "견적을 찾을 수 없습니다: " + request.getQuotationId()));
-        }
+        SalesDocumentRules.references(customer, item);
         return SalesOrderEntity.builder()
                 .salesOrderNo(request.getSalesOrderNo())
-                .quotation(quotation)
                 .customer(customer)
                 .item(item)
                 .qty(request.getQty())
                 .unitPrice(request.getUnitPrice())
-                .amount(request.getQty().multiply(BigDecimal.valueOf(request.getUnitPrice())).longValue())
+                .amount(SalesDocumentRules.amount(request.getQty(), request.getUnitPrice()))
+                .paymentTerms(customer.getPaymentTerms())
+                .leadTimeDays(customer.getLeadTimeDays())
                 .dueDate(request.getDueDate())
                 .status(Constants.WAITING)
-                .orderedAt(request.getOrderedAt() == null ? LocalDate.now() : request.getOrderedAt())
+                .orderedAt(request.getOrderedAt() == null ? LocalDate.now(java.time.ZoneId.of("Asia/Seoul")) : request.getOrderedAt())
                 .build();
     }
 
-    private void applyRequest(SalesOrderEntity entity, Request request) {
+    private void applyRequest(SalesOrderEntity entity, UpdateRequest request) {
         if (request.getQty() != null) {
             entity.setQty(request.getQty());
         }
         if (request.getUnitPrice() != null) {
             entity.setUnitPrice(request.getUnitPrice());
         }
-        if (request.getQty() != null && request.getUnitPrice() != null) {
-            entity.setAmount(request.getQty()
-                    .multiply(BigDecimal.valueOf(request.getUnitPrice())).longValue());
-        }
+        entity.setAmount(SalesDocumentRules.amount(entity.getQty(), entity.getUnitPrice()));
         if (request.getDueDate() != null) {
             entity.setDueDate(request.getDueDate());
         }
@@ -295,6 +314,10 @@ public class SalesOrderController {
                 .dueDate(entity.getDueDate())
                 .orderedAt(entity.getOrderedAt())
                 .status(entity.getStatus())
+                .paymentTerms(entity.getPaymentTerms())
+                .leadTimeDays(entity.getLeadTimeDays())
+                .workOrderNos(workOrderRepository.findBySalesOrderId(entity.getId()).stream()
+                        .map(WorkOrderEntity::getWorkOrderNo).sorted().toList())
                 .build();
     }
 

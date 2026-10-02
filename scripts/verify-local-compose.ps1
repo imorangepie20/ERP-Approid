@@ -124,10 +124,10 @@ try {
             "exec", "-T", "postgres", "sh", "-c",
             "psql -U `"`$POSTGRES_USER`" -d `"`$POSTGRES_DB`" -Atc '$flywayQuery'"
         ) | Select-Object -Last 1).Trim()
-    if ($flywayVersion -ne "11") {
-        throw "Expected Flyway version 11, received '$flywayVersion'."
+    if ($flywayVersion -ne "12") {
+        throw "Expected Flyway version 12, received '$flywayVersion'."
     }
-    Write-Host "[PASS] Flyway successfully applied through version 11"
+    Write-Host "[PASS] Flyway successfully applied through version 12"
 
     $healthResponse = Invoke-RestMethod `
         -Uri "$($BackendBaseUrl.TrimEnd('/'))/actuator/health" `

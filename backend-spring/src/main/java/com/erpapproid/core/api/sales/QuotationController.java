@@ -2,6 +2,7 @@ package com.erpapproid.core.api.sales;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.erpapproid.core.api.sales.QuotationDto.Request;
 import com.erpapproid.core.api.sales.QuotationDto.Response;
+import com.erpapproid.core.api.sales.QuotationDto.UpdateRequest;
+import com.erpapproid.core.common.api.MasterListQuery;
 import com.erpapproid.core.common.domain.Constants;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
@@ -53,12 +56,19 @@ public class QuotationController {
     @Operation(summary = "견적 목록")
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<Page<Response>> list(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "quotationNo,desc") String sort) {
+        var pageable = MasterListQuery.pageable(page, size, sort,
+                Set.of("quotationNo", "customer.name", "item.itemNo", "qty", "unitPrice", "amount", "dueDate", "validUntil", "status"), "quotationNo");
         return ResponseEntity.ok(
-                quotationRepository.search(status, keyword, pageable).map(this::toResponse));
+                quotationRepository.findAll(SalesDocumentRules.filter("quotationNo", status, customerId, keyword,
+                        Set.of(Constants.DRAFT, Constants.SENT, Constants.ORDERED, Constants.EXPIRED)), pageable).map(this::toResponse));
     }
 
     @Operation(summary = "견적 상세")
@@ -74,25 +84,31 @@ public class QuotationController {
 
     @Operation(summary = "견적 생성")
     @PostMapping
-    @PreAuthorize("hasRole('SALES')")
+    @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> create(@Valid @RequestBody Request request) {
+        if (quotationRepository.existsByQuotationNo(request.getQuotationNo())) {
+            throw new DomainException(ErrorCode.QUOTATION_NO_DUPLICATE, "이미 사용 중인 견적번호입니다.");
+        }
         PartnerEntity customer = partnerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new DomainException(ErrorCode.PARTNER_NOT_FOUND,
                         "거래처를 찾을 수 없습니다: " + request.getCustomerId()));
         ItemEntity item = itemRepository.findById(request.getItemId())
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
                         "품목을 찾을 수 없습니다: " + request.getItemId()));
+        SalesDocumentRules.references(customer, item);
         QuotationEntity entity = QuotationEntity.builder()
                 .quotationNo(request.getQuotationNo())
                 .customer(customer)
                 .item(item)
                 .qty(request.getQty())
                 .unitPrice(request.getUnitPrice())
-                .amount(request.getQty().multiply(BigDecimal.valueOf(request.getUnitPrice())).longValue())
+                .amount(SalesDocumentRules.amount(request.getQty(), request.getUnitPrice()))
                 .dueDate(request.getDueDate())
                 .validUntil(request.getValidUntil())
                 .status(Constants.DRAFT)
+                .paymentTerms(customer.getPaymentTerms())
+                .leadTimeDays(customer.getLeadTimeDays())
                 .build();
         QuotationEntity saved = quotationRepository.save(entity);
         auditService.record(AuditEvent.sensitiveCreated(
@@ -102,10 +118,11 @@ public class QuotationController {
 
     @Operation(summary = "견적 수정 (작성중만)")
     @PatchMapping("/{id}")
-    @PreAuthorize("hasRole('SALES')")
+    @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
-    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
-        QuotationEntity entity = quotationRepository.findById(id)
+    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody UpdateRequest request) {
+        if (!request.hasChanges()) throw MasterListQuery.invalid("수정할 값을 입력하세요.");
+        QuotationEntity entity = quotationRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.QUOTATION_NOT_FOUND,
                         "견적을 찾을 수 없습니다: " + id));
         if (!Constants.DRAFT.equals(entity.getStatus())) {
@@ -122,10 +139,10 @@ public class QuotationController {
 
     @Operation(summary = "견적 삭제 (작성중만)")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SALES')")
+    @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        QuotationEntity entity = quotationRepository.findById(id)
+        QuotationEntity entity = quotationRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.QUOTATION_NOT_FOUND,
                         "견적을 찾을 수 없습니다: " + id));
         if (!Constants.DRAFT.equals(entity.getStatus())) {
@@ -141,10 +158,10 @@ public class QuotationController {
 
     @Operation(summary = "견적 발송 (작성중 → 발송완료)")
     @PostMapping("/{id}/send")
-    @PreAuthorize("hasRole('SALES')")
+    @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> send(@PathVariable Long id) {
-        QuotationEntity entity = quotationRepository.findById(id)
+        QuotationEntity entity = quotationRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.QUOTATION_NOT_FOUND,
                         "견적을 찾을 수 없습니다: " + id));
         if (!Constants.DRAFT.equals(entity.getStatus())) {
@@ -152,27 +169,24 @@ public class QuotationController {
                     "작성중 상태의 견적만 발송할 수 있습니다: " + entity.getQuotationNo());
         }
         Response before = toResponse(entity);
-        entity.setStatus(Constants.SENT);
-        if (entity.getValidUntil() != null && entity.getValidUntil().isBefore(LocalDate.now())) {
-            entity.setStatus(Constants.EXPIRED);
+        if (entity.getValidUntil().isBefore(LocalDate.now(java.time.ZoneId.of("Asia/Seoul")))) {
+            throw new DomainException(ErrorCode.QUOTATION_EXPIRED, "유효기간이 지난 견적은 발송할 수 없습니다.");
         }
+        entity.setStatus(Constants.SENT);
         QuotationEntity saved = quotationRepository.save(entity);
         auditService.record(AuditEvent.sensitiveChange(
                 "SEND", "QUOTATION", saved.getQuotationNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
     }
 
-    private void applyRequest(QuotationEntity entity, Request request) {
+    private void applyRequest(QuotationEntity entity, UpdateRequest request) {
         if (request.getQty() != null) {
             entity.setQty(request.getQty());
         }
         if (request.getUnitPrice() != null) {
             entity.setUnitPrice(request.getUnitPrice());
         }
-        if (request.getQty() != null && request.getUnitPrice() != null) {
-            entity.setAmount(request.getQty()
-                    .multiply(BigDecimal.valueOf(request.getUnitPrice())).longValue());
-        }
+        entity.setAmount(SalesDocumentRules.amount(entity.getQty(), entity.getUnitPrice()));
         if (request.getDueDate() != null) {
             entity.setDueDate(request.getDueDate());
         }
@@ -196,6 +210,8 @@ public class QuotationController {
                 .dueDate(entity.getDueDate())
                 .validUntil(entity.getValidUntil())
                 .status(entity.getStatus())
+                .paymentTerms(entity.getPaymentTerms())
+                .leadTimeDays(entity.getLeadTimeDays())
                 .build();
     }
 }

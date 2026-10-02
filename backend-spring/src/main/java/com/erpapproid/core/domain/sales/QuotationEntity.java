@@ -64,4 +64,12 @@ public class QuotationEntity extends BaseEntity {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    @Builder.Default
+    @Column(name = "payment_terms", nullable = false)
+    private Integer paymentTerms = 0;
+
+    @Builder.Default
+    @Column(name = "lead_time_days", nullable = false)
+    private Integer leadTimeDays = 0;
 }

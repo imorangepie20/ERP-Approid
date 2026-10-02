@@ -45,10 +45,14 @@ Backend, from `backend-spring/`:
 
 ## Current Caveats
 
-- Authentication, item/partner/BOM/routing master CRUD, and business-form partner selectors call the Spring API.
-  Sales/purchase documents and the remaining business screens still use prototypes or memory-only DataContext.
+- Authentication, item/partner/BOM/routing master CRUD, quotations, and sales orders call the Spring API.
+  Purchase documents and the remaining business screens still use prototypes or memory-only DataContext.
 - Login, session restoration/expiry, protected routes, logout, and role-controlled item/BOM action boundaries are implemented.
 - Many pages use hardcoded local arrays rather than DataContext.
+- Quotations support draft editing/sending and unexpired sent-quotation conversion. Sales confirmation creates
+  a persistent work order. Simple cancellation is waiting-only; confirmed-order compensation is follow-up work.
+- New sales documents snapshot customer payment/lead-time terms; V12 reconstructs existing terms from current
+  customer masters (and linked quotations), not historical values. Sending marks status only, not email delivery.
 - New standalone and sales-confirmed work orders persist ordered routing snapshots. Existing orders retain
   empty snapshots; planning/cost consumers and the MRP calculation UI remain follow-up work.
 - `backend-fastapi/` is not implemented. Root Compose, `src/api/`, and generated Spring OpenAPI types exist.

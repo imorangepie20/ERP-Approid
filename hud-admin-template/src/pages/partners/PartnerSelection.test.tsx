@@ -23,10 +23,17 @@ function Observer() {
 
 function setup(component: React.ReactNode, fail = false) {
     saveSession(sessionStorage, 'token', 3600)
-    const fetch = vi.fn<typeof globalThis.fetch>(async input => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
         const url = new URL(String(input))
         if (url.pathname.endsWith('/auth/me')) return Response.json({ id: 1, username: 'admin', name: '관리자', roles: ['ADMIN'] })
         if (fail) return Response.json({ code: 'ERROR', message: '거래처 조회 실패', traceId: 'options-trace' }, { status: 503 })
+        if (url.pathname.endsWith('/items')) return Response.json({ content: [{ id: 2, itemNo: 'P-LIVE', name: '실제 제품', itemType: '제품', unit: 'EA', price: 100, stock: 0, safetyStock: 0, leadTimeDays: 0 }], number: 0, size: 100, totalElements: 1, totalPages: 1 })
+        if (url.pathname.endsWith('/quotations') || url.pathname.endsWith('/sales-orders')) {
+            if (init?.method === 'POST') return Response.json({ ...JSON.parse(String(init.body)), id: 77,
+                customerName: partner.name, itemNo: 'P-LIVE', itemName: '실제 제품', paymentTerms: 60, leadTimeDays: 9,
+                status: '작성중', amount: 200 }, { status: 201 })
+            return Response.json({ content: [], number: 0, size: 10, totalElements: 0, totalPages: 0 })
+        }
         const content = [{ ...partner, partnerType: url.searchParams.get('partnerType') }]
         return Response.json({ content, number: 0, size: 100, totalElements: 1, totalPages: 1 })
     })
@@ -55,24 +62,26 @@ describe('real partner selection in business forms', () => {
         expect(dialog.getByRole('button', { name: '입고예정일 달력 열기' })).toBeEnabled()
     })
 
-    it('carries customer identity and payment terms from a quotation into an order', async () => {
+    it('posts actual customer and item IDs when creating a quotation', async () => {
         const user = userEvent.setup()
-        setup(<SalesQuotations />)
+        const fetch = setup(<SalesQuotations />)
         await vi.waitFor(() => expect(screen.getByRole('button', { name: '견적 등록' })).toBeEnabled())
         await user.click(screen.getByRole('button', { name: '견적 등록' }))
         const dialog = within(screen.getByRole('dialog'))
+        await user.type(dialog.getByLabelText('견적번호 *'), 'QT-LIVE')
         await user.selectOptions(dialog.getByLabelText('고객사 *'), '90')
         const itemOptions = within(dialog.getByLabelText('품목 *')).getAllByRole('option')
         await user.selectOptions(dialog.getByLabelText('품목 *'), (itemOptions[1] as HTMLOptionElement).value)
+        await user.clear(dialog.getByLabelText('수량 *'))
         await user.type(dialog.getByLabelText('수량 *'), '2')
+        expect(dialog.getByLabelText('결제조건(일)')).toHaveValue(60)
+        expect(dialog.getByLabelText('리드타임(일)')).toHaveValue(9)
         fireEvent.change(dialog.getByLabelText('납기 *'), { target: { value: '2026-10-20' } })
         fireEvent.change(dialog.getByLabelText('유효기간 *'), { target: { value: '2026-10-15' } })
         await user.click(dialog.getByRole('button', { name: '등록' }))
-        let saved = JSON.parse(screen.getByLabelText('저장 데이터').textContent!)
-        expect(saved.quote).toMatchObject({ customerId: 90, customer: partner.name, paymentTerms: 60, leadTimeDays: 9 })
-        await user.click(screen.getByRole('button', { name: '테스트 견적 전환' }))
-        saved = JSON.parse(screen.getByLabelText('저장 데이터').textContent!)
-        expect(saved.order).toMatchObject({ customerId: 90, paymentTerms: 60, leadTimeDays: 9 })
+        await screen.findByText('견적을 등록했습니다.')
+        const call = fetch.mock.calls.find(([, init]) => init?.method === 'POST')
+        expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({ customerId: 90, itemId: 2, qty: 2, quotationNo: 'QT-LIVE' })
     })
 
     it('also connects the customer selector in direct sales orders', async () => {
@@ -82,7 +91,7 @@ describe('real partner selection in business forms', () => {
         await user.click(screen.getByRole('button', { name: '수주 등록' }))
         await user.selectOptions(screen.getByLabelText('고객사 *'), '90')
         expect(screen.getByLabelText('결제조건(일)')).toHaveValue(60)
-        expect(screen.getByRole('option', { name: /T-LIVE-001/ })).toHaveValue('90')
+        expect(within(screen.getByRole('dialog')).getByRole('option', { name: /T-LIVE-001/ })).toHaveValue('90')
     })
 
     it('shows lookup errors and blocks creation without a memory fallback', async () => {

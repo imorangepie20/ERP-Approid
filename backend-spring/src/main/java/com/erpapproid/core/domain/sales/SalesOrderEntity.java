@@ -68,4 +68,12 @@ public class SalesOrderEntity extends BaseEntity {
 
     @Column(name = "ordered_at", nullable = false)
     private LocalDate orderedAt;
+
+    @Builder.Default
+    @Column(name = "payment_terms", nullable = false)
+    private Integer paymentTerms = 0;
+
+    @Builder.Default
+    @Column(name = "lead_time_days", nullable = false)
+    private Integer leadTimeDays = 0;
 }

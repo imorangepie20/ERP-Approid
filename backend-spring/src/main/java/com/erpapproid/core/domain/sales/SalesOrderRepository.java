@@ -4,10 +4,26 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
 
-public interface SalesOrderRepository extends JpaRepository<SalesOrderEntity, Long> {
+public interface SalesOrderRepository extends JpaRepository<SalesOrderEntity, Long>, JpaSpecificationExecutor<SalesOrderEntity> {
+
+    boolean existsBySalesOrderNo(String salesOrderNo);
+    boolean existsByQuotationId(Long quotationId);
+
+    @Override
+    @EntityGraph(attributePaths = {"customer", "item", "quotation"})
+    Page<SalesOrderEntity> findAll(Specification<SalesOrderEntity> spec, Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from SalesOrderEntity s where s.id = :id")
+    Optional<SalesOrderEntity> findForUpdate(Long id);
 
     Optional<SalesOrderEntity> findBySalesOrderNo(String salesOrderNo);
 

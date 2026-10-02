@@ -4,10 +4,25 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
 
-public interface QuotationRepository extends JpaRepository<QuotationEntity, Long> {
+public interface QuotationRepository extends JpaRepository<QuotationEntity, Long>, JpaSpecificationExecutor<QuotationEntity> {
+
+    boolean existsByQuotationNo(String quotationNo);
+
+    @Override
+    @EntityGraph(attributePaths = {"customer", "item"})
+    Page<QuotationEntity> findAll(Specification<QuotationEntity> spec, Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select q from QuotationEntity q where q.id = :id")
+    Optional<QuotationEntity> findForUpdate(Long id);
 
     boolean existsByCustomer_Id(Long customerId);
 

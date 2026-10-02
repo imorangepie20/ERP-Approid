@@ -169,7 +169,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 수주 취소 */
+        /** 수주 취소 (대기만, 확정 후 보상 처리는 후속 생산 업무) */
         post: operations["cancel"];
         delete?: never;
         options?: never;
@@ -981,7 +981,10 @@ export interface components {
         };
         SalesOrderRequest: {
             salesOrderNo: string;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description 직접 등록에서는 사용 불가. 견적 전환 전용 endpoint를 사용하세요.
+             */
             quotationId?: number;
             /** Format: int64 */
             customerId: number;
@@ -1019,10 +1022,17 @@ export interface components {
             /** Format: date */
             orderedAt?: string;
             status?: string;
+            /** Format: int32 */
+            paymentTerms?: number;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            workOrderNos?: string[];
         };
         SalesOrderConfirmResult: {
             salesOrder?: components["schemas"]["SalesOrderResponse"];
             workOrderNo?: string;
+            /** Format: int64 */
+            workOrderId?: number;
         };
         RoutingRequest: {
             routingNo: string;
@@ -1139,6 +1149,10 @@ export interface components {
             /** Format: date */
             validUntil?: string;
             status?: string;
+            /** Format: int32 */
+            paymentTerms?: number;
+            /** Format: int32 */
+            leadTimeDays?: number;
         };
         PurchaseOrderRequest: {
             purchaseOrderNo: string;
@@ -1322,6 +1336,13 @@ export interface components {
             name?: string;
             roles?: string[];
         };
+        SalesOrderUpdateRequest: {
+            qty?: number;
+            /** Format: int64 */
+            unitPrice?: number;
+            /** Format: date */
+            dueDate?: string;
+        };
         RoutingUpdateRequest: {
             /** Format: int32 */
             seq?: number;
@@ -1329,6 +1350,15 @@ export interface components {
             workCenter?: string;
             stdTime?: number;
             isSubcontract?: boolean;
+        };
+        QuotationUpdateRequest: {
+            qty?: number;
+            /** Format: int64 */
+            unitPrice?: number;
+            /** Format: date */
+            dueDate?: string;
+            /** Format: date */
+            validUntil?: string;
         };
         PartnerUpdateRequest: {
             name?: string;
@@ -1940,11 +1970,13 @@ export interface operations {
     };
     list_2: {
         parameters: {
-            query: {
+            query?: {
                 status?: string;
                 customerId?: number;
                 keyword?: string;
-                pageable: components["schemas"]["Pageable"];
+                page?: number;
+                size?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;
@@ -2175,10 +2207,13 @@ export interface operations {
     };
     list_5: {
         parameters: {
-            query: {
+            query?: {
                 status?: string;
+                customerId?: number;
                 keyword?: string;
-                pageable: components["schemas"]["Pageable"];
+                page?: number;
+                size?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;
@@ -2834,7 +2869,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SalesOrderRequest"];
+                "application/json": components["schemas"]["SalesOrderUpdateRequest"];
             };
         };
         responses: {
@@ -2948,7 +2983,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["QuotationRequest"];
+                "application/json": components["schemas"]["QuotationUpdateRequest"];
             };
         };
         responses: {

@@ -47,5 +47,5 @@ export function usePartnerSelection(partnerType: PartnerType) {
         loadingMessage="거래처를 불러오는 중..." emptyMessage="선택할 거래처가 없습니다. 거래처 마스터에서 등록하세요."
         onRetry={() => { void query.refetch() }} />
 
-    return { ready, find, field, termsFields, toValues, status }
+    return { partners, ready, find, field, termsFields, toValues, status }
 }
