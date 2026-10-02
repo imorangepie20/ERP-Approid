@@ -96,6 +96,7 @@ it('confirms an order and displays the generated work order without allowing lat
     mount(true); const user = userEvent.setup(); await screen.findByText('SO-LIVE')
     await user.click(screen.getByRole('button', { name: '수주 확정' })); await user.click(screen.getByRole('button', { name: '수주 확정 확인' }))
     await screen.findByText('작업오더를 생성했습니다: WO-LIVE'); await screen.findByText('WO-LIVE')
+    expect(screen.getByRole('link', { name: '작업오더 보기' })).toHaveAttribute('href', '/production/orders?keyword=WO-LIVE')
     expect(screen.queryByRole('button', { name: '수주 취소' })).not.toBeInTheDocument()
     expect(screen.queryByTitle('수정')).not.toBeInTheDocument()
     expect(state.fetch.mock.calls.some(([url]) => String(url).includes('/sales-orders/42/confirm'))).toBe(true)

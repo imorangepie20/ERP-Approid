@@ -73,6 +73,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/work-orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 독립 작업오더 취소 (실적 없는 지시만) */
+        post: operations["cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/shipments": {
         parameters: {
             query?: never;
@@ -170,7 +187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** 수주 취소 (대기만, 확정 후 보상 처리는 후속 생산 업무) */
-        post: operations["cancel"];
+        post: operations["cancel_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -310,7 +327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** 발주 취소 */
-        post: operations["cancel_1"];
+        post: operations["cancel_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -897,6 +914,9 @@ export interface components {
             startDate?: string;
             /** Format: date */
             dueDate: string;
+            assignee?: string;
+            /** Format: int32 */
+            priority?: number;
         };
         WorkOrderResponse: {
             /** Format: int64 */
@@ -924,6 +944,12 @@ export interface components {
             plannedTimeHours?: number;
             /** @description 외주 공정의 표준시간 합계 × 작업오더 수량(h) */
             subcontractTimeHours?: number;
+            assignee?: string;
+            /**
+             * Format: int32
+             * @description 우선순위: 1 일반, 2 높음, 3 긴급
+             */
+            priority?: number;
         };
         /** @description 작업오더 생성 시점의 공정 정보 */
         WorkOrderRoutingStep: {
@@ -1336,6 +1362,16 @@ export interface components {
             name?: string;
             roles?: string[];
         };
+        WorkOrderUpdateRequest: {
+            qty?: number;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            dueDate?: string;
+            assignee?: string;
+            /** Format: int32 */
+            priority?: number;
+        };
         SalesOrderUpdateRequest: {
             qty?: number;
             /** Format: int64 */
@@ -1391,13 +1427,6 @@ export interface components {
             lossRate?: number;
             substituteNo?: string;
         };
-        Pageable: {
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            size?: number;
-            sort?: string[];
-        };
         PageWorkOrderResponse: {
             /** Format: int64 */
             totalElements?: number;
@@ -1409,28 +1438,35 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         PageableObject: {
             /** Format: int64 */
             offset?: number;
             sort?: components["schemas"]["SortObject"];
-            unpaged?: boolean;
             paged?: boolean;
             /** Format: int32 */
             pageNumber?: number;
             /** Format: int32 */
             pageSize?: number;
+            unpaged?: boolean;
         };
         SortObject: {
             empty?: boolean;
-            unsorted?: boolean;
             sorted?: boolean;
+            unsorted?: boolean;
+        };
+        Pageable: {
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            sort?: string[];
         };
         PageShipmentResponse: {
             /** Format: int64 */
@@ -1443,11 +1479,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         PageSalesOrderResponse: {
@@ -1461,11 +1497,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         PageRoutingResponse: {
@@ -1479,11 +1515,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         PageReceivingResponse: {
@@ -1497,11 +1533,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         PageReceivableResponse: {
@@ -1515,11 +1551,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         ReceivableSummary: {
@@ -1543,11 +1579,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         PagePurchaseOrderResponse: {
@@ -1561,11 +1597,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         PageProductionPlanResponse: {
@@ -1579,11 +1615,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         PagePartnerResponse: {
@@ -1597,11 +1633,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         PageItemResponse: {
@@ -1615,11 +1651,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         InventoryTxnRow: {
@@ -1649,11 +1685,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
         InventoryStockRow: {
@@ -1736,11 +1772,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
             empty?: boolean;
         };
     };
@@ -1754,11 +1790,14 @@ export type $defs = Record<string, never>;
 export interface operations {
     list: {
         parameters: {
-            query: {
+            query?: {
                 status?: string;
                 itemId?: number;
+                salesOrderId?: number;
                 keyword?: string;
-                pageable: components["schemas"]["Pageable"];
+                page?: number;
+                size?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;
@@ -1854,6 +1893,28 @@ export interface operations {
         };
     };
     close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WorkOrderResponse"];
+                };
+            };
+        };
+    };
+    cancel: {
         parameters: {
             query?: never;
             header?: never;
@@ -2041,7 +2102,7 @@ export interface operations {
             };
         };
     };
-    cancel: {
+    cancel_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2326,7 +2387,7 @@ export interface operations {
             };
         };
     };
-    cancel_1: {
+    cancel_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -2733,7 +2794,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["WorkOrderRequest"];
+                "application/json": components["schemas"]["WorkOrderUpdateRequest"];
             };
         };
         responses: {

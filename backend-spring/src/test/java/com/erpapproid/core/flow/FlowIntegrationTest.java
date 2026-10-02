@@ -140,6 +140,7 @@ class FlowIntegrationTest extends IntegrationTestSupport {
     @Test
     @Order(4)
     void flow4_complete_work_order_produces_lot() {
+        BigDecimal stockBefore = get("/api/core/items/4", adminToken).getBody().path("stock").decimalValue();
         ResponseEntity<JsonNode> response = post("/api/core/work-orders/" + WORK_ORDER_OPEN + "/complete",
                 adminToken, body("goodQty", 450, "defectQty", 0));
 
@@ -151,6 +152,8 @@ class FlowIntegrationTest extends IntegrationTestSupport {
                 .isEqualByComparingTo(BigDecimal.valueOf(100));
         assertThat(result.get("lotNo").asText()).startsWith("LOT-");
         assertThat(result.get("inventoryTxnNo").asText()).startsWith("IVT-");
+        assertThat(get("/api/core/items/4", adminToken).getBody().path("stock").decimalValue())
+                .isEqualByComparingTo(stockBefore.add(BigDecimal.valueOf(450)));
     }
 
     @Test

@@ -122,6 +122,8 @@ export default function SalesDocumentPage({ resource }: { resource: SalesResourc
     return <>
         {notice && <div role="status" className="mb-4 text-hud-accent-success">{notice}
             {notice.startsWith('수주를 생성') && <Link to="/sales/orders" className="ml-3 underline">수주 보기</Link>}
+            {notice.startsWith('작업오더를 생성') && <Link to={`/production/orders?keyword=${encodeURIComponent(notice.split(': ')[1] ?? '')}`}
+                className="ml-3 underline">작업오더 보기</Link>}
         </div>}
         {customers.status}{items.status}
         {items.ready && selectableItems.length === 0 && <p role="status">선택할 제품이 없습니다. 품목 마스터에서 등록하세요.</p>}

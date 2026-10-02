@@ -372,10 +372,18 @@ V12 이전 문서의 조건은 현재 거래처/원견적 기준으로 보완한
 ### 6.2 작업오더 — /work-orders
 
 #### GET /work-orders
-쿼리: `status`, `itemId`, `keyword`
+인증 조회. 쿼리: `status`, `itemId`, `salesOrderId`, `keyword`, `page`(0부터), `size`(1~100), `sort`.
+상태는 지시/진행중/완료/마감/취소, ID는 양수다. 검색은 오더/연결 수주/품번/품명/담당자에 적용한다.
+정렬 허용: `workOrderNo`, `item.itemNo`, `qty`, `goodQty`, `defectQty`, `progress`, `startDate`, `dueDate`,
+`status`, `assignee`, `priority`. 기본 `workOrderNo,desc`, 잘못된 필터/정렬/페이지는 400이다.
 
 #### POST /work-orders
 권한: `PRODUCTION`, `ADMIN`. 수주 연결 없는 독립 작업오더 생성.
+
+필수: `workOrderNo`(최대 32자), `itemId`(제품/반제품), `qty`(양수, 정수 14/소수 4자리), `dueDate`.
+선택: `startDate`(기본 한국 오늘), `assignee`(최대 64자, 기본 빈 문자열), `priority`(1~3, 기본 1).
+`salesOrderId` 직접 전달은 400이며 수주 확정 경로에서만 연결 생성한다. 중복 번호는 409다.
+응답에 담당자/우선순위와 nullable `salesOrderId`/`salesOrderNo`를 제공한다.
 
 독립 생성과 수주 확정 생성 모두 당시 라우팅을 `seq` 오름차순으로 조회해 `routingSteps`에 보관한다.
 각 step은 `routingId`, `routingNo`, `seq`, `process`, `workCenter`, `stdTime`, `isSubcontract`를 포함한다.
@@ -388,9 +396,10 @@ V12 이전 문서의 조건은 현재 거래처/원견적 기준으로 보완한
 
 요청 (선택):
 ```json
-{ "goodQty": 240, "defectQty": 6 }
+{ "goodQty": 234, "defectQty": 6 }
 ```
-미전달 시 기존 실적 값을 사용한다.
+미전달 필드는 기존 누적 실적 값을 사용한다. 지시/진행중만 가능하며 양품>0,
+양품+불량=지시수량이어야 한다. 모든 실적은 0 이상, 정수 14/소수 4자리다.
 
 응답 `200`:
 ```json
@@ -405,26 +414,38 @@ V12 이전 문서의 조건은 현재 거래처/원견적 기준으로 보완한
 1. 작업오더 `완료`, `progress = 100`
 2. 완제품 Lot 생성 (warehouse = 품목 유형에 따른 창고)
 3. `inventory_transactions` 생산입고 (양수), `items.stock` 증가
-4. 재료비/노무비 **실적 확보** (`good_qty`/`defect_qty`)
+4. 누적 양품/불량 생산 실적 저장 (재료비/노무비 계산은 아님)
+5. WORK_ORDER/LOT/INVENTORY_TRANSACTION/ITEM 감사를 동일 trace로 저장
+
+작업오더·품목 행 잠금으로 같은 오더의 중복 완료와 같은 품목의 재고 갱신 유실을 방지한다.
+감사 저장 실패도 전체 롤백한다. 불량은 Lot/현재고에 포함하지 않는다.
 
 > 원가 집계(`costs` 테이블, 표준 vs 실제)는 Phase 3. Phase 1은 실적까지만.
 
-오류: `404`, `409 INVALID_STATE_TRANSITION`, `422 GOOD_QTY_ZERO`
+오류: `404`, `409 INVALID_STATE_TRANSITION`, `422 GOOD_QTY_ZERO`,
+`422 WORK_ORDER_QTY_EXCEEDED`, `422 WORK_ORDER_QTY_MISMATCH`.
 
 #### POST /work-orders/{id}/progress
-권한: `PRODUCTION`. 진척 업데이트. 요청:
+권한: `PRODUCTION`, `ADMIN`. 지시/진행중의 누적 실적 교체. 요청:
 ```json
 { "goodQty": 96, "defectQty": 4 }
 ```
-`progress`는 자동 산출 (`goodQty / qty * 100`). 오류: `422`, `409`.
+한 필드만 전달하면 다른 실적은 유지하며 빈 요청은 400이다. 양품+불량<=지시수량을 검증한다.
+`progress = (goodQty + defectQty) / qty * 100` (소수 2자리 HALF_UP), 지시→진행중.
+실적 입력만으로 Lot·재고를 변경하지 않는다. 오류: `422`, `409`.
 
 #### 기타
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/work-orders/{id}` | 인증 | 상세 |
-| PATCH | `/work-orders/{id}` | `PRODUCTION` | `지시`만 |
-| DELETE | `/work-orders/{id}` | `PRODUCTION` | `지시`만 |
+| PATCH | `/work-orders/{id}` | `PRODUCTION`, `ADMIN` | `지시`만. qty/startDate/dueDate/assignee/priority 부분 수정. 연결 오더 수량은 불변 |
+| DELETE | `/work-orders/{id}` | `PRODUCTION`, `ADMIN` | 실적 없는 독립 `지시`만. 연결/실적 참조는 `409 IN_USE` |
 | POST | `/work-orders/{id}/close` | `PRODUCTION`, `ADMIN` | `완료` → `마감` |
+| POST | `/work-orders/{id}/cancel` | `PRODUCTION`, `ADMIN` | 실적 없는 독립 `지시` → `취소`. 연결/실적 참조는 `409 IN_USE` |
+
+PATCH 번호/품목/수주 연결은 수정하지 않는다. `assignee: ""`는 담당자 해제다. 담당자는 직원 ID가 아닌 라벨이다.
+V13 이전 초과 실적 마감 행은 보존하며 합계 제약은 신규/변경 행에 적용한다. 과거 라우팅을 소급 생성하지 않는다.
+완료 후 보상 취소, 자재 소비, 공정별 실적과 실제원가 집계는 후속 범위다.
 
 ---
 

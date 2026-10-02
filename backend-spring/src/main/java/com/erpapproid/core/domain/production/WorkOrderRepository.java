@@ -4,11 +4,26 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.LockModeType;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface WorkOrderRepository extends JpaRepository<WorkOrderEntity, Long> {
+public interface WorkOrderRepository extends JpaRepository<WorkOrderEntity, Long>, JpaSpecificationExecutor<WorkOrderEntity> {
+
+    boolean existsByWorkOrderNo(String workOrderNo);
+
+    @Override
+    @EntityGraph(attributePaths = {"item", "salesOrder"})
+    Page<WorkOrderEntity> findAll(Specification<WorkOrderEntity> spec, Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select w from WorkOrderEntity w where w.id = :id")
+    Optional<WorkOrderEntity> findForUpdate(Long id);
 
     Optional<WorkOrderEntity> findByWorkOrderNo(String workOrderNo);
 

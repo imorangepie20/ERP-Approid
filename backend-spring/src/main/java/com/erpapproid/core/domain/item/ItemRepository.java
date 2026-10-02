@@ -4,6 +4,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
 
@@ -12,6 +14,10 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
     boolean existsByItemNo(String itemNo);
 
     Optional<ItemEntity> findByItemNo(String itemNo);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from ItemEntity i where i.id = :id")
+    Optional<ItemEntity> findForUpdate(Long id);
 
     @Query("""
             select i from ItemEntity i

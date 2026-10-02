@@ -75,4 +75,12 @@ public class WorkOrderEntity extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "routing_steps", nullable = false, columnDefinition = "jsonb")
     private List<RoutingStepSnapshot> routingSteps = List.of();
+
+    @Builder.Default
+    @Column(name = "assignee", nullable = false, length = 64)
+    private String assignee = "";
+
+    @Builder.Default
+    @Column(name = "priority", nullable = false)
+    private Integer priority = 1;
 }

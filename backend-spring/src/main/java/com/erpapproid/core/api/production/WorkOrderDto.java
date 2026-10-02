@@ -10,6 +10,10 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -23,6 +27,7 @@ public class WorkOrderDto {
     @Schema(name = "WorkOrderRequest")
     public static final class Request {
         @NotBlank
+        @Size(max = 32)
         private String workOrderNo;
         @Positive
         private Long salesOrderId;
@@ -31,10 +36,36 @@ public class WorkOrderDto {
         private Long itemId;
         @NotNull
         @DecimalMin(value = "0", inclusive = false)
+        @Digits(integer = 14, fraction = 4)
         private BigDecimal qty;
         private LocalDate startDate;
         @NotNull
         private LocalDate dueDate;
+        @Size(max = 64)
+        private String assignee;
+        @Min(1)
+        @Max(3)
+        private Integer priority;
+    }
+
+    @Getter
+    @Builder
+    @Schema(name = "WorkOrderUpdateRequest")
+    public static final class UpdateRequest {
+        @DecimalMin(value = "0", inclusive = false)
+        @Digits(integer = 14, fraction = 4)
+        private BigDecimal qty;
+        private LocalDate startDate;
+        private LocalDate dueDate;
+        @Size(max = 64)
+        private String assignee;
+        @Min(1)
+        @Max(3)
+        private Integer priority;
+
+        public boolean hasChanges() {
+            return qty != null || startDate != null || dueDate != null || assignee != null || priority != null;
+        }
     }
 
     @Getter
@@ -42,9 +73,12 @@ public class WorkOrderDto {
     @Schema(name = "WorkOrderCompleteRequest")
     public static class CompleteRequest {
         @DecimalMin(value = "0")
+        @Digits(integer = 14, fraction = 4)
         private BigDecimal goodQty;
         @DecimalMin(value = "0")
+        @Digits(integer = 14, fraction = 4)
         private BigDecimal defectQty;
+        public boolean hasChanges() { return goodQty != null || defectQty != null; }
     }
 
     @Getter
@@ -71,6 +105,9 @@ public class WorkOrderDto {
         private BigDecimal plannedTimeHours;
         @Schema(description = "외주 공정의 표준시간 합계 × 작업오더 수량(h)")
         private BigDecimal subcontractTimeHours;
+        private String assignee;
+        @Schema(description = "우선순위: 1 일반, 2 높음, 3 긴급")
+        private Integer priority;
     }
 
     @Getter

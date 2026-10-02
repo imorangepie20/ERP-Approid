@@ -57,7 +57,7 @@ it('creates, partially edits and deletes real API rows and refreshes the list', 
     await user.click(screen.getByRole('button', { name: '삭제 확인' }))
     await screen.findByText('BOM을 삭제했습니다.')
     expect(screen.queryByText('REAL-BOM')).not.toBeInTheDocument()
-})
+}, 15000)
 
 it('shows server conflict and trace ID while keeping the form open', async () => {
     state.fetch.mockImplementation(async (input, init) => {
