@@ -45,10 +45,12 @@ Backend, from `backend-spring/`:
 
 ## Current Caveats
 
-- Authentication, item master CRUD, partner master CRUD, and business-form partner selectors call the Spring API.
+- Authentication, item/partner/BOM/routing master CRUD, and business-form partner selectors call the Spring API.
   Sales/purchase documents and the remaining business screens still use prototypes or memory-only DataContext.
 - Login, session restoration/expiry, protected routes, logout, and role-controlled item/BOM action boundaries are implemented.
 - Many pages use hardcoded local arrays rather than DataContext.
+- New standalone and sales-confirmed work orders persist ordered routing snapshots. Existing orders retain
+  empty snapshots; planning/cost consumers and the MRP calculation UI remain follow-up work.
 - `backend-fastapi/` is not implemented. Root Compose, `src/api/`, and generated Spring OpenAPI types exist.
 - Springdoc is pinned to 2.8.14 because 2.8.17 breaks Spring MVC resource path initialization;
   `OpenApiIntegrationTest` guards the OpenAPI JSON and Swagger UI entry points.

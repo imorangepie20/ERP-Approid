@@ -90,6 +90,12 @@ class FlowIntegrationTest extends IntegrationTestSupport {
         assertThat(result).isNotNull();
         assertThat(result.get("workOrderNo").asText()).startsWith("WO-");
         assertThat(result.get("salesOrder").get("status").asText()).isEqualTo("확정");
+        var createdOrders = get("/api/core/work-orders?keyword=" + result.get("workOrderNo").asText(), adminToken);
+        assertThat(createdOrders.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode workOrder = createdOrders.getBody().path("content").get(0);
+        assertThat(workOrder.path("routingSteps")).isNotEmpty();
+        assertThat(workOrder.path("routingSteps").get(0).path("seq").asInt()).isEqualTo(10);
+        assertThat(workOrder.path("plannedTimeHours").decimalValue()).isPositive();
     }
 
     @Test

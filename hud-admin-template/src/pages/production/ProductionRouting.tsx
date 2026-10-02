@@ -1,50 +1,38 @@
-import DataTable, { DataTableColumn } from '../../components/common/DataTable'
+import { createRouting, deleteRouting, fetchRoutingPage, updateRouting, type RoutingRow } from '../../api/routings'
+import MasterDataPage from '../../components/common/MasterDataPage'
 
-interface RoutingRow {
-    id: string
-    item: string
-    seq: number
-    process: string
-    workCenter: string
-    stdTime: number
-    isSubcontract: string
+export default function ProductionRouting() {
+    return <MasterDataPage<RoutingRow> resource="routings" title="공정 라우팅" name="공정"
+        subtitle="품목별 공정 순서 · 작업장 · 1단위당 표준시간(h) · 외주 여부를 관리합니다."
+        code={row => row.routingNo} defaultSort="routingNo" filterLabel="공정 품목 필터"
+        initialValues={{ routingNo: '', itemId: '', seq: '10', process: '', workCenter: '', stdTime: '0', isSubcontract: 'false' }}
+        toValues={r => ({ routingNo: r.routingNo, itemId: String(r.itemId), seq: String(r.seq),
+            process: r.process, workCenter: r.workCenter, stdTime: String(r.stdTime), isSubcontract: String(r.isSubcontract) })}
+        fields={(editing, items) => [
+            { key: 'routingNo', label: '공정 번호', type: 'text', required: true, maxLength: 32, readOnly: editing },
+            { key: 'itemId', label: '품목', type: 'select', required: true, readOnly: editing,
+                options: items.filter(i => i.itemType !== '자재').map(i => ({ label: `${i.itemNo} · ${i.name}`, value: i.id })) },
+            { key: 'seq', label: '공정 순서', type: 'number', required: true, min: 1, step: 1 },
+            { key: 'process', label: '공정명', type: 'text', required: true, maxLength: 64 },
+            { key: 'workCenter', label: '작업장', type: 'text', required: true, maxLength: 32 },
+            { key: 'stdTime', label: '표준시간(h)', type: 'number', min: 0, step: 0.001 },
+            { key: 'isSubcontract', label: '외주 여부', type: 'select', required: true,
+                options: [{ label: '자체', value: 'false' }, { label: '외주', value: 'true' }] },
+        ]}
+        columns={[
+            { key: 'routingNo', label: '공정 번호' },
+            { key: 'itemNo', label: '품목', render: r => <>{r.itemNo} · {r.itemName}</> },
+            { key: 'seq', label: '순서' }, { key: 'process', label: '공정명' },
+            { key: 'workCenter', label: '작업장' }, { key: 'stdTime', label: '표준시간(h)' },
+            { key: 'isSubcontract', label: '외주 여부', render: r => r.isSubcontract ? '외주' : '자체' },
+        ]}
+        sortColumns={{ routingNo: 'routingNo', itemNo: 'item.itemNo', seq: 'seq', process: 'process',
+            workCenter: 'workCenter', stdTime: 'stdTime', isSubcontract: 'isSubcontract' }}
+        fetchPage={fetchRoutingPage} remove={deleteRouting}
+        save={(client, row, v) => {
+            const input = { seq: Number(v.seq), process: v.process.trim(), workCenter: v.workCenter.trim(),
+                stdTime: Number(v.stdTime || 0), isSubcontract: v.isSubcontract === 'true' }
+            return row ? updateRouting(client, row.id, input)
+                : createRouting(client, { ...input, routingNo: v.routingNo.trim(), itemId: Number(v.itemId) })
+        }} />
 }
-
-const routings: RoutingRow[] = [
-    { id: 'RT-A001-10', item: '프레임 가조립품 A', seq: 10, process: '절단', workCenter: 'WC-CUT-01', stdTime: 0.5, isSubcontract: '자체' },
-    { id: 'RT-A001-20', item: '프레임 가조립품 A', seq: 20, process: '용접', workCenter: 'WC-WLD-02', stdTime: 1.2, isSubcontract: '자체' },
-    { id: 'RT-A001-30', item: '프레임 가조립품 A', seq: 30, process: '도장', workCenter: 'WC-OUT-01', stdTime: 0.8, isSubcontract: '외주' },
-    { id: 'RT-B002-10', item: '샤시 브라켓 B', seq: 10, process: '프레스', workCenter: 'WC-PRS-01', stdTime: 0.3, isSubcontract: '자체' },
-    { id: 'RT-B002-20', item: '샤시 브라켓 B', seq: 20, process: '용접', workCenter: 'WC-WLD-01', stdTime: 0.6, isSubcontract: '자체' },
-    { id: 'RT-C003-10', item: '커버 몸체 C', seq: 10, process: '사출', workCenter: 'WC-INJ-03', stdTime: 0.4, isSubcontract: '자체' },
-    { id: 'RT-C003-20', item: '커버 몸체 C', seq: 20, process: '검사', workCenter: 'WC-QC-01', stdTime: 0.2, isSubcontract: '자체' },
-    { id: 'RT-D004-10', item: '지지대 플레이트', seq: 10, process: '레이저절단', workCenter: 'WC-CUT-02', stdTime: 0.7, isSubcontract: '자체' },
-    { id: 'RT-D004-20', item: '지지대 플레이트', seq: 20, process: '용접', workCenter: 'WC-WLD-02', stdTime: 0.9, isSubcontract: '자체' },
-]
-
-const ProductionRouting = () => {
-    const columns: DataTableColumn<RoutingRow>[] = [
-        { key: 'id', label: '공정ID', render: row => <span className="font-mono text-hud-accent-primary">{row.id}</span> },
-        { key: 'item', label: '품목', render: row => <span className="text-hud-text-primary">{row.item}</span> },
-        { key: 'seq', label: '순서', render: row => <span className="font-mono">{row.seq}</span> },
-        { key: 'process', label: '공정명' },
-        { key: 'workCenter', label: '작업장', render: row => <span className="font-mono text-hud-text-secondary">{row.workCenter}</span> },
-        { key: 'stdTime', label: '표준시간(h)', render: row => <span className="font-mono">{row.stdTime.toFixed(1)}</span> },
-        { key: 'isSubcontract', label: '외주여부', render: row => (
-            <span className={`text-xs ${row.isSubcontract === '외주' ? 'text-hud-accent-warning' : 'text-hud-text-muted'}`}>{row.isSubcontract}</span>
-        ) },
-    ]
-
-    return (
-        <DataTable<RoutingRow>
-            title="공정 현황"
-            subtitle="제품별 공정 순서, 작업장, 표준시간을 관리합니다."
-            columns={columns}
-            data={routings}
-            rowKey="id"
-            searchPlaceholder="공정ID, 품목, 공정명 검색..."
-        />
-    )
-}
-
-export default ProductionRouting

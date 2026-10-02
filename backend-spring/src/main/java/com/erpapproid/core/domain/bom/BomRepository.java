@@ -1,10 +1,13 @@
 package com.erpapproid.core.domain.bom;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.List;
 
-public interface BomRepository extends JpaRepository<BomEntity, Long> {
+public interface BomRepository extends JpaRepository<BomEntity, Long>, JpaSpecificationExecutor<BomEntity> {
+
+    boolean existsByBomNo(String bomNo);
 
     List<BomEntity> findByParentId(Long parentId);
 

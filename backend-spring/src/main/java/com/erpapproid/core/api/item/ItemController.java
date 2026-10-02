@@ -55,6 +55,7 @@ public class ItemController {
 
     private final ItemRepository itemRepository;
     private final BomRepository bomRepository;
+    private final com.erpapproid.core.domain.routing.RoutingRepository routingRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final AuditService auditService;
 
@@ -143,6 +144,9 @@ public class ItemController {
         if (inventoryTransactionRepository.existsByItemId(id)) {
             throw new DomainException(ErrorCode.ITEM_IN_USE,
                     "재고 이력이 있는 품목은 삭제할 수 없습니다.");
+        }
+        if (routingRepository.countByItemId(id) > 0) {
+            throw new DomainException(ErrorCode.ITEM_IN_USE, "공정에서 참조 중인 품목은 삭제할 수 없습니다.");
         }
         Response before = toResponse(entity);
         itemRepository.delete(entity);

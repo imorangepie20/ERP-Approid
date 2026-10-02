@@ -2,6 +2,9 @@ package com.erpapproid.core.domain.production;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -67,4 +70,9 @@ public class WorkOrderEntity extends BaseEntity {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    @Builder.Default
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "routing_steps", nullable = false, columnDefinition = "jsonb")
+    private List<RoutingStepSnapshot> routingSteps = List.of();
 }

@@ -919,6 +919,23 @@ export interface components {
             dueDate?: string;
             status?: string;
             delayed?: boolean;
+            routingSteps?: components["schemas"]["WorkOrderRoutingStep"][];
+            /** @description 전체 공정의 표준시간 합계 × 작업오더 수량(h) */
+            plannedTimeHours?: number;
+            /** @description 외주 공정의 표준시간 합계 × 작업오더 수량(h) */
+            subcontractTimeHours?: number;
+        };
+        /** @description 작업오더 생성 시점의 공정 정보 */
+        WorkOrderRoutingStep: {
+            /** Format: int64 */
+            routingId?: number;
+            routingNo?: string;
+            /** Format: int32 */
+            seq?: number;
+            process?: string;
+            workCenter?: string;
+            stdTime?: number;
+            isSubcontract?: boolean;
         };
         WorkOrderCompleteRequest: {
             goodQty?: number;
@@ -1015,6 +1032,7 @@ export interface components {
             seq: number;
             process: string;
             workCenter: string;
+            /** @description 품목 1단위당 표준시간(h) */
             stdTime?: number;
             isSubcontract?: boolean;
         };
@@ -1025,6 +1043,7 @@ export interface components {
             /** Format: int64 */
             itemId?: number;
             itemNo?: string;
+            itemName?: string;
             /** Format: int32 */
             seq?: number;
             process?: string;
@@ -1274,9 +1293,13 @@ export interface components {
             /** Format: int64 */
             parentId?: number;
             parentItemNo?: string;
+            parentName?: string;
             /** Format: int64 */
             childId?: number;
             childItemNo?: string;
+            childName?: string;
+            childType?: string;
+            childUnit?: string;
             qty?: number;
             lossRate?: number;
             substituteNo?: string;
@@ -1298,6 +1321,14 @@ export interface components {
             username?: string;
             name?: string;
             roles?: string[];
+        };
+        RoutingUpdateRequest: {
+            /** Format: int32 */
+            seq?: number;
+            process?: string;
+            workCenter?: string;
+            stdTime?: number;
+            isSubcontract?: boolean;
         };
         PartnerUpdateRequest: {
             name?: string;
@@ -1324,6 +1355,11 @@ export interface components {
             safetyStock?: number;
             /** Format: int32 */
             leadTimeDays?: number;
+        };
+        BomUpdateRequest: {
+            qty?: number;
+            lossRate?: number;
+            substituteNo?: string;
         };
         Pageable: {
             /** Format: int32 */
@@ -1354,17 +1390,17 @@ export interface components {
             /** Format: int64 */
             offset?: number;
             sort?: components["schemas"]["SortObject"];
+            unpaged?: boolean;
             paged?: boolean;
             /** Format: int32 */
             pageNumber?: number;
             /** Format: int32 */
             pageSize?: number;
-            unpaged?: boolean;
         };
         SortObject: {
             empty?: boolean;
-            sorted?: boolean;
             unsorted?: boolean;
+            sorted?: boolean;
         };
         PageShipmentResponse: {
             /** Format: int64 */
@@ -1392,6 +1428,24 @@ export interface components {
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["SalesOrderResponse"][];
+            /** Format: int32 */
+            number?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
+            empty?: boolean;
+        };
+        PageRoutingResponse: {
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            /** Format: int32 */
+            size?: number;
+            content?: components["schemas"]["RoutingResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
@@ -1639,6 +1693,25 @@ export interface components {
             childItemNo?: string;
             qty?: number;
             lossRate?: number;
+            substituteNo?: string;
+        };
+        PageBomResponse: {
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            /** Format: int32 */
+            size?: number;
+            content?: components["schemas"]["BomResponse"][];
+            /** Format: int32 */
+            number?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
+            empty?: boolean;
         };
     };
     responses: never;
@@ -1984,6 +2057,10 @@ export interface operations {
         parameters: {
             query?: {
                 itemId?: number;
+                keyword?: string;
+                page?: number;
+                size?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;
@@ -1997,7 +2074,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["RoutingResponse"][];
+                    "*/*": components["schemas"]["PageRoutingResponse"];
                 };
             };
         };
@@ -2499,6 +2576,9 @@ export interface operations {
             query?: {
                 parentId?: number;
                 keyword?: string;
+                page?: number;
+                size?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;
@@ -2512,7 +2592,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["BomResponse"][];
+                    "*/*": components["schemas"]["PageBomResponse"];
                 };
             };
         };
@@ -2800,7 +2880,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RoutingRequest"];
+                "application/json": components["schemas"]["RoutingUpdateRequest"];
             };
         };
         responses: {
@@ -3144,7 +3224,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BomRequest"];
+                "application/json": components["schemas"]["BomUpdateRequest"];
             };
         };
         responses: {

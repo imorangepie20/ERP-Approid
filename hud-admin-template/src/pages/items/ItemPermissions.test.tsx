@@ -48,6 +48,12 @@ function renderPage(page: React.ReactNode, roles: Role[]) {
                 totalPages: 1,
             })
         }
+        if (url.pathname.endsWith('/boms')) {
+            return Response.json({ content: [{ id: 1, bomNo: 'BOM-001', parentId: 1, parentItemNo: 'P-A001',
+                parentName: '프레임 가조립품 A', childId: 2, childItemNo: 'M-001', childName: '강판',
+                childType: '자재', childUnit: 'KG', qty: 2, lossRate: 5, substituteNo: '' }],
+                number: 0, size: 10, totalElements: 1, totalPages: 1 })
+        }
         throw new Error(`예상하지 못한 요청: ${url}`)
     })
     return render(
@@ -69,7 +75,7 @@ describe('item permissions', () => {
         await screen.findByRole('heading', { name: '품목 마스터' })
         expect(await screen.findByText('P-A001')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: '품목 등록' })).toBeEnabled()
-        expect(screen.getAllByTitle('수정').length).toBeGreaterThan(0)
+        expect((await screen.findAllByTitle('수정')).length).toBeGreaterThan(0)
         expect(screen.getAllByTitle('삭제').length).toBeGreaterThan(0)
         admin.unmount()
         sessionStorage.clear()
@@ -86,7 +92,7 @@ describe('item permissions', () => {
         renderPage(<ItemBom />, ['PRODUCTION'])
         await screen.findByRole('heading', { name: 'BOM 관리' })
         expect(screen.getByRole('button', { name: 'BOM 등록' })).toBeInTheDocument()
-        expect(screen.getAllByTitle('수정').length).toBeGreaterThan(0)
+        expect((await screen.findAllByTitle('수정')).length).toBeGreaterThan(0)
         expect(screen.queryByTitle('삭제')).not.toBeInTheDocument()
     })
 
@@ -94,7 +100,7 @@ describe('item permissions', () => {
         renderPage(<ItemBom />, ['ADMIN'])
         await screen.findByRole('heading', { name: 'BOM 관리' })
         expect(screen.getByRole('button', { name: 'BOM 등록' })).toBeInTheDocument()
-        expect(screen.getAllByTitle('수정').length).toBeGreaterThan(0)
+        expect((await screen.findAllByTitle('수정')).length).toBeGreaterThan(0)
         expect(screen.getAllByTitle('삭제').length).toBeGreaterThan(0)
     })
 })

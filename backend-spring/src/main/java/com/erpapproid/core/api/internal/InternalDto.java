@@ -61,5 +61,6 @@ public class InternalDto {
         private String childItemNo;
         private BigDecimal qty;
         private BigDecimal lossRate;
+        private String substituteNo;
     }
 }

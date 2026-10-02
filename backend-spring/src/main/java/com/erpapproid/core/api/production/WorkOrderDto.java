@@ -2,6 +2,8 @@ package com.erpapproid.core.api.production;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import com.erpapproid.core.domain.production.RoutingStepSnapshot;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
@@ -64,6 +66,11 @@ public class WorkOrderDto {
         private LocalDate dueDate;
         private String status;
         private boolean delayed;
+        private List<RoutingStepSnapshot> routingSteps;
+        @Schema(description = "전체 공정의 표준시간 합계 × 작업오더 수량(h)")
+        private BigDecimal plannedTimeHours;
+        @Schema(description = "외주 공정의 표준시간 합계 × 작업오더 수량(h)")
+        private BigDecimal subcontractTimeHours;
     }
 
     @Getter

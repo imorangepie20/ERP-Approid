@@ -1,6 +1,11 @@
 package com.erpapproid.core.api.bom;
 
-import java.util.List;
+import java.util.Set;
+import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
+import com.erpapproid.core.common.api.MasterListQuery;
+import com.erpapproid.core.domain.bom.BomGraphService;
+import com.erpapproid.core.api.bom.BomDto.UpdateRequest;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,17 +46,35 @@ public class BomController {
     private final BomRepository bomRepository;
     private final ItemRepository itemRepository;
     private final AuditService auditService;
+    private final BomGraphService graphService;
 
     @Operation(summary = "BOM 목록")
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<Response>> list(
+    @Transactional(readOnly = true)
+    public ResponseEntity<Page<Response>> list(
             @RequestParam(required = false) Long parentId,
-            @RequestParam(required = false) String keyword) {
-        List<BomEntity> rows = parentId != null
-                ? bomRepository.findByParentId(parentId)
-                : bomRepository.findAll();
-        return ResponseEntity.ok(rows.stream().map(this::toResponse).toList());
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "bomNo,asc") String sort) {
+        MasterListQuery.positiveId(parentId);
+        String pattern = MasterListQuery.keyword(keyword);
+        var pageable = MasterListQuery.pageable(page, size, sort,
+                Set.of("bomNo", "parent.itemNo", "child.itemNo", "qty", "lossRate", "substituteNo"), "bomNo");
+        Specification<BomEntity> spec = (root, query, cb) -> {
+            var parent = root.join("parent");
+            var child = root.join("child");
+            var filter = parentId == null ? cb.conjunction() : cb.equal(parent.get("id"), parentId);
+            if (pattern == null) return filter;
+            return cb.and(filter, cb.or(
+                    cb.like(cb.lower(root.get("bomNo")), pattern, '!'),
+                    cb.like(cb.lower(parent.get("itemNo")), pattern, '!'),
+                    cb.like(cb.lower(parent.get("name")), pattern, '!'),
+                    cb.like(cb.lower(child.get("itemNo")), pattern, '!'),
+                    cb.like(cb.lower(child.get("name")), pattern, '!')));
+        };
+        return ResponseEntity.ok(bomRepository.findAll(spec, pageable).map(this::toResponse));
     }
 
     @Operation(summary = "BOM 생성")
@@ -65,7 +88,12 @@ public class BomController {
         ItemEntity child = itemRepository.findById(request.getChildId())
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
                         "자품목을 찾을 수 없습니다: " + request.getChildId()));
-        if (bomRepository.existsByParentIdAndChildId(request.getParentId(), request.getChildId())) {
+        graphService.validateEdge(parent.getId(), child.getId());
+        if ("자재".equals(parent.getItemType())) {
+            throw new DomainException(ErrorCode.ITEM_NOT_PRODUCIBLE, "모품목은 제품 또는 반제품이어야 합니다.");
+        }
+        if (bomRepository.existsByBomNo(request.getBomNo())
+                || bomRepository.existsByParentIdAndChildId(request.getParentId(), request.getChildId())) {
             throw new DomainException(ErrorCode.BOM_DUPLICATE, "이미 등록된 BOM 조합입니다.");
         }
         BomEntity entity = BomEntity.builder()
@@ -86,9 +114,10 @@ public class BomController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRODUCTION')")
     @Transactional
-    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
+    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody UpdateRequest request) {
+        if (!request.hasChanges()) throw MasterListQuery.invalid("수정할 BOM 필드가 필요합니다.");
         BomEntity entity = bomRepository.findById(id)
-                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND,
+                .orElseThrow(() -> new DomainException(ErrorCode.BOM_NOT_FOUND,
                         "BOM을 찾을 수 없습니다: " + id));
         Response before = toResponse(entity);
         if (request.getQty() != null) {
@@ -112,7 +141,7 @@ public class BomController {
     @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         BomEntity entity = bomRepository.findById(id)
-                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND,
+                .orElseThrow(() -> new DomainException(ErrorCode.BOM_NOT_FOUND,
                         "BOM을 찾을 수 없습니다: " + id));
         Response before = toResponse(entity);
         bomRepository.delete(entity);
@@ -126,8 +155,12 @@ public class BomController {
                 .bomNo(entity.getBomNo())
                 .parentId(entity.getParent().getId())
                 .parentItemNo(entity.getParent().getItemNo())
+                .parentName(entity.getParent().getName())
                 .childId(entity.getChild().getId())
                 .childItemNo(entity.getChild().getItemNo())
+                .childName(entity.getChild().getName())
+                .childType(entity.getChild().getItemType())
+                .childUnit(entity.getChild().getUnit())
                 .qty(entity.getQty())
                 .lossRate(entity.getLossRate())
                 .substituteNo(entity.getSubstituteNo())

@@ -30,4 +30,10 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrderEntity, Long
     long countByStatus(String status);
 
     List<WorkOrderEntity> findBySalesOrderId(Long salesOrderId);
+
+    @Query(value = """
+            select exists(select 1 from work_orders w, jsonb_array_elements(w.routing_steps) step
+                          where (step->>'routingId')::bigint = :routingId)
+            """, nativeQuery = true)
+    boolean referencesRouting(Long routingId);
 }

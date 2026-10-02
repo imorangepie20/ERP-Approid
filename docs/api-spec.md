@@ -190,19 +190,33 @@ FastAPI 집계 엔드포인트는 페이지네이션 없이 전체 집계를 반
 
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/boms` | 인증 | 쿼리: `parentId`, `keyword` |
-| POST | `/boms` | `ADMIN`, `PRODUCTION` | 생성. `409 BOM_DUPLICATE` (parent+child) |
-| PATCH | `/boms/{id}` | `ADMIN`, `PRODUCTION` | qty/loss/substitute 수정 |
-| DELETE | `/boms/{id}` | `ADMIN` | `409 BOM_IN_USE` |
+| GET | `/boms` | 인증 | Page 응답. `parentId`, `keyword`, `page`, `size`, `sort` |
+| POST | `/boms` | `ADMIN`, `PRODUCTION` | 생성. `409 BOM_DUPLICATE` (번호 또는 parent+child), `409 BOM_CYCLE` |
+| PATCH | `/boms/{id}` | `ADMIN`, `PRODUCTION` | `qty`, `lossRate`, `substituteNo` 부분 수정. 번호/구성 불변 |
+| DELETE | `/boms/{id}` | `ADMIN` | 삭제. 없는 ID는 `404 BOM_NOT_FOUND` |
+
+`page`는 0~10000, `size`는 1~100(기본 20), `sort`는 `속성,asc/desc`다. 기본 `bomNo,asc`이며
+허용 속성은 `bomNo`, `parent.itemNo`, `child.itemNo`, `qty`, `lossRate`, `substituteNo`다.
+검색은 BOM 번호와 모/자품목 품번·품명에 적용하며 `%`, `_`를 리터럴로 처리한다.
+소요량은 양수/소수 4자리, 손실률은 0~100%/소수 2자리, 번호/대체 품번은 32자 이하다.
+모품목은 제품/반제품이다. 대체자재는 선택적 품번 문자열이며 `""`로 지운다. 빈 PATCH는 400이다.
+동시 graph 쓰기는 트랜잭션 advisory lock으로 직렬화해 순환 검사를 보장한다.
+분석용 `/internal/boms`는 같은 DB의 소요량·손실률·대체자재 품번을 반환한다.
 
 ### 4.4 공정 — /routings
 
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/routings` | 인증 | 쿼리: `itemId` |
-| POST | `/routings` | `ADMIN`, `PRODUCTION` | 생성. `409 ROUTING_SEQ_DUPLICATE` |
-| PATCH | `/routings/{id}` | `ADMIN`, `PRODUCTION` | |
+| GET | `/routings` | 인증 | Page 응답. `itemId`, `keyword`, `page`, `size`, `sort` |
+| POST | `/routings` | `ADMIN`, `PRODUCTION` | 생성. `409 ROUTING_SEQ_DUPLICATE`, `409 ROUTING_NO_DUPLICATE` |
+| PATCH | `/routings/{id}` | `ADMIN`, `PRODUCTION` | `seq`, `process`, `workCenter`, `stdTime`, `isSubcontract` 부분 수정 |
 | DELETE | `/routings/{id}` | `ADMIN` | `409 ROUTING_IN_USE` |
+
+페이지 범위는 BOM과 같다. 기본 정렬은 `routingNo,asc`, 허용 속성은 `routingNo`, `item.itemNo`,
+`seq`, `process`, `workCenter`, `stdTime`, `isSubcontract`다. 검색은 번호·품번·품명·공정명·작업장이다.
+번호/품목은 불변, 순서는 양수, 표준시간은 품목 1단위당 시간(h), 0 이상/소수 3자리다.
+공정 번호/작업장은 32자, 공정명은 64자 이하다. 제품/반제품만 등록할 수 있다.
+빈 PATCH는 400, 없는 ID는 `404 ROUTING_NOT_FOUND`, 작업오더 스냅샷 참조 중 삭제는 409다.
 
 ---
 
@@ -337,6 +351,12 @@ FastAPI 집계 엔드포인트는 페이지네이션 없이 전체 집계를 반
 
 #### POST /work-orders
 권한: `PRODUCTION`, `ADMIN`. 수주 연결 없는 독립 작업오더 생성.
+
+독립 생성과 수주 확정 생성 모두 당시 라우팅을 `seq` 오름차순으로 조회해 `routingSteps`에 보관한다.
+각 step은 `routingId`, `routingNo`, `seq`, `process`, `workCenter`, `stdTime`, `isSubcontract`를 포함한다.
+작업오더 조회/쓰기 응답과 생성 감사에 스냅샷을 제공하며 마스터 변경 후에도 기존 값을 유지한다.
+`plannedTimeHours = Σ(stdTime) × qty`, `subcontractTimeHours = Σ(외주 stdTime) × qty`다.
+공정 없는 품목과 과거 작업오더는 빈 배열과 시간 0을 반환한다. 일정/원가 계산 서비스는 후속 범위다.
 
 #### POST /work-orders/{id}/complete
 권한: `PRODUCTION`, `ADMIN`. **흐름 4: 작업오더 완료**.

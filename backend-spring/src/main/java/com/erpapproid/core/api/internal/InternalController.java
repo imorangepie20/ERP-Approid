@@ -60,6 +60,7 @@ public class InternalController {
 
     @Operation(summary = "BOM 전개용")
     @GetMapping("/boms")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<BomRow>> boms() {
         return ResponseEntity.ok(bomRepository.findAll().stream().map(this::toBomRow).toList());
     }
@@ -109,6 +110,7 @@ public class InternalController {
                 .childItemNo(entity.getChild().getItemNo())
                 .qty(entity.getQty())
                 .lossRate(entity.getLossRate())
+                .substituteNo(entity.getSubstituteNo())
                 .build();
     }
 }

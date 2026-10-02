@@ -59,6 +59,7 @@ public class SalesOrderController {
     private final WorkOrderRepository workOrderRepository;
     private final DomainNumberGenerator numberGenerator;
     private final AuditService auditService;
+    private final com.erpapproid.core.domain.production.RoutingSnapshotService routingSnapshots;
 
     @Operation(summary = "수주 목록")
     @GetMapping
@@ -160,6 +161,7 @@ public class SalesOrderController {
                 .startDate(LocalDate.now())
                 .dueDate(order.getDueDate())
                 .status(Constants.WO_OPEN)
+                .routingSteps(routingSnapshots.capture(order.getItem().getId()))
                 .build();
         SalesOrderEntity savedOrder = salesOrderRepository.save(order);
         WorkOrderEntity savedWorkOrder = workOrderRepository.save(workOrder);
@@ -309,6 +311,7 @@ public class SalesOrderController {
                 "workOrderNo", entity.getWorkOrderNo(),
                 "itemId", entity.getItem().getId(),
                 "qty", entity.getQty(),
+                "routingSteps", entity.getRoutingSteps(),
                 "status", entity.getStatus());
     }
 }

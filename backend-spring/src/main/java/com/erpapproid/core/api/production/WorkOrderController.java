@@ -60,10 +60,12 @@ public class WorkOrderController {
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final DomainNumberGenerator numberGenerator;
     private final AuditService auditService;
+    private final com.erpapproid.core.domain.production.RoutingSnapshotService routingSnapshots;
 
     @Operation(summary = "작업오더 목록")
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<Page<Response>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long itemId,
@@ -76,6 +78,7 @@ public class WorkOrderController {
     @Operation(summary = "작업오더 상세")
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<Response> get(@PathVariable Long id) {
         return ResponseEntity.ok(workOrderRepository.findById(id)
                 .map(this::toResponse)
@@ -108,6 +111,7 @@ public class WorkOrderController {
                 .startDate(request.getStartDate() == null ? LocalDate.now() : request.getStartDate())
                 .dueDate(request.getDueDate())
                 .status(Constants.WO_OPEN)
+                .routingSteps(routingSnapshots.capture(item.getId()))
                 .build();
         WorkOrderEntity saved = workOrderRepository.save(entity);
         auditService.record(AuditEvent.created(
@@ -317,6 +321,11 @@ public class WorkOrderController {
                 .dueDate(entity.getDueDate())
                 .status(entity.getStatus())
                 .delayed(delayed)
+                .routingSteps(entity.getRoutingSteps())
+                .plannedTimeHours(entity.getRoutingSteps().stream()
+                        .map(step -> step.stdTime()).reduce(BigDecimal.ZERO, BigDecimal::add).multiply(entity.getQty()))
+                .subcontractTimeHours(entity.getRoutingSteps().stream().filter(step -> step.isSubcontract())
+                        .map(step -> step.stdTime()).reduce(BigDecimal.ZERO, BigDecimal::add).multiply(entity.getQty()))
                 .build();
     }
 

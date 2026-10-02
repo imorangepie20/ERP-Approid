@@ -1,7 +1,12 @@
 package com.erpapproid.core.api.routing;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.Set;
+import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
+import com.erpapproid.core.common.api.MasterListQuery;
+import com.erpapproid.core.api.routing.RoutingDto.UpdateRequest;
+import com.erpapproid.core.domain.production.WorkOrderRepository;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,15 +47,33 @@ public class RoutingController {
     private final RoutingRepository routingRepository;
     private final ItemRepository itemRepository;
     private final AuditService auditService;
+    private final WorkOrderRepository workOrderRepository;
 
     @Operation(summary = "공정 목록")
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<Response>> list(@RequestParam(required = false) Long itemId) {
-        List<RoutingEntity> rows = itemId != null
-                ? routingRepository.findByItemId(itemId)
-                : routingRepository.findAll();
-        return ResponseEntity.ok(rows.stream().map(this::toResponse).toList());
+    @Transactional(readOnly = true)
+    public ResponseEntity<Page<Response>> list(
+            @RequestParam(required = false) Long itemId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "routingNo,asc") String sort) {
+        MasterListQuery.positiveId(itemId);
+        String pattern = MasterListQuery.keyword(keyword);
+        var pageable = MasterListQuery.pageable(page, size, sort,
+                Set.of("routingNo", "item.itemNo", "seq", "process", "workCenter", "stdTime", "isSubcontract"), "routingNo");
+        Specification<RoutingEntity> spec = (root, query, cb) -> {
+            var item = root.join("item");
+            var filter = itemId == null ? cb.conjunction() : cb.equal(item.get("id"), itemId);
+            if (pattern == null) return filter;
+            return cb.and(filter, cb.or(cb.like(cb.lower(root.get("routingNo")), pattern, '!'),
+                    cb.like(cb.lower(item.get("itemNo")), pattern, '!'),
+                    cb.like(cb.lower(item.get("name")), pattern, '!'),
+                    cb.like(cb.lower(root.get("process")), pattern, '!'),
+                    cb.like(cb.lower(root.get("workCenter")), pattern, '!')));
+        };
+        return ResponseEntity.ok(routingRepository.findAll(spec, pageable).map(this::toResponse));
     }
 
     @Operation(summary = "공정 생성")
@@ -61,6 +84,12 @@ public class RoutingController {
         ItemEntity item = itemRepository.findById(request.getItemId())
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
                         "품목을 찾을 수 없습니다: " + request.getItemId()));
+        if ("자재".equals(item.getItemType())) {
+            throw new DomainException(ErrorCode.ITEM_NOT_PRODUCIBLE, "공정은 제품 또는 반제품에 등록할 수 있습니다.");
+        }
+        if (routingRepository.existsByRoutingNo(request.getRoutingNo())) {
+            throw new DomainException(ErrorCode.ROUTING_NO_DUPLICATE, "이미 등록된 공정 번호입니다.");
+        }
         if (routingRepository.existsByItemIdAndSeq(request.getItemId(), request.getSeq())) {
             throw new DomainException(ErrorCode.ROUTING_SEQ_DUPLICATE,
                     "이미 등록된 공정 순서입니다: " + request.getSeq());
@@ -83,12 +112,16 @@ public class RoutingController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRODUCTION')")
     @Transactional
-    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
+    public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody UpdateRequest request) {
+        if (!request.hasChanges()) throw MasterListQuery.invalid("수정할 공정 필드가 필요합니다.");
         RoutingEntity entity = routingRepository.findById(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.ROUTING_NOT_FOUND,
                         "공정을 찾을 수 없습니다: " + id));
         Response before = toResponse(entity);
         if (request.getSeq() != null) {
+            if (routingRepository.existsByItemIdAndSeqAndIdNot(entity.getItem().getId(), request.getSeq(), id)) {
+                throw new DomainException(ErrorCode.ROUTING_SEQ_DUPLICATE, "이미 등록된 공정 순서입니다.");
+            }
             entity.setSeq(request.getSeq());
         }
         if (request.getProcess() != null) {
@@ -118,6 +151,9 @@ public class RoutingController {
                 .orElseThrow(() -> new DomainException(ErrorCode.ROUTING_NOT_FOUND,
                         "공정을 찾을 수 없습니다: " + id));
         Response before = toResponse(entity);
+        if (workOrderRepository.referencesRouting(id)) {
+            throw new DomainException(ErrorCode.ROUTING_IN_USE, "작업오더에서 참조 중인 공정은 삭제할 수 없습니다.");
+        }
         routingRepository.delete(entity);
         auditService.record(AuditEvent.deleted("ROUTING", entity.getRoutingNo(), before));
         return ResponseEntity.noContent().build();
@@ -129,6 +165,7 @@ public class RoutingController {
                 .routingNo(entity.getRoutingNo())
                 .itemId(entity.getItem().getId())
                 .itemNo(entity.getItem().getItemNo())
+                .itemName(entity.getItem().getName())
                 .seq(entity.getSeq())
                 .process(entity.getProcess())
                 .workCenter(entity.getWorkCenter())
