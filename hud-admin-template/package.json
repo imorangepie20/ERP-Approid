@@ -9,6 +9,7 @@
     "generate:api-types": "node scripts/generate-api-types.mjs",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:api-types": "node --test scripts/generate-api-types.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:types": "tsc -p tsconfig.e2e.json",
     "test:watch": "vitest",

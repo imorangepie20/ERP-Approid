@@ -27,6 +27,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run test:e2e:types
+      - run: npm run test:api-types
       - run: npm run test -- --maxWorkers=4
       - run: npm run build
   backend:

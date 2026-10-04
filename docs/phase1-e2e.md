@@ -60,7 +60,7 @@ CI artifact 보관 기간은 7일로 제한한다. 외부 공유 전 민감 정�
 
 `.github/workflows/phase1.yml`은 main push, PR, 수동 실행에서 다음 세 작업을 실행한다.
 
-1. Frontend: npm ci, lint, E2E TypeScript, Vitest 전체, production build.
+1. Frontend: npm ci, lint, E2E TypeScript, OpenAPI 생성 순서 회귀 테스트, Vitest 전체, production build.
 2. Backend: Java 21, Gradle 전체 통합 테스트(Testcontainers), 테스트 보고서 업로드.
 3. E2E: 격리 Compose를 새로 빌드/기동, 테스트 역할/V15 확인, 실제 OpenAPI 타입 재생성 후
    committed 타입 drift 검사, Chromium 거래 4건, 보고서 업로드 및 항상 스택 정리.
@@ -69,8 +69,8 @@ CI artifact 보관 기간은 7일로 제한한다. 외부 공유 전 민감 정�
 성공으로 처리하지 않는다. 저장소 GitHub Settings의 branch protection/ruleset에서 이 체크를
 required status check로 등록해야 병합을 실제 차단한다. 워크플로 파일만으로 보호 설정은 생기지 않는다.
 
-로컬 검사와 원격 실행은 별개다. 아직 커밋/푸시하지 않은 워크플로의 GitHub Actions 성공이나
-브랜치 보호 적용은 확인할 수 없다. 백로그 14는 원격 실행 성공 및 required 설정 확인 전까지
+로컬 검사와 원격 실행은 별개다. 로컬 통과만으로 GitHub Actions 성공이나
+브랜치 보호 적용을 확인한 것으로 취급하지 않는다. 백로그 14는 원격 실행 성공 및 required 설정 확인 전까지
 완료로 표시하지 않는다. 로컬에서는 actionlint, 동일 lint/types/tests/build, 격리 E2E를 검증한다.
 
 ## 로컬 검증 기록 — 2026-10-04
@@ -92,3 +92,17 @@ required status check로 등록해야 병합을 실제 차단한다. 워크플�
 복원했으며, 개발 세 서비스의 healthy와 V15를 확인했다. 개발 DB 볼륨은 삭제하지 않았다.
 E2E 정리는 격리 컨테이너와 임시 DB만 제거하며 보고서/스크린샷은 호스트에 남는다.
 남은 경고는 단일 JS 청크 약 518kB와 오래된 Browserslist 데이터다. 코드 분할·의존성 정비는 별도 범위다.
+
+## 원격 첫 실행과 생성 순서 보정 — 2026-10-04
+
+`2627fbd`를 main에 푸시한 [첫 실행](https://github.com/imorangepie20/ERP-Approid/actions/runs/37165928970)에서
+Frontend와 Backend는 success였다. E2E는 브라우저 실행 전 OpenAPI 타입 diff 검사에서 실패했다.
+로그에서 Page의 first/last 및 Pageable의 paged 필드 위치만 달라진 것을 확인했다.
+Spring/Jackson의 필드 열거 순서에 의존하지 않도록 생성 CLI에 `--alphabetize`를 적용했다.
+키 순서 변경의 결과 동일성과 실제 타입 변경의 diff 유지 여부를 Node 회귀 테스트로 검사한다.
+CI의 `git diff --exit-code`는 유지하며 실제 계약 변경을 무시하지 않는다.
+수정 로컬 검증: 생성 순서 회귀 3건, 실제 타입 재생성, E2E 타입 검사, 프런트 build,
+lint(오류 0/기존 경고 48), actionlint와 diff 검사 모두 통과했다.
+
+GitHub main 조회 결과 protected=false, 적용 branch rules는 빈 배열이었다.
+필수 체크 설정은 아직 없으며 이 작업에서는 보호 설정을 변경하지 않는다.

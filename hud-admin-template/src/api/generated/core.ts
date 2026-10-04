@@ -4,25 +4,7 @@
  */
 
 export interface paths {
-    "/api/core/work-orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 작업오더 목록 */
-        get: operations["list"];
-        put?: never;
-        /** 작업오더 생성 (독립) */
-        post: operations["create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/work-orders/{id}/progress": {
+    "/api/core/auth/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -31,491 +13,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 진척 업데이트 */
-        post: operations["progress"];
+        /** 로그인 및 JWT 발급 */
+        post: operations["login"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/core/work-orders/{id}/complete": {
+    "/api/core/auth/me": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** 현재 사용자 정보 */
+        get: operations["me"];
         put?: never;
-        /** 흐름 4: 작업오더 완료 → Lot/생산입고 */
-        post: operations["complete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/work-orders/{id}/close": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 작업오더 마감 (완료 → 마감) */
-        post: operations["close"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/work-orders/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 독립 작업오더 취소 (실적 없는 지시만) */
-        post: operations["cancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/shipments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 출하 목록: 검색/상태/고객/수주/품목/페이지/정렬 */
-        get: operations["list_1"];
-        put?: never;
-        /** 출하 지시: 한 Lot씩 명시적 선택, 수주 누적량 초과 차단, 재고 예약 없음 */
-        post: operations["create_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/shipments/{id}/dispatch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["dispatch"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/shipments/{id}/depart": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["depart"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/shipments/{id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Lot/현재고 차감·부분/완료 수주·미수 생성: 단일 트랜잭션 */
-        post: operations["confirm"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/shipments/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 재고 이동 전 지시/배차 출하 취소, 확정 후 보상은 미지원 */
-        post: operations["cancel_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/sales-orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 수주 목록 */
-        get: operations["list_2"];
-        put?: never;
-        /** 신규 수주 등록 */
-        post: operations["create_2"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/sales-orders/{id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 흐름 2: 수주 확정 → 작업오더 생성 */
-        post: operations["confirm_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/sales-orders/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 수주 취소 (대기만, 확정 후 보상 처리는 후속 생산 업무) */
-        post: operations["cancel_2"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/sales-orders/from-quotation/{quotationId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 흐름 1: 견적 → 수주 */
-        post: operations["createFromQuotation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/routings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 공정 목록 */
-        get: operations["list_3"];
-        put?: never;
-        /** 공정 생성 */
-        post: operations["create_3"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/receivings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 입고 목록 */
-        get: operations["list_4"];
-        put?: never;
-        /** 흐름 3: 발주 → 입고 */
-        post: operations["create_4"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/receivings/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 입고 취소 (미사용 Lot 역출고 보상) */
-        post: operations["cancel_3"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/receivables/{id}/collect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 수납 완료 */
-        post: operations["collect"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/quotations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 견적 목록 */
-        get: operations["list_5"];
-        put?: never;
-        /** 견적 생성 */
-        post: operations["create_5"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/quotations/{id}/send": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 견적 발송 (작성중 → 발송완료) */
-        post: operations["send"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/purchase-orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 발주 목록 */
-        get: operations["list_6"];
-        put?: never;
-        /** 발주 생성 */
-        post: operations["create_6"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/purchase-orders/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 발주 취소 */
-        post: operations["cancel_4"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/production-plans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 생산계획 목록 */
-        get: operations["list_7"];
-        put?: never;
-        /** 생산계획 생성 */
-        post: operations["create_7"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/production-plans/{id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 생산계획 확정 */
-        post: operations["confirm_2"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/production-plans/{id}/close": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 생산계획 종결 */
-        post: operations["close_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/partners": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 거래처 목록 */
-        get: operations["list_8"];
-        put?: never;
-        /** 거래처 생성 */
-        post: operations["create_8"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/lots/{id}/release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Lot 보류 해제 */
-        post: operations["release"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/lots/{id}/hold": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Lot 보류 */
-        post: operations["hold"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/lots/{id}/dispose": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Lot 폐기 (보상 출고) */
-        post: operations["dispose"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 품목 목록 */
-        get: operations["list_9"];
-        put?: never;
-        /** 품목 생성 */
-        post: operations["create_9"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -540,188 +56,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/core/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 로그인 및 JWT 발급 */
-        post: operations["login"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/work-orders/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 작업오더 상세 */
-        get: operations["get"];
-        put?: never;
-        post?: never;
-        /** 작업오더 삭제 (지시만) */
-        delete: operations["delete"];
-        options?: never;
-        head?: never;
-        /** 작업오더 수정 (지시만) */
-        patch: operations["update"];
-        trace?: never;
-    };
-    "/api/core/shipments/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_1"];
-        put?: never;
-        post?: never;
-        delete: operations["delete_1"];
-        options?: never;
-        head?: never;
-        patch: operations["update_1"];
-        trace?: never;
-    };
-    "/api/core/sales-orders/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 수주 상세 */
-        get: operations["get_2"];
-        put?: never;
-        post?: never;
-        /** 수주 삭제 (대기만) */
-        delete: operations["delete_2"];
-        options?: never;
-        head?: never;
-        /** 수주 수정 (대기만) */
-        patch: operations["update_2"];
-        trace?: never;
-    };
-    "/api/core/routings/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** 공정 삭제 */
-        delete: operations["delete_3"];
-        options?: never;
-        head?: never;
-        /** 공정 수정 */
-        patch: operations["update_3"];
-        trace?: never;
-    };
-    "/api/core/quotations/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 견적 상세 */
-        get: operations["get_3"];
-        put?: never;
-        post?: never;
-        /** 견적 삭제 (작성중만) */
-        delete: operations["delete_4"];
-        options?: never;
-        head?: never;
-        /** 견적 수정 (작성중만) */
-        patch: operations["update_4"];
-        trace?: never;
-    };
-    "/api/core/purchase-orders/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 발주 상세 */
-        get: operations["get_4"];
-        put?: never;
-        post?: never;
-        /** 발주 삭제 (발주만) */
-        delete: operations["delete_5"];
-        options?: never;
-        head?: never;
-        /** 발주 수정 (발주만) */
-        patch: operations["update_5"];
-        trace?: never;
-    };
-    "/api/core/production-plans/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** 생산계획 수정 */
-        patch: operations["update_6"];
-        trace?: never;
-    };
-    "/api/core/partners/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 거래처 상세 */
-        get: operations["get_5"];
-        put?: never;
-        post?: never;
-        /** 거래처 삭제 */
-        delete: operations["delete_6"];
-        options?: never;
-        head?: never;
-        /** 거래처 수정 */
-        patch: operations["update_7"];
-        trace?: never;
-    };
-    "/api/core/items/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 품목 상세 */
-        get: operations["get_6"];
-        put?: never;
-        post?: never;
-        /** 품목 삭제 */
-        delete: operations["delete_7"];
-        options?: never;
-        head?: never;
-        /** 품목 수정 */
-        patch: operations["update_8"];
-        trace?: never;
-    };
     "/api/core/boms/{id}": {
         parameters: {
             query?: never;
@@ -740,152 +74,15 @@ export interface paths {
         patch: operations["update_9"];
         trace?: never;
     };
-    "/api/core/receivings/{id}": {
+    "/api/core/internal/boms": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 입고 상세 */
-        get: operations["get_7"];
-        put?: never;
-        post?: never;
-        /** 입고 이력 삭제 금지 (취소 보상 API 사용) */
-        delete: operations["delete_9"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/receivables": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 미수금 목록 */
-        get: operations["list_11"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/receivables/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 미수/연체 요약 */
-        get: operations["summary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/lots": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Lot 목록 */
-        get: operations["list_12"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/inventory/transactions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 입출고 이력 */
-        get: operations["transactions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/inventory/stock": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 품목별 가용재고 */
-        get: operations["stock"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/inventory/low-stock": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 안전재고 미달 목록 */
-        get: operations["lowStock"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/internal/work-orders/active": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 진행중/지시 작업오더 */
-        get: operations["activeWorkOrders"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/core/internal/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 품목 전체 (캐시 동기화용) */
-        get: operations["items"];
+        /** BOM 전개용 */
+        get: operations["boms"];
         put?: never;
         post?: never;
         delete?: never;
@@ -911,15 +108,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/core/internal/boms": {
+    "/api/core/internal/items": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** BOM 전개용 */
-        get: operations["boms"];
+        /** 품목 전체 (캐시 동기화용) */
+        get: operations["items"];
         put?: never;
         post?: never;
         delete?: never;
@@ -928,17 +125,820 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/core/auth/me": {
+    "/api/core/internal/work-orders/active": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 현재 사용자 정보 */
-        get: operations["me"];
+        /** 진행중/지시 작업오더 */
+        get: operations["activeWorkOrders"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/inventory/low-stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 안전재고 미달 목록 */
+        get: operations["lowStock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/inventory/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 품목별 가용재고 */
+        get: operations["stock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/inventory/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 입출고 이력 */
+        get: operations["transactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 품목 목록 */
+        get: operations["list_9"];
+        put?: never;
+        /** 품목 생성 */
+        post: operations["create_9"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 품목 상세 */
+        get: operations["get_6"];
+        put?: never;
+        post?: never;
+        /** 품목 삭제 */
+        delete: operations["delete_7"];
+        options?: never;
+        head?: never;
+        /** 품목 수정 */
+        patch: operations["update_8"];
+        trace?: never;
+    };
+    "/api/core/lots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lot 목록 */
+        get: operations["list_12"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/lots/{id}/dispose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lot 폐기 (보상 출고) */
+        post: operations["dispose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/lots/{id}/hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lot 보류 */
+        post: operations["hold"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/lots/{id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lot 보류 해제 */
+        post: operations["release"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/partners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 거래처 목록 */
+        get: operations["list_8"];
+        put?: never;
+        /** 거래처 생성 */
+        post: operations["create_8"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/partners/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 거래처 상세 */
+        get: operations["get_5"];
+        put?: never;
+        post?: never;
+        /** 거래처 삭제 */
+        delete: operations["delete_6"];
+        options?: never;
+        head?: never;
+        /** 거래처 수정 */
+        patch: operations["update_7"];
+        trace?: never;
+    };
+    "/api/core/production-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 생산계획 목록 */
+        get: operations["list_7"];
+        put?: never;
+        /** 생산계획 생성 */
+        post: operations["create_7"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/production-plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 생산계획 수정 */
+        patch: operations["update_6"];
+        trace?: never;
+    };
+    "/api/core/production-plans/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 생산계획 종결 */
+        post: operations["close_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/production-plans/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 생산계획 확정 */
+        post: operations["confirm_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/purchase-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 발주 목록 */
+        get: operations["list_6"];
+        put?: never;
+        /** 발주 생성 */
+        post: operations["create_6"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/purchase-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 발주 상세 */
+        get: operations["get_4"];
+        put?: never;
+        post?: never;
+        /** 발주 삭제 (발주만) */
+        delete: operations["delete_5"];
+        options?: never;
+        head?: never;
+        /** 발주 수정 (발주만) */
+        patch: operations["update_5"];
+        trace?: never;
+    };
+    "/api/core/purchase-orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 발주 취소 */
+        post: operations["cancel_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/quotations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 견적 목록 */
+        get: operations["list_5"];
+        put?: never;
+        /** 견적 생성 */
+        post: operations["create_5"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/quotations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 견적 상세 */
+        get: operations["get_3"];
+        put?: never;
+        post?: never;
+        /** 견적 삭제 (작성중만) */
+        delete: operations["delete_4"];
+        options?: never;
+        head?: never;
+        /** 견적 수정 (작성중만) */
+        patch: operations["update_4"];
+        trace?: never;
+    };
+    "/api/core/quotations/{id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 견적 발송 (작성중 → 발송완료) */
+        post: operations["send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/receivables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 미수금 목록 */
+        get: operations["list_11"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/receivables/{id}/collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 수납 완료 */
+        post: operations["collect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/receivables/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 미수/연체 요약 */
+        get: operations["summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/receivings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 입고 목록 */
+        get: operations["list_4"];
+        put?: never;
+        /** 흐름 3: 발주 → 입고 */
+        post: operations["create_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/receivings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 입고 상세 */
+        get: operations["get_7"];
+        put?: never;
+        post?: never;
+        /** 입고 이력 삭제 금지 (취소 보상 API 사용) */
+        delete: operations["delete_9"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/receivings/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 입고 취소 (미사용 Lot 역출고 보상) */
+        post: operations["cancel_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/routings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 공정 목록 */
+        get: operations["list_3"];
+        put?: never;
+        /** 공정 생성 */
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/routings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 공정 삭제 */
+        delete: operations["delete_3"];
+        options?: never;
+        head?: never;
+        /** 공정 수정 */
+        patch: operations["update_3"];
+        trace?: never;
+    };
+    "/api/core/sales-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 수주 목록 */
+        get: operations["list_2"];
+        put?: never;
+        /** 신규 수주 등록 */
+        post: operations["create_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/sales-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 수주 상세 */
+        get: operations["get_2"];
+        put?: never;
+        post?: never;
+        /** 수주 삭제 (대기만) */
+        delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        /** 수주 수정 (대기만) */
+        patch: operations["update_2"];
+        trace?: never;
+    };
+    "/api/core/sales-orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 수주 취소 (대기만, 확정 후 보상 처리는 후속 생산 업무) */
+        post: operations["cancel_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/sales-orders/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 흐름 2: 수주 확정 → 작업오더 생성 */
+        post: operations["confirm_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/sales-orders/from-quotation/{quotationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 흐름 1: 견적 → 수주 */
+        post: operations["createFromQuotation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/shipments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 출하 목록: 검색/상태/고객/수주/품목/페이지/정렬 */
+        get: operations["list_1"];
+        put?: never;
+        /** 출하 지시: 한 Lot씩 명시적 선택, 수주 누적량 초과 차단, 재고 예약 없음 */
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/shipments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_1"];
+        put?: never;
+        post?: never;
+        delete: operations["delete_1"];
+        options?: never;
+        head?: never;
+        patch: operations["update_1"];
+        trace?: never;
+    };
+    "/api/core/shipments/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 재고 이동 전 지시/배차 출하 취소, 확정 후 보상은 미지원 */
+        post: operations["cancel_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/shipments/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lot/현재고 차감·부분/완료 수주·미수 생성: 단일 트랜잭션 */
+        post: operations["confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/shipments/{id}/depart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["depart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/shipments/{id}/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["dispatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/work-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 작업오더 목록 */
+        get: operations["list"];
+        put?: never;
+        /** 작업오더 생성 (독립) */
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/work-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 작업오더 상세 */
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        /** 작업오더 삭제 (지시만) */
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        /** 작업오더 수정 (지시만) */
+        patch: operations["update"];
+        trace?: never;
+    };
+    "/api/core/work-orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 독립 작업오더 취소 (실적 없는 지시만) */
+        post: operations["cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/work-orders/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 작업오더 마감 (완료 → 마감) */
+        post: operations["close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/work-orders/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 흐름 4: 작업오더 완료 → Lot/생산입고 */
+        post: operations["complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/work-orders/{id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 진척 업데이트 */
+        post: operations["progress"];
         delete?: never;
         options?: never;
         head?: never;
@@ -949,874 +949,64 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        WorkOrderRequest: {
-            workOrderNo: string;
-            /** Format: int64 */
-            salesOrderId?: number;
-            /** Format: int64 */
-            itemId: number;
-            qty: number;
-            /** Format: date */
-            startDate?: string;
-            /** Format: date */
-            dueDate: string;
-            assignee?: string;
-            /** Format: int32 */
-            priority?: number;
-        };
-        WorkOrderResponse: {
-            /** Format: int64 */
-            id?: number;
-            workOrderNo?: string;
-            /** Format: int64 */
-            salesOrderId?: number;
-            salesOrderNo?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            qty?: number;
-            goodQty?: number;
-            defectQty?: number;
-            progress?: number;
-            /** Format: date */
-            startDate?: string;
-            /** Format: date */
-            dueDate?: string;
-            status?: string;
-            delayed?: boolean;
-            routingSteps?: components["schemas"]["WorkOrderRoutingStep"][];
-            /** @description 전체 공정의 표준시간 합계 × 작업오더 수량(h) */
-            plannedTimeHours?: number;
-            /** @description 외주 공정의 표준시간 합계 × 작업오더 수량(h) */
-            subcontractTimeHours?: number;
-            assignee?: string;
-            /**
-             * Format: int32
-             * @description 우선순위: 1 일반, 2 높음, 3 긴급
-             */
-            priority?: number;
-        };
-        /** @description 작업오더 생성 시점의 공정 정보 */
-        WorkOrderRoutingStep: {
-            /** Format: int64 */
-            routingId?: number;
-            routingNo?: string;
-            /** Format: int32 */
-            seq?: number;
-            process?: string;
-            workCenter?: string;
-            stdTime?: number;
-            isSubcontract?: boolean;
-        };
-        WorkOrderCompleteRequest: {
-            goodQty?: number;
-            defectQty?: number;
-        };
-        WorkOrderCompleteResult: {
-            workOrder?: components["schemas"]["WorkOrderResponse"];
-            lotNo?: string;
-            inventoryTxnNo?: string;
-        };
-        ShipmentRequest: {
-            /** Format: int64 */
-            salesOrderId: number;
-            /** Format: int64 */
-            lotId: number;
-            qty: number;
-            /** Format: date */
-            deliveryDate: string;
-            vehicle?: string;
-            trackingNo?: string;
-        };
-        ShipmentResponse: {
-            /** Format: int64 */
-            id?: number;
-            shipmentNo?: string;
-            /** Format: int64 */
-            salesOrderId?: number;
-            salesOrderNo?: string;
-            /** Format: int64 */
-            customerId?: number;
-            customerName?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            qty?: number;
-            /** Format: int64 */
-            amount?: number;
-            /** Format: date */
-            deliveryDate?: string;
-            vehicle?: string;
-            status?: string;
-            itemName?: string;
-            /** Format: int64 */
-            lotId?: number;
-            lotNo?: string;
-            inventoryTxnNo?: string;
-            receivableNo?: string;
-            trackingNo?: string;
-            /** Format: date */
-            departedDate?: string;
-            /** Format: date */
-            confirmedDate?: string;
-        };
-        ShipmentConfirmResult: {
-            shipment?: components["schemas"]["ShipmentResponse"];
-            receivableNo?: string;
-            inventoryTxnNo?: string;
-        };
-        SalesOrderRequest: {
-            salesOrderNo: string;
-            /**
-             * Format: int64
-             * @description 직접 등록에서는 사용 불가. 견적 전환 전용 endpoint를 사용하세요.
-             */
-            quotationId?: number;
-            /** Format: int64 */
-            customerId: number;
-            /** Format: int64 */
-            itemId: number;
-            qty: number;
-            /** Format: int64 */
-            unitPrice: number;
-            /** Format: date */
-            dueDate: string;
-            /** Format: date */
-            orderedAt?: string;
-        };
-        SalesOrderResponse: {
-            /** Format: int64 */
-            id?: number;
-            salesOrderNo?: string;
-            /** Format: int64 */
-            quotationId?: number;
-            quotationNo?: string;
-            /** Format: int64 */
-            customerId?: number;
-            customerName?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            qty?: number;
-            /** Format: int64 */
-            unitPrice?: number;
-            /** Format: int64 */
-            amount?: number;
-            /** Format: date */
-            dueDate?: string;
-            /** Format: date */
-            orderedAt?: string;
-            status?: string;
-            /** Format: int32 */
-            paymentTerms?: number;
-            /** Format: int32 */
-            leadTimeDays?: number;
-            workOrderNos?: string[];
-        };
-        SalesOrderConfirmResult: {
-            salesOrder?: components["schemas"]["SalesOrderResponse"];
-            workOrderNo?: string;
-            /** Format: int64 */
-            workOrderId?: number;
-        };
-        RoutingRequest: {
-            routingNo: string;
-            /** Format: int64 */
-            itemId: number;
-            /** Format: int32 */
-            seq: number;
-            process: string;
-            workCenter: string;
-            /** @description 품목 1단위당 표준시간(h) */
-            stdTime?: number;
-            isSubcontract?: boolean;
-        };
-        RoutingResponse: {
-            /** Format: int64 */
-            id?: number;
-            routingNo?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            /** Format: int32 */
-            seq?: number;
-            process?: string;
-            workCenter?: string;
-            stdTime?: number;
-            isSubcontract?: boolean;
-        };
-        ReceivingRequest: {
-            /** Format: int64 */
-            purchaseOrderId: number;
-            receivedQty: number;
-            defectQty?: number;
-            /** Format: date */
-            receivedDate?: string;
-        };
-        ReceivingCreateResult: {
-            receiving?: components["schemas"]["ReceivingResponse"];
-            lotNo?: string;
-            inventoryTxnNo?: string;
-        };
-        ReceivingResponse: {
-            /** Format: int64 */
-            id?: number;
-            receivingNo?: string;
-            /** Format: int64 */
-            purchaseOrderId?: number;
-            purchaseOrderNo?: string;
-            /** Format: int64 */
-            vendorId?: number;
-            vendorName?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            orderQty?: number;
-            receivedQty?: number;
-            defectQty?: number;
-            /** Format: date */
-            receivedDate?: string;
-            status?: string;
-            goodQty?: number;
-            lotNo?: string;
-            inventoryTxnNo?: string;
-            reversalTxnNo?: string;
-            /** Format: date */
-            cancelledDate?: string;
-            stockApplied?: boolean;
-        };
-        ReceivableResponse: {
-            /** Format: int64 */
-            id?: number;
-            receivableNo?: string;
-            /** Format: int64 */
-            customerId?: number;
-            customerName?: string;
-            /** Format: int64 */
-            salesOrderId?: number;
-            salesOrderNo?: string;
-            /** Format: int64 */
-            amount?: number;
-            /** Format: date */
-            dueDate?: string;
-            /** Format: int32 */
-            overdueDays?: number;
-            status?: string;
-            overdue?: boolean;
-        };
-        QuotationRequest: {
-            quotationNo: string;
-            /** Format: int64 */
-            customerId: number;
-            /** Format: int64 */
-            itemId: number;
-            qty: number;
-            /** Format: int64 */
-            unitPrice: number;
-            /** Format: date */
-            dueDate: string;
-            /** Format: date */
-            validUntil: string;
-        };
-        QuotationResponse: {
-            /** Format: int64 */
-            id?: number;
-            quotationNo?: string;
-            /** Format: int64 */
-            customerId?: number;
-            customerName?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            qty?: number;
-            /** Format: int64 */
-            unitPrice?: number;
-            /** Format: int64 */
-            amount?: number;
-            /** Format: date */
-            dueDate?: string;
-            /** Format: date */
-            validUntil?: string;
-            status?: string;
-            /** Format: int32 */
-            paymentTerms?: number;
-            /** Format: int32 */
-            leadTimeDays?: number;
-        };
-        PurchaseOrderRequest: {
-            purchaseOrderNo: string;
-            /** Format: int64 */
-            vendorId: number;
-            /** Format: int64 */
-            itemId: number;
-            qty: number;
-            /** Format: int64 */
-            unitPrice: number;
-            /** Format: date */
-            dueDate: string;
-        };
-        PurchaseOrderResponse: {
-            /** Format: int64 */
-            id?: number;
-            purchaseOrderNo?: string;
-            /** Format: int64 */
-            vendorId?: number;
-            vendorName?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            qty?: number;
-            /** Format: int64 */
-            unitPrice?: number;
-            /** Format: int64 */
-            amount?: number;
-            /** Format: date */
-            dueDate?: string;
-            status?: string;
-            receivedQty?: number;
-        };
-        ProductionPlanRequest: {
-            planNo: string;
-            /** Format: int64 */
-            itemId: number;
-            planMonth: string;
-            planQty: number;
-            orderQty?: number;
-            stockQty?: number;
-            gapQty?: number;
-        };
-        ProductionPlanResponse: {
-            /** Format: int64 */
-            id?: number;
-            planNo?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            planMonth?: string;
-            planQty?: number;
-            orderQty?: number;
-            stockQty?: number;
-            gapQty?: number;
-            status?: string;
-        };
-        PartnerCreateRequest: {
-            partnerNo: string;
-            name: string;
-            contact?: string;
-            contactName?: string;
-            /** Format: int32 */
-            paymentTerms: number;
-            /** Format: int32 */
-            leadTimeDays?: number;
-            partnerType: string;
-        };
-        PartnerResponse: {
-            /** Format: int64 */
-            id?: number;
-            partnerNo?: string;
-            name?: string;
-            contact?: string;
-            contactName?: string;
-            /** Format: int32 */
-            leadTimeDays?: number;
-            /** Format: int32 */
-            paymentTerms?: number;
-            partnerType?: string;
-        };
-        LotResponse: {
-            /** Format: int64 */
-            id?: number;
-            lotNo?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            warehouse?: string;
-            qty?: number;
-            /** Format: date */
-            producedAt?: string;
-            /** Format: date */
-            expiry?: string;
-            status?: string;
-            expiringSoon?: boolean;
-        };
-        ItemCreateRequest: {
-            /**
-             * @description 품번
-             * @example M-S001
-             */
-            itemNo: string;
-            name: string;
-            spec?: string;
-            category?: string;
-            /**
-             * @description 제품 / 반제품 / 자재
-             * @example 자재
-             */
-            itemType: string;
-            unit: string;
-            /** Format: int64 */
-            price: number;
-            safetyStock?: number;
-            /** Format: int32 */
-            leadTimeDays?: number;
-        };
-        ItemResponse: {
-            /** Format: int64 */
-            id?: number;
-            itemNo?: string;
-            name?: string;
-            spec?: string;
-            category?: string;
-            itemType?: string;
-            unit?: string;
-            /** Format: int64 */
-            price?: number;
-            stock?: number;
-            safetyStock?: number;
-            /** Format: int32 */
-            leadTimeDays?: number;
-        };
         BomRequest: {
             bomNo: string;
             /** Format: int64 */
-            parentId: number;
-            /** Format: int64 */
             childId: number;
-            qty: number;
             lossRate?: number;
+            /** Format: int64 */
+            parentId: number;
+            qty: number;
             substituteNo?: string;
         };
         BomResponse: {
-            /** Format: int64 */
-            id?: number;
             bomNo?: string;
-            /** Format: int64 */
-            parentId?: number;
-            parentItemNo?: string;
-            parentName?: string;
             /** Format: int64 */
             childId?: number;
             childItemNo?: string;
             childName?: string;
             childType?: string;
             childUnit?: string;
-            qty?: number;
-            lossRate?: number;
-            substituteNo?: string;
-        };
-        LoginRequest: {
-            username: string;
-            password: string;
-        };
-        LoginResponse: {
-            accessToken?: string;
-            tokenType?: string;
-            /** Format: int64 */
-            expiresIn?: number;
-            user?: components["schemas"]["UserResponse"];
-        };
-        UserResponse: {
             /** Format: int64 */
             id?: number;
-            username?: string;
-            name?: string;
-            roles?: string[];
-        };
-        WorkOrderUpdateRequest: {
-            qty?: number;
-            /** Format: date */
-            startDate?: string;
-            /** Format: date */
-            dueDate?: string;
-            assignee?: string;
-            /** Format: int32 */
-            priority?: number;
-        };
-        ShipmentUpdateRequest: {
+            lossRate?: number;
             /** Format: int64 */
-            lotId?: number;
+            parentId?: number;
+            parentItemNo?: string;
+            parentName?: string;
             qty?: number;
-            /** Format: date */
-            deliveryDate?: string;
-            vehicle?: string;
-            trackingNo?: string;
-        };
-        SalesOrderUpdateRequest: {
-            qty?: number;
-            /** Format: int64 */
-            unitPrice?: number;
-            /** Format: date */
-            dueDate?: string;
-        };
-        RoutingUpdateRequest: {
-            /** Format: int32 */
-            seq?: number;
-            process?: string;
-            workCenter?: string;
-            stdTime?: number;
-            isSubcontract?: boolean;
-        };
-        QuotationUpdateRequest: {
-            qty?: number;
-            /** Format: int64 */
-            unitPrice?: number;
-            /** Format: date */
-            dueDate?: string;
-            /** Format: date */
-            validUntil?: string;
-        };
-        PartnerUpdateRequest: {
-            name?: string;
-            contact?: string;
-            contactName?: string;
-            /** Format: int32 */
-            paymentTerms?: number;
-            /** Format: int32 */
-            leadTimeDays?: number;
-            partnerType?: string;
-        };
-        ItemUpdateRequest: {
-            name?: string;
-            spec?: string;
-            category?: string;
-            /**
-             * @description 제품 / 반제품 / 자재
-             * @example 자재
-             */
-            itemType?: string;
-            unit?: string;
-            /** Format: int64 */
-            price?: number;
-            safetyStock?: number;
-            /** Format: int32 */
-            leadTimeDays?: number;
+            substituteNo?: string;
         };
         BomUpdateRequest: {
-            qty?: number;
             lossRate?: number;
+            qty?: number;
             substituteNo?: string;
         };
-        PageWorkOrderResponse: {
+        InternalBomRow: {
             /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["WorkOrderResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        PageableObject: {
-            /** Format: int64 */
-            offset?: number;
-            sort?: components["schemas"]["SortObject"];
-            paged?: boolean;
-            /** Format: int32 */
-            pageNumber?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            unpaged?: boolean;
-        };
-        SortObject: {
-            empty?: boolean;
-            sorted?: boolean;
-            unsorted?: boolean;
-        };
-        PageShipmentResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["ShipmentResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        PageSalesOrderResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["SalesOrderResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        PageRoutingResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["RoutingResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        PageReceivingResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["ReceivingResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        Pageable: {
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            size?: number;
-            sort?: string[];
-        };
-        PageReceivableResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["ReceivableResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        ReceivableSummary: {
-            /** Format: int64 */
-            openCount?: number;
-            /** Format: int64 */
-            openAmount?: number;
-            /** Format: int64 */
-            overdueCount?: number;
-            /** Format: int64 */
-            overdueAmount?: number;
-        };
-        PageQuotationResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["QuotationResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        PagePurchaseOrderResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["PurchaseOrderResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        PageProductionPlanResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["ProductionPlanResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        PagePartnerResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["PartnerResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        PageItemResponse: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["ItemResponse"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        InventoryTxnRow: {
+            childId?: number;
+            childItemNo?: string;
             /** Format: int64 */
             id?: number;
-            txnNo?: string;
+            lossRate?: number;
             /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            warehouse?: string;
-            txnType?: string;
+            parentId?: number;
+            parentItemNo?: string;
             qty?: number;
-            refType?: string;
-            refNo?: string;
-            /** Format: date */
-            txnDate?: string;
-        };
-        PageInventoryTxnRow: {
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["InventoryTxnRow"][];
-            /** Format: int32 */
-            number?: number;
-            sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            first?: boolean;
-            last?: boolean;
-            empty?: boolean;
-        };
-        InventoryStockRow: {
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            itemType?: string;
-            unit?: string;
-            stock?: number;
-            safetyStock?: number;
-            lowStock?: boolean;
-            /** Format: int32 */
-            leadTimeDays?: number;
-        };
-        InventoryLowStockRow: {
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            itemName?: string;
-            unit?: string;
-            stock?: number;
-            safetyStock?: number;
-            shortfall?: number;
-        };
-        InternalWorkOrderRow: {
-            /** Format: int64 */
-            id?: number;
-            workOrderNo?: string;
-            /** Format: int64 */
-            itemId?: number;
-            itemNo?: string;
-            qty?: number;
-            goodQty?: number;
-            /** Format: date */
-            dueDate?: string;
-            status?: string;
+            substituteNo?: string;
         };
         InternalItemRow: {
             /** Format: int64 */
             id?: number;
             itemNo?: string;
-            name?: string;
             itemType?: string;
-            unit?: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            name?: string;
             /** Format: int64 */
             price?: number;
             safetyStock?: number;
-            /** Format: int32 */
-            leadTimeDays?: number;
+            unit?: string;
         };
         InternalStockRow: {
             /** Format: int64 */
@@ -1825,36 +1015,846 @@ export interface components {
             onHand?: number;
             safetyStock?: number;
         };
-        InternalBomRow: {
+        InternalWorkOrderRow: {
+            /** Format: date */
+            dueDate?: string;
+            goodQty?: number;
             /** Format: int64 */
             id?: number;
             /** Format: int64 */
-            parentId?: number;
-            parentItemNo?: string;
-            /** Format: int64 */
-            childId?: number;
-            childItemNo?: string;
+            itemId?: number;
+            itemNo?: string;
             qty?: number;
-            lossRate?: number;
-            substituteNo?: string;
+            status?: string;
+            workOrderNo?: string;
+        };
+        InventoryLowStockRow: {
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            safetyStock?: number;
+            shortfall?: number;
+            stock?: number;
+            unit?: string;
+        };
+        InventoryStockRow: {
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            itemType?: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            lowStock?: boolean;
+            safetyStock?: number;
+            stock?: number;
+            unit?: string;
+        };
+        InventoryTxnRow: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            qty?: number;
+            refNo?: string;
+            refType?: string;
+            /** Format: date */
+            txnDate?: string;
+            txnNo?: string;
+            txnType?: string;
+            warehouse?: string;
+        };
+        ItemCreateRequest: {
+            category?: string;
+            /**
+             * @description 품번
+             * @example M-S001
+             */
+            itemNo: string;
+            /**
+             * @description 제품 / 반제품 / 자재
+             * @example 자재
+             */
+            itemType: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            name: string;
+            /** Format: int64 */
+            price: number;
+            safetyStock?: number;
+            spec?: string;
+            unit: string;
+        };
+        ItemResponse: {
+            category?: string;
+            /** Format: int64 */
+            id?: number;
+            itemNo?: string;
+            itemType?: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            name?: string;
+            /** Format: int64 */
+            price?: number;
+            safetyStock?: number;
+            spec?: string;
+            stock?: number;
+            unit?: string;
+        };
+        ItemUpdateRequest: {
+            category?: string;
+            /**
+             * @description 제품 / 반제품 / 자재
+             * @example 자재
+             */
+            itemType?: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            name?: string;
+            /** Format: int64 */
+            price?: number;
+            safetyStock?: number;
+            spec?: string;
+            unit?: string;
+        };
+        LoginRequest: {
+            password: string;
+            username: string;
+        };
+        LoginResponse: {
+            accessToken?: string;
+            /** Format: int64 */
+            expiresIn?: number;
+            tokenType?: string;
+            user?: components["schemas"]["UserResponse"];
+        };
+        LotResponse: {
+            expiringSoon?: boolean;
+            /** Format: date */
+            expiry?: string;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            lotNo?: string;
+            /** Format: date */
+            producedAt?: string;
+            qty?: number;
+            status?: string;
+            warehouse?: string;
+        };
+        Pageable: {
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            sort?: string[];
+        };
+        PageableObject: {
+            /** Format: int64 */
+            offset?: number;
+            paged?: boolean;
+            /** Format: int32 */
+            pageNumber?: number;
+            /** Format: int32 */
+            pageSize?: number;
+            sort?: components["schemas"]["SortObject"];
+            unpaged?: boolean;
         };
         PageBomResponse: {
+            content?: components["schemas"]["BomResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
             /** Format: int64 */
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
-            /** Format: int32 */
-            size?: number;
-            content?: components["schemas"]["BomResponse"][];
+        };
+        PageInventoryTxnRow: {
+            content?: components["schemas"]["InventoryTxnRow"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
             /** Format: int32 */
             number?: number;
-            sort?: components["schemas"]["SortObject"];
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageItemResponse: {
+            content?: components["schemas"]["ItemResponse"][];
+            empty?: boolean;
             first?: boolean;
             last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PagePartnerResponse: {
+            content?: components["schemas"]["PartnerResponse"][];
             empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageProductionPlanResponse: {
+            content?: components["schemas"]["ProductionPlanResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PagePurchaseOrderResponse: {
+            content?: components["schemas"]["PurchaseOrderResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageQuotationResponse: {
+            content?: components["schemas"]["QuotationResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageReceivableResponse: {
+            content?: components["schemas"]["ReceivableResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageReceivingResponse: {
+            content?: components["schemas"]["ReceivingResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageRoutingResponse: {
+            content?: components["schemas"]["RoutingResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageSalesOrderResponse: {
+            content?: components["schemas"]["SalesOrderResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageShipmentResponse: {
+            content?: components["schemas"]["ShipmentResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageWorkOrderResponse: {
+            content?: components["schemas"]["WorkOrderResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PartnerCreateRequest: {
+            contact?: string;
+            contactName?: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            name: string;
+            partnerNo: string;
+            partnerType: string;
+            /** Format: int32 */
+            paymentTerms: number;
+        };
+        PartnerResponse: {
+            contact?: string;
+            contactName?: string;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            name?: string;
+            partnerNo?: string;
+            partnerType?: string;
+            /** Format: int32 */
+            paymentTerms?: number;
+        };
+        PartnerUpdateRequest: {
+            contact?: string;
+            contactName?: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            name?: string;
+            partnerType?: string;
+            /** Format: int32 */
+            paymentTerms?: number;
+        };
+        ProductionPlanRequest: {
+            gapQty?: number;
+            /** Format: int64 */
+            itemId: number;
+            orderQty?: number;
+            planMonth: string;
+            planNo: string;
+            planQty: number;
+            stockQty?: number;
+        };
+        ProductionPlanResponse: {
+            gapQty?: number;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            orderQty?: number;
+            planMonth?: string;
+            planNo?: string;
+            planQty?: number;
+            status?: string;
+            stockQty?: number;
+        };
+        PurchaseOrderRequest: {
+            /** Format: date */
+            dueDate: string;
+            /** Format: int64 */
+            itemId: number;
+            purchaseOrderNo: string;
+            qty: number;
+            /** Format: int64 */
+            unitPrice: number;
+            /** Format: int64 */
+            vendorId: number;
+        };
+        PurchaseOrderResponse: {
+            /** Format: int64 */
+            amount?: number;
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            purchaseOrderNo?: string;
+            qty?: number;
+            receivedQty?: number;
+            status?: string;
+            /** Format: int64 */
+            unitPrice?: number;
+            /** Format: int64 */
+            vendorId?: number;
+            vendorName?: string;
+        };
+        QuotationRequest: {
+            /** Format: int64 */
+            customerId: number;
+            /** Format: date */
+            dueDate: string;
+            /** Format: int64 */
+            itemId: number;
+            qty: number;
+            quotationNo: string;
+            /** Format: int64 */
+            unitPrice: number;
+            /** Format: date */
+            validUntil: string;
+        };
+        QuotationResponse: {
+            /** Format: int64 */
+            amount?: number;
+            /** Format: int64 */
+            customerId?: number;
+            customerName?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            /** Format: int32 */
+            paymentTerms?: number;
+            qty?: number;
+            quotationNo?: string;
+            status?: string;
+            /** Format: int64 */
+            unitPrice?: number;
+            /** Format: date */
+            validUntil?: string;
+        };
+        QuotationUpdateRequest: {
+            /** Format: date */
+            dueDate?: string;
+            qty?: number;
+            /** Format: int64 */
+            unitPrice?: number;
+            /** Format: date */
+            validUntil?: string;
+        };
+        ReceivableResponse: {
+            /** Format: int64 */
+            amount?: number;
+            /** Format: int64 */
+            customerId?: number;
+            customerName?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int64 */
+            id?: number;
+            overdue?: boolean;
+            /** Format: int32 */
+            overdueDays?: number;
+            receivableNo?: string;
+            /** Format: int64 */
+            salesOrderId?: number;
+            salesOrderNo?: string;
+            status?: string;
+        };
+        ReceivableSummary: {
+            /** Format: int64 */
+            openAmount?: number;
+            /** Format: int64 */
+            openCount?: number;
+            /** Format: int64 */
+            overdueAmount?: number;
+            /** Format: int64 */
+            overdueCount?: number;
+        };
+        ReceivingCreateResult: {
+            inventoryTxnNo?: string;
+            lotNo?: string;
+            receiving?: components["schemas"]["ReceivingResponse"];
+        };
+        ReceivingRequest: {
+            defectQty?: number;
+            /** Format: int64 */
+            purchaseOrderId: number;
+            /** Format: date */
+            receivedDate?: string;
+            receivedQty: number;
+        };
+        ReceivingResponse: {
+            /** Format: date */
+            cancelledDate?: string;
+            defectQty?: number;
+            goodQty?: number;
+            /** Format: int64 */
+            id?: number;
+            inventoryTxnNo?: string;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            lotNo?: string;
+            orderQty?: number;
+            /** Format: int64 */
+            purchaseOrderId?: number;
+            purchaseOrderNo?: string;
+            /** Format: date */
+            receivedDate?: string;
+            receivedQty?: number;
+            receivingNo?: string;
+            reversalTxnNo?: string;
+            status?: string;
+            stockApplied?: boolean;
+            /** Format: int64 */
+            vendorId?: number;
+            vendorName?: string;
+        };
+        RoutingRequest: {
+            isSubcontract?: boolean;
+            /** Format: int64 */
+            itemId: number;
+            process: string;
+            routingNo: string;
+            /** Format: int32 */
+            seq: number;
+            /** @description 품목 1단위당 표준시간(h) */
+            stdTime?: number;
+            workCenter: string;
+        };
+        RoutingResponse: {
+            /** Format: int64 */
+            id?: number;
+            isSubcontract?: boolean;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            process?: string;
+            routingNo?: string;
+            /** Format: int32 */
+            seq?: number;
+            stdTime?: number;
+            workCenter?: string;
+        };
+        RoutingUpdateRequest: {
+            isSubcontract?: boolean;
+            process?: string;
+            /** Format: int32 */
+            seq?: number;
+            stdTime?: number;
+            workCenter?: string;
+        };
+        SalesOrderConfirmResult: {
+            salesOrder?: components["schemas"]["SalesOrderResponse"];
+            /** Format: int64 */
+            workOrderId?: number;
+            workOrderNo?: string;
+        };
+        SalesOrderRequest: {
+            /** Format: int64 */
+            customerId: number;
+            /** Format: date */
+            dueDate: string;
+            /** Format: int64 */
+            itemId: number;
+            /** Format: date */
+            orderedAt?: string;
+            qty: number;
+            /**
+             * Format: int64
+             * @description 직접 등록에서는 사용 불가. 견적 전환 전용 endpoint를 사용하세요.
+             */
+            quotationId?: number;
+            salesOrderNo: string;
+            /** Format: int64 */
+            unitPrice: number;
+        };
+        SalesOrderResponse: {
+            /** Format: int64 */
+            amount?: number;
+            /** Format: int64 */
+            customerId?: number;
+            customerName?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            /** Format: date */
+            orderedAt?: string;
+            /** Format: int32 */
+            paymentTerms?: number;
+            qty?: number;
+            /** Format: int64 */
+            quotationId?: number;
+            quotationNo?: string;
+            salesOrderNo?: string;
+            status?: string;
+            /** Format: int64 */
+            unitPrice?: number;
+            workOrderNos?: string[];
+        };
+        SalesOrderUpdateRequest: {
+            /** Format: date */
+            dueDate?: string;
+            qty?: number;
+            /** Format: int64 */
+            unitPrice?: number;
+        };
+        ShipmentConfirmResult: {
+            inventoryTxnNo?: string;
+            receivableNo?: string;
+            shipment?: components["schemas"]["ShipmentResponse"];
+        };
+        ShipmentRequest: {
+            /** Format: date */
+            deliveryDate: string;
+            /** Format: int64 */
+            lotId: number;
+            qty: number;
+            /** Format: int64 */
+            salesOrderId: number;
+            trackingNo?: string;
+            vehicle?: string;
+        };
+        ShipmentResponse: {
+            /** Format: int64 */
+            amount?: number;
+            /** Format: date */
+            confirmedDate?: string;
+            /** Format: int64 */
+            customerId?: number;
+            customerName?: string;
+            /** Format: date */
+            deliveryDate?: string;
+            /** Format: date */
+            departedDate?: string;
+            /** Format: int64 */
+            id?: number;
+            inventoryTxnNo?: string;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            /** Format: int64 */
+            lotId?: number;
+            lotNo?: string;
+            qty?: number;
+            receivableNo?: string;
+            /** Format: int64 */
+            salesOrderId?: number;
+            salesOrderNo?: string;
+            shipmentNo?: string;
+            status?: string;
+            trackingNo?: string;
+            vehicle?: string;
+        };
+        ShipmentUpdateRequest: {
+            /** Format: date */
+            deliveryDate?: string;
+            /** Format: int64 */
+            lotId?: number;
+            qty?: number;
+            trackingNo?: string;
+            vehicle?: string;
+        };
+        SortObject: {
+            empty?: boolean;
+            sorted?: boolean;
+            unsorted?: boolean;
+        };
+        UserResponse: {
+            /** Format: int64 */
+            id?: number;
+            name?: string;
+            roles?: string[];
+            username?: string;
+        };
+        WorkOrderCompleteRequest: {
+            defectQty?: number;
+            goodQty?: number;
+        };
+        WorkOrderCompleteResult: {
+            inventoryTxnNo?: string;
+            lotNo?: string;
+            workOrder?: components["schemas"]["WorkOrderResponse"];
+        };
+        WorkOrderRequest: {
+            assignee?: string;
+            /** Format: date */
+            dueDate: string;
+            /** Format: int64 */
+            itemId: number;
+            /** Format: int32 */
+            priority?: number;
+            qty: number;
+            /** Format: int64 */
+            salesOrderId?: number;
+            /** Format: date */
+            startDate?: string;
+            workOrderNo: string;
+        };
+        WorkOrderResponse: {
+            assignee?: string;
+            defectQty?: number;
+            delayed?: boolean;
+            /** Format: date */
+            dueDate?: string;
+            goodQty?: number;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            /** @description 전체 공정의 표준시간 합계 × 작업오더 수량(h) */
+            plannedTimeHours?: number;
+            /**
+             * Format: int32
+             * @description 우선순위: 1 일반, 2 높음, 3 긴급
+             */
+            priority?: number;
+            progress?: number;
+            qty?: number;
+            routingSteps?: components["schemas"]["WorkOrderRoutingStep"][];
+            /** Format: int64 */
+            salesOrderId?: number;
+            salesOrderNo?: string;
+            /** Format: date */
+            startDate?: string;
+            status?: string;
+            /** @description 외주 공정의 표준시간 합계 × 작업오더 수량(h) */
+            subcontractTimeHours?: number;
+            workOrderNo?: string;
+        };
+        /** @description 작업오더 생성 시점의 공정 정보 */
+        WorkOrderRoutingStep: {
+            isSubcontract?: boolean;
+            process?: string;
+            /** Format: int64 */
+            routingId?: number;
+            routingNo?: string;
+            /** Format: int32 */
+            seq?: number;
+            stdTime?: number;
+            workCenter?: string;
+        };
+        WorkOrderUpdateRequest: {
+            assignee?: string;
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int32 */
+            priority?: number;
+            qty?: number;
+            /** Format: date */
+            startDate?: string;
         };
     };
     responses: never;
@@ -1865,14 +1865,56 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list: {
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoginResponse"];
+                };
+            };
+        };
+    };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
+    list_10: {
         parameters: {
             query?: {
-                status?: string;
-                itemId?: number;
-                salesOrderId?: number;
                 keyword?: string;
                 page?: number;
+                parentId?: number;
                 size?: number;
                 sort?: string;
             };
@@ -1888,12 +1930,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageWorkOrderResponse"];
+                    "*/*": components["schemas"]["PageBomResponse"];
                 };
             };
         };
     };
-    create: {
+    create_10: {
         parameters: {
             query?: never;
             header?: never;
@@ -1902,7 +1944,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["WorkOrderRequest"];
+                "application/json": components["schemas"]["BomRequest"];
             };
         };
         responses: {
@@ -1912,12 +1954,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["WorkOrderResponse"];
+                    "*/*": components["schemas"]["BomResponse"];
                 };
             };
         };
     };
-    progress: {
+    delete_8: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -1928,7 +1990,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["WorkOrderCompleteRequest"];
+                "application/json": components["schemas"]["BomUpdateRequest"];
             };
         };
         responses: {
@@ -1938,44 +2000,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["WorkOrderResponse"];
+                    "*/*": components["schemas"]["BomResponse"];
                 };
             };
         };
     };
-    complete: {
+    boms: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["WorkOrderCompleteRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["WorkOrderCompleteResult"];
-                };
-            };
-        };
-    };
-    close: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -1986,45 +2020,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["WorkOrderResponse"];
+                    "*/*": components["schemas"]["InternalBomRow"][];
                 };
             };
         };
     };
-    cancel: {
+    stock_1: {
         parameters: {
             query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["WorkOrderResponse"];
-                };
-            };
-        };
-    };
-    list_1: {
-        parameters: {
-            query?: {
-                status?: string;
-                customerId?: number;
-                salesOrderId?: number;
-                itemId?: number;
-                keyword?: string;
-                page?: number;
-                size?: number;
-                sort?: string;
-            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2037,44 +2040,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageShipmentResponse"];
+                    "*/*": components["schemas"]["InternalStockRow"][];
                 };
             };
         };
     };
-    create_1: {
+    items: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ShipmentRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ShipmentResponse"];
-                };
-            };
-        };
-    };
-    dispatch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
         requestBody?: never;
         responses: {
             /** @description OK */
@@ -2083,87 +2060,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ShipmentResponse"];
+                    "*/*": components["schemas"]["InternalItemRow"][];
                 };
             };
         };
     };
-    depart: {
+    activeWorkOrders: {
         parameters: {
             query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ShipmentResponse"];
-                };
-            };
-        };
-    };
-    confirm: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ShipmentConfirmResult"];
-                };
-            };
-        };
-    };
-    cancel_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ShipmentResponse"];
-                };
-            };
-        };
-    };
-    list_2: {
-        parameters: {
-            query?: {
-                status?: string;
-                customerId?: number;
-                keyword?: string;
-                page?: number;
-                size?: number;
-                sort?: string;
-            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2176,44 +2080,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageSalesOrderResponse"];
+                    "*/*": components["schemas"]["InternalWorkOrderRow"][];
                 };
             };
         };
     };
-    create_2: {
+    lowStock: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SalesOrderRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["SalesOrderResponse"];
-                };
-            };
-        };
-    };
-    confirm_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
         requestBody?: never;
         responses: {
             /** @description OK */
@@ -2222,64 +2100,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["SalesOrderConfirmResult"];
+                    "*/*": components["schemas"]["InventoryLowStockRow"][];
                 };
             };
         };
     };
-    cancel_2: {
+    stock: {
         parameters: {
             query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["SalesOrderResponse"];
-                };
-            };
-        };
-    };
-    createFromQuotation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                quotationId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["SalesOrderResponse"];
-                };
-            };
-        };
-    };
-    list_3: {
-        parameters: {
-            query?: {
-                itemId?: number;
-                keyword?: string;
-                page?: number;
-                size?: number;
-                sort?: string;
-            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2292,283 +2120,19 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageRoutingResponse"];
+                    "*/*": components["schemas"]["InventoryStockRow"][];
                 };
             };
         };
     };
-    create_3: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoutingRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["RoutingResponse"];
-                };
-            };
-        };
-    };
-    list_4: {
-        parameters: {
-            query?: {
-                purchaseOrderId?: number;
-                status?: string;
-                vendorId?: number;
-                itemId?: number;
-                keyword?: string;
-                page?: number;
-                size?: number;
-                sort?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PageReceivingResponse"];
-                };
-            };
-        };
-    };
-    create_4: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReceivingRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReceivingCreateResult"];
-                };
-            };
-        };
-    };
-    cancel_3: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReceivingCreateResult"];
-                };
-            };
-        };
-    };
-    collect: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReceivableResponse"];
-                };
-            };
-        };
-    };
-    list_5: {
-        parameters: {
-            query?: {
-                status?: string;
-                customerId?: number;
-                keyword?: string;
-                page?: number;
-                size?: number;
-                sort?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PageQuotationResponse"];
-                };
-            };
-        };
-    };
-    create_5: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QuotationRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["QuotationResponse"];
-                };
-            };
-        };
-    };
-    send: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["QuotationResponse"];
-                };
-            };
-        };
-    };
-    list_6: {
-        parameters: {
-            query?: {
-                status?: string;
-                vendorId?: number;
-                page?: number;
-                size?: number;
-                sort?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PagePurchaseOrderResponse"];
-                };
-            };
-        };
-    };
-    create_6: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PurchaseOrderRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PurchaseOrderResponse"];
-                };
-            };
-        };
-    };
-    cancel_4: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PurchaseOrderResponse"];
-                };
-            };
-        };
-    };
-    list_7: {
+    transactions: {
         parameters: {
             query: {
-                planMonth?: string;
-                status?: string;
+                from?: string;
+                itemId?: number;
                 pageable: components["schemas"]["Pageable"];
+                to?: string;
+                txnType?: string;
             };
             header?: never;
             path?: never;
@@ -2582,191 +2146,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageProductionPlanResponse"];
-                };
-            };
-        };
-    };
-    create_7: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProductionPlanRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ProductionPlanResponse"];
-                };
-            };
-        };
-    };
-    confirm_2: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ProductionPlanResponse"];
-                };
-            };
-        };
-    };
-    close_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ProductionPlanResponse"];
-                };
-            };
-        };
-    };
-    list_8: {
-        parameters: {
-            query?: {
-                partnerType?: string;
-                keyword?: string;
-                page?: number;
-                size?: number;
-                sort?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PagePartnerResponse"];
-                };
-            };
-        };
-    };
-    create_8: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PartnerCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PartnerResponse"];
-                };
-            };
-        };
-    };
-    release: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["LotResponse"];
-                };
-            };
-        };
-    };
-    hold: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["LotResponse"];
-                };
-            };
-        };
-    };
-    dispose: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["LotResponse"];
+                    "*/*": components["schemas"]["PageInventoryTxnRow"];
                 };
             };
         };
@@ -2817,560 +2197,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ItemResponse"];
-                };
-            };
-        };
-    };
-    list_10: {
-        parameters: {
-            query?: {
-                parentId?: number;
-                keyword?: string;
-                page?: number;
-                size?: number;
-                sort?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PageBomResponse"];
-                };
-            };
-        };
-    };
-    create_10: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BomRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["BomResponse"];
-                };
-            };
-        };
-    };
-    login: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["LoginResponse"];
-                };
-            };
-        };
-    };
-    get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["WorkOrderResponse"];
-                };
-            };
-        };
-    };
-    delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    update: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WorkOrderUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["WorkOrderResponse"];
-                };
-            };
-        };
-    };
-    get_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ShipmentResponse"];
-                };
-            };
-        };
-    };
-    delete_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    update_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ShipmentUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ShipmentResponse"];
-                };
-            };
-        };
-    };
-    get_2: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["SalesOrderResponse"];
-                };
-            };
-        };
-    };
-    delete_2: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    update_2: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SalesOrderUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["SalesOrderResponse"];
-                };
-            };
-        };
-    };
-    delete_3: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    update_3: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoutingUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["RoutingResponse"];
-                };
-            };
-        };
-    };
-    get_3: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["QuotationResponse"];
-                };
-            };
-        };
-    };
-    delete_4: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    update_4: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QuotationUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["QuotationResponse"];
-                };
-            };
-        };
-    };
-    get_4: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PurchaseOrderResponse"];
-                };
-            };
-        };
-    };
-    delete_5: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    update_5: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PurchaseOrderRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PurchaseOrderResponse"];
-                };
-            };
-        };
-    };
-    update_6: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProductionPlanRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ProductionPlanResponse"];
-                };
-            };
-        };
-    };
-    get_5: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PartnerResponse"];
-                };
-            };
-        };
-    };
-    delete_6: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    update_7: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PartnerUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PartnerResponse"];
                 };
             };
         };
@@ -3443,7 +2269,169 @@ export interface operations {
             };
         };
     };
-    delete_8: {
+    list_12: {
+        parameters: {
+            query?: {
+                itemId?: number;
+                status?: string;
+                warehouse?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LotResponse"][];
+                };
+            };
+        };
+    };
+    dispose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LotResponse"];
+                };
+            };
+        };
+    };
+    hold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LotResponse"];
+                };
+            };
+        };
+    };
+    release: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LotResponse"];
+                };
+            };
+        };
+    };
+    list_8: {
+        parameters: {
+            query?: {
+                keyword?: string;
+                page?: number;
+                partnerType?: string;
+                size?: number;
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagePartnerResponse"];
+                };
+            };
+        };
+    };
+    create_8: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartnerCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PartnerResponse"];
+                };
+            };
+        };
+    };
+    get_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PartnerResponse"];
+                };
+            };
+        };
+    };
+    delete_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -3463,7 +2451,7 @@ export interface operations {
             };
         };
     };
-    update_9: {
+    update_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -3474,7 +2462,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BomUpdateRequest"];
+                "application/json": components["schemas"]["PartnerUpdateRequest"];
             };
         };
         responses: {
@@ -3484,7 +2472,525 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["BomResponse"];
+                    "*/*": components["schemas"]["PartnerResponse"];
+                };
+            };
+        };
+    };
+    list_7: {
+        parameters: {
+            query: {
+                pageable: components["schemas"]["Pageable"];
+                planMonth?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageProductionPlanResponse"];
+                };
+            };
+        };
+    };
+    create_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductionPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProductionPlanResponse"];
+                };
+            };
+        };
+    };
+    update_6: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductionPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProductionPlanResponse"];
+                };
+            };
+        };
+    };
+    close_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProductionPlanResponse"];
+                };
+            };
+        };
+    };
+    confirm_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProductionPlanResponse"];
+                };
+            };
+        };
+    };
+    list_6: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                sort?: string;
+                status?: string;
+                vendorId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagePurchaseOrderResponse"];
+                };
+            };
+        };
+    };
+    create_6: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PurchaseOrderResponse"];
+                };
+            };
+        };
+    };
+    get_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PurchaseOrderResponse"];
+                };
+            };
+        };
+    };
+    delete_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PurchaseOrderResponse"];
+                };
+            };
+        };
+    };
+    cancel_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PurchaseOrderResponse"];
+                };
+            };
+        };
+    };
+    list_5: {
+        parameters: {
+            query?: {
+                customerId?: number;
+                keyword?: string;
+                page?: number;
+                size?: number;
+                sort?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageQuotationResponse"];
+                };
+            };
+        };
+    };
+    create_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuotationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuotationResponse"];
+                };
+            };
+        };
+    };
+    get_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuotationResponse"];
+                };
+            };
+        };
+    };
+    delete_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuotationUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuotationResponse"];
+                };
+            };
+        };
+    };
+    send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuotationResponse"];
+                };
+            };
+        };
+    };
+    list_11: {
+        parameters: {
+            query: {
+                customerId?: number;
+                pageable: components["schemas"]["Pageable"];
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageReceivableResponse"];
+                };
+            };
+        };
+    };
+    collect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceivableResponse"];
+                };
+            };
+        };
+    };
+    summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceivableSummary"];
+                };
+            };
+        };
+    };
+    list_4: {
+        parameters: {
+            query?: {
+                itemId?: number;
+                keyword?: string;
+                page?: number;
+                purchaseOrderId?: number;
+                size?: number;
+                sort?: string;
+                status?: string;
+                vendorId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageReceivingResponse"];
+                };
+            };
+        };
+    };
+    create_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceivingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceivingCreateResult"];
                 };
             };
         };
@@ -3531,35 +3037,13 @@ export interface operations {
             };
         };
     };
-    list_11: {
-        parameters: {
-            query: {
-                status?: string;
-                customerId?: number;
-                pageable: components["schemas"]["Pageable"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["PageReceivableResponse"];
-                };
-            };
-        };
-    };
-    summary: {
+    cancel_3: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3570,17 +3054,116 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ReceivableSummary"];
+                    "*/*": components["schemas"]["ReceivingCreateResult"];
                 };
             };
         };
     };
-    list_12: {
+    list_3: {
         parameters: {
             query?: {
                 itemId?: number;
+                keyword?: string;
+                page?: number;
+                size?: number;
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageRoutingResponse"];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoutingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RoutingResponse"];
+                };
+            };
+        };
+    };
+    delete_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoutingUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RoutingResponse"];
+                };
+            };
+        };
+    };
+    list_2: {
+        parameters: {
+            query?: {
+                customerId?: number;
+                keyword?: string;
+                page?: number;
+                size?: number;
+                sort?: string;
                 status?: string;
-                warehouse?: string;
             };
             header?: never;
             path?: never;
@@ -3594,19 +3177,180 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["LotResponse"][];
+                    "*/*": components["schemas"]["PageSalesOrderResponse"];
                 };
             };
         };
     };
-    transactions: {
+    create_2: {
         parameters: {
-            query: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SalesOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SalesOrderResponse"];
+                };
+            };
+        };
+    };
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SalesOrderResponse"];
+                };
+            };
+        };
+    };
+    delete_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SalesOrderUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SalesOrderResponse"];
+                };
+            };
+        };
+    };
+    cancel_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SalesOrderResponse"];
+                };
+            };
+        };
+    };
+    confirm_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SalesOrderConfirmResult"];
+                };
+            };
+        };
+    };
+    createFromQuotation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quotationId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SalesOrderResponse"];
+                };
+            };
+        };
+    };
+    list_1: {
+        parameters: {
+            query?: {
+                customerId?: number;
                 itemId?: number;
-                txnType?: string;
-                from?: string;
-                to?: string;
-                pageable: components["schemas"]["Pageable"];
+                keyword?: string;
+                page?: number;
+                salesOrderId?: number;
+                size?: number;
+                sort?: string;
+                status?: string;
             };
             header?: never;
             path?: never;
@@ -3620,18 +3364,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageInventoryTxnRow"];
+                    "*/*": components["schemas"]["PageShipmentResponse"];
                 };
             };
         };
     };
-    stock: {
+    create_1: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipmentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShipmentResponse"];
+                };
+            };
+        };
+    };
+    get_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
         requestBody?: never;
         responses: {
             /** @description OK */
@@ -3640,14 +3410,156 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["InventoryStockRow"][];
+                    "*/*": components["schemas"]["ShipmentResponse"];
                 };
             };
         };
     };
-    lowStock: {
+    delete_1: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipmentUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShipmentResponse"];
+                };
+            };
+        };
+    };
+    cancel_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShipmentResponse"];
+                };
+            };
+        };
+    };
+    confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShipmentConfirmResult"];
+                };
+            };
+        };
+    };
+    depart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShipmentResponse"];
+                };
+            };
+        };
+    };
+    dispatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShipmentResponse"];
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: {
+                itemId?: number;
+                keyword?: string;
+                page?: number;
+                salesOrderId?: number;
+                size?: number;
+                sort?: string;
+                status?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3660,16 +3572,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["InventoryLowStockRow"][];
+                    "*/*": components["schemas"]["PageWorkOrderResponse"];
                 };
             };
         };
     };
-    activeWorkOrders: {
+    create: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WorkOrderResponse"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3680,16 +3618,64 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["InternalWorkOrderRow"][];
+                    "*/*": components["schemas"]["WorkOrderResponse"];
                 };
             };
         };
     };
-    items: {
+    delete: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WorkOrderResponse"];
+                };
+            };
+        };
+    };
+    cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3700,16 +3686,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["InternalItemRow"][];
+                    "*/*": components["schemas"]["WorkOrderResponse"];
                 };
             };
         };
     };
-    stock_1: {
+    close: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3720,19 +3708,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["InternalStockRow"][];
+                    "*/*": components["schemas"]["WorkOrderResponse"];
                 };
             };
         };
     };
-    boms: {
+    complete: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: number;
+            };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderCompleteRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -3740,19 +3734,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["InternalBomRow"][];
+                    "*/*": components["schemas"]["WorkOrderCompleteResult"];
                 };
             };
         };
     };
-    me: {
+    progress: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: number;
+            };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderCompleteRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -3760,7 +3760,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["UserResponse"];
+                    "*/*": components["schemas"]["WorkOrderResponse"];
                 };
             };
         };
