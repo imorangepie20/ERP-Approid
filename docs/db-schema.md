@@ -245,9 +245,18 @@ production_plans ──> items
 | item_id | BIGINT | NOT NULL FK→items | |
 | qty | NUMERIC(18,4) | NOT NULL CHECK `qty > 0` | |
 | amount | BIGINT | NOT NULL | |
-| delivery_date | DATE | NOT NULL | 출하(배송)일 |
+| delivery_date | DATE | NOT NULL | 배송 예정일(확정 시 유지) |
 | vehicle | VARCHAR(64) | | 차량 |
-| status | VARCHAR(16) | NOT NULL DEFAULT `'지시'` | CHECK `지시`/`배차`/`출하완료`/`매출반영` |
+| status | VARCHAR(16) | NOT NULL DEFAULT `'지시'` | V15 CHECK `지시`/`배차`/`출발`/`출하완료`/`매출반영`/`취소` |
+| lot_id | BIGINT | FK → lots(id), NULL 허용 | V15: 출하별 명시적 Lot |
+| inventory_txn_id | BIGINT | UNIQUE FK → inventory_transactions(id), NULL 허용 | V15: 원 출하 출고 |
+| receivable_id | BIGINT | UNIQUE FK → receivables(id), NULL 허용 | V15: 출하별 미수 |
+| tracking_no | VARCHAR(64) | NULL 허용 | V15: 송장번호 |
+| departed_date | DATE | NULL 허용 | V15: KST 출발일 |
+| confirmed_date | DATE | NULL 허용 | V15: KST 확정일 |
+
+V15 이전 출하의 Lot/출고/미수 FK는 NULL로 보존한다. 신규 지시는 Lot를 지정하고,
+확정 트랜잭션에서 원 출고와 미수를 연결한다. 과거 연결은 자동 복원하지 않는다.
 
 #### receivables — 미수금
 | 컬럼 | 타입 | 제약 | 설명 |
@@ -459,7 +468,14 @@ backend-spring/src/main/resources/db/migration/
 ├── V5__init_inventory.sql       # purchase_orders, receivings, lots, inventory_transactions
 ├── V6__seed_users.sql           # users + roles (로그인 필수)
 ├── V7__seed_domain.sql          # desc.md 시드 데이터
-└── V8__audit_trace_index.sql    # trace_id 기반 감사 상관관계 조회 인덱스
+├── V8__audit_trace_index.sql    # trace_id 기반 감사 상관관계 조회 인덱스
+├── V9__partner_contact_and_lead_time.sql
+├── V10__master_validation.sql
+├── V11__work_order_routing_snapshot.sql
+├── V12__sales_document_terms.sql
+├── V13__work_order_assignment_and_validation.sql
+├── V14__receiving_inventory_links_and_cancellation.sql
+└── V15__shipment_lot_and_revenue_links.sql
 ```
 
 - `updated_at` 자동 갱신: `V1`에 공통 트리거 함수 `set_updated_at()` 생성

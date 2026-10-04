@@ -18,6 +18,8 @@ public interface InventoryTransactionRepository
 
     boolean existsByItemId(Long itemId);
 
+    boolean existsByLot_IdAndIdNot(Long lotId, Long transactionId);
+
     @Nullable
     @Query("""
             select coalesce(sum(t.qty), 0) from InventoryTransactionEntity t

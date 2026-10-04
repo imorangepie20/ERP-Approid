@@ -107,6 +107,8 @@ class FlowIntegrationTest extends IntegrationTestSupport {
     @Test
     @Order(3)
     void flow3_purchase_order_to_receiving() {
+        long itemId = get("/api/core/purchase-orders/" + PURCHASE_ORDER_OPEN, adminToken).getBody().path("itemId").asLong();
+        BigDecimal stockBefore = get("/api/core/items/" + itemId, adminToken).getBody().path("stock").decimalValue();
         ResponseEntity<JsonNode> response = post("/api/core/receivings", adminToken,
                 body("purchaseOrderId", PURCHASE_ORDER_OPEN,
                         "receivedQty", 600, "defectQty", 0), RECEIVING_TRACE_ID);
@@ -125,16 +127,17 @@ class FlowIntegrationTest extends IntegrationTestSupport {
         assertThat(purchaseOrder.get("status").asText()).isEqualTo("입고완료");
         assertThat(purchaseOrder.get("receivedQty").decimalValue())
                 .isEqualByComparingTo(BigDecimal.valueOf(600));
+        assertThat(get("/api/core/items/" + itemId, adminToken).getBody().path("stock").decimalValue()).isEqualByComparingTo(stockBefore.add(BigDecimal.valueOf(600)));
 
         assertThat(auditLogRepository.findAllByTraceIdOrderByOccurredAtAsc(RECEIVING_TRACE_ID))
-                .hasSize(4)
+                .hasSize(5)
                 .allSatisfy(log -> {
                     assertThat(log.getActorId()).isNotNull();
                     assertThat(log.getAfterJson()).isNotNull();
                 })
                 .extracting(log -> log.getEntityType())
                 .containsExactlyInAnyOrder(
-                        "RECEIVING", "PURCHASE_ORDER", "LOT", "INVENTORY_TRANSACTION");
+                        "RECEIVING", "PURCHASE_ORDER", "LOT", "INVENTORY_TRANSACTION", "ITEM");
     }
 
     @Test
@@ -159,6 +162,11 @@ class FlowIntegrationTest extends IntegrationTestSupport {
     @Test
     @Order(5)
     void flow5_confirm_shipment_recognizes_revenue() {
+        // Historical seed instructions are not automatically attributed to a Lot.
+        assertThat(rest.exchange("/api/core/shipments/" + SHIPMENT_TO_CONFIRM, HttpMethod.PATCH,
+                authEntity(adminToken, body("lotId", 2)), JsonNode.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(post("/api/core/shipments/" + SHIPMENT_TO_CONFIRM + "/dispatch", adminToken, body()).getStatusCode()).isEqualTo(HttpStatus.OK);
+        BigDecimal stockBefore = get("/api/core/items/2", adminToken).getBody().path("stock").decimalValue();
         ResponseEntity<JsonNode> response = post(
                 "/api/core/shipments/" + SHIPMENT_TO_CONFIRM + "/confirm", adminToken, body());
 
@@ -167,6 +175,8 @@ class FlowIntegrationTest extends IntegrationTestSupport {
         assertThat(result).isNotNull();
         assertThat(result.get("shipment").get("status").asText()).isEqualTo("출하완료");
         assertThat(result.get("receivableNo").asText()).startsWith("RV-");
+        assertThat(result.path("inventoryTxnNo").asText()).startsWith("IVT-");
+        assertThat(get("/api/core/items/2", adminToken).getBody().path("stock").decimalValue()).isEqualByComparingTo(stockBefore.subtract(BigDecimal.valueOf(150)));
 
         JsonNode salesOrder = get("/api/core/sales-orders/" + SALES_ORDER_FOR_SHIPMENT, adminToken).getBody();
         assertThat(salesOrder.get("status").asText()).isEqualTo("출하완료");

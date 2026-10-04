@@ -43,6 +43,7 @@ public class LotController {
     @Operation(summary = "Lot 목록")
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<java.util.List<Response>> list(
             @RequestParam(required = false) Long itemId,
             @RequestParam(required = false) String status,
@@ -60,10 +61,13 @@ public class LotController {
     @PreAuthorize("hasAnyRole('MATERIAL', 'QUALITY', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> hold(@PathVariable Long id) {
-        LotEntity entity = lotRepository.findById(id)
+        LotEntity entity = lotRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.LOT_NOT_FOUND,
                         "Lot을 찾을 수 없습니다: " + id));
         Response before = toResponse(entity);
+        if (Constants.LOT_DISPOSED.equals(entity.getStatus())) {
+            throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION, "폐기/취소된 Lot은 보류할 수 없습니다.");
+        }
         entity.setStatus(Constants.LOT_HOLD);
         LotEntity saved = lotRepository.save(entity);
         auditService.record(AuditEvent.changed(
@@ -76,7 +80,7 @@ public class LotController {
     @PreAuthorize("hasAnyRole('MATERIAL', 'QUALITY', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> release(@PathVariable Long id) {
-        LotEntity entity = lotRepository.findById(id)
+        LotEntity entity = lotRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.LOT_NOT_FOUND,
                         "Lot을 찾을 수 없습니다: " + id));
         if (!Constants.LOT_HOLD.equals(entity.getStatus())) {
@@ -96,7 +100,7 @@ public class LotController {
     @PreAuthorize("hasAnyRole('QUALITY', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> dispose(@PathVariable Long id) {
-        LotEntity entity = lotRepository.findById(id)
+        LotEntity entity = lotRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.LOT_NOT_FOUND,
                         "Lot을 찾을 수 없습니다: " + id));
         if (Constants.LOT_DISPOSED.equals(entity.getStatus())) {

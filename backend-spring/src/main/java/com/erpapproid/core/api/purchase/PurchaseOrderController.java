@@ -2,10 +2,9 @@ package com.erpapproid.core.api.purchase;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.erpapproid.core.api.purchase.PurchaseOrderDto.Request;
 import com.erpapproid.core.api.purchase.PurchaseOrderDto.Response;
 import com.erpapproid.core.common.domain.Constants;
+import com.erpapproid.core.common.api.MasterListQuery;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.domain.audit.AuditService;
@@ -53,10 +53,18 @@ public class PurchaseOrderController {
     @Operation(summary = "발주 목록")
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<Page<Response>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long vendorId,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "purchaseOrderNo,asc") String sort) {
+        MasterListQuery.positiveId(vendorId);
+        if (status != null && !Set.of(Constants.PO_OPEN, Constants.PO_PARTIAL, Constants.PO_CLOSED, Constants.PO_CANCEL).contains(status)) {
+            throw MasterListQuery.invalid("지원하지 않는 발주 상태입니다.");
+        }
+        var pageable = MasterListQuery.pageable(page, size, sort, Set.of("purchaseOrderNo", "qty", "dueDate", "receivedQty", "status"), "purchaseOrderNo");
         return ResponseEntity.ok(
                 purchaseOrderRepository.search(status, vendorId, pageable).map(this::toResponse));
     }
@@ -105,7 +113,7 @@ public class PurchaseOrderController {
     @PreAuthorize("hasRole('MATERIAL')")
     @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody Request request) {
-        PurchaseOrderEntity entity = purchaseOrderRepository.findById(id)
+        PurchaseOrderEntity entity = purchaseOrderRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PURCHASE_ORDER_NOT_FOUND,
                         "발주를 찾을 수 없습니다: " + id));
         if (!Constants.PO_OPEN.equals(entity.getStatus())) {
@@ -137,7 +145,7 @@ public class PurchaseOrderController {
     @PreAuthorize("hasRole('MATERIAL')")
     @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        PurchaseOrderEntity entity = purchaseOrderRepository.findById(id)
+        PurchaseOrderEntity entity = purchaseOrderRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PURCHASE_ORDER_NOT_FOUND,
                         "발주를 찾을 수 없습니다: " + id));
         if (!Constants.PO_OPEN.equals(entity.getStatus())) {
@@ -156,7 +164,7 @@ public class PurchaseOrderController {
     @PreAuthorize("hasAnyRole('MATERIAL', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> cancel(@PathVariable Long id) {
-        PurchaseOrderEntity entity = purchaseOrderRepository.findById(id)
+        PurchaseOrderEntity entity = purchaseOrderRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PURCHASE_ORDER_NOT_FOUND,
                         "발주를 찾을 수 없습니다: " + id));
         if (Constants.PO_CLOSED.equals(entity.getStatus())

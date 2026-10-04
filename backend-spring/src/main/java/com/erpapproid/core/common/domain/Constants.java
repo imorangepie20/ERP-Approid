@@ -52,6 +52,8 @@ public final class Constants {
     public static final String RC_PASS = "합격";
     public static final String RC_PARTIAL = "부분합격";
     public static final String RC_RETURN = "반품";
+    public static final String RC_FAIL = "불합격";
+    public static final String RC_CANCEL = "취소";
 
     public static final String WO_OPEN = "지시";
     public static final String WO_PROGRESS = "진행중";

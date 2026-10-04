@@ -35,6 +35,7 @@ Frontend, from `hud-admin-template/`:
 - Build: `npm run build`
 - Lint: `npm run lint`
 - Test: `npm run test`
+- Browser E2E: root `scripts/run-phase1-e2e.ps1` (isolated DB only; see `docs/phase1-e2e.md`)
 
 Backend, from `backend-spring/`:
 
@@ -45,8 +46,8 @@ Backend, from `backend-spring/`:
 
 ## Current Caveats
 
-- Authentication, item/partner/BOM/routing master CRUD, quotations, sales orders, and work orders call the Spring API.
-  Purchase documents and the remaining business screens still use prototypes or memory-only DataContext.
+- Authentication, item/partner/BOM/routing master CRUD, quotations, sales orders, work orders, receivings, and shipments call the Spring API.
+  Purchase-order editing and the remaining business screens still use prototypes or memory-only DataContext.
 - Login, session restoration/expiry, protected routes, logout, and role-controlled item/BOM action boundaries are implemented.
 - Many pages use hardcoded local arrays rather than DataContext.
 - Quotations support draft editing/sending and unexpired sent-quotation conversion. Sales confirmation creates
@@ -61,7 +62,18 @@ Backend, from `backend-spring/`:
   cannot change quantity or be deleted/simply cancelled. Component consumption and cost aggregation remain planned.
 - V13 preserves historical over-quantity closed orders with a NOT VALID total-actuals constraint; new/changed rows
   are checked. Assignment is a label until employee/user linking is implemented.
+- Receiving uses gross quantity for purchase-order progress and good quantity for Lot/current stock. Creation
+  and full-receipt cancellation are atomic under receipt/order/item/Lot locks; cancellation preserves history
+  and creates a reversal, rejecting used/held/disposed Lots. All-defective receipts have no Lot/movement.
+  V14 links new receipts to their Lot/original/reversal transactions; historical receipts are not reconstructed
+  or automatically cancelled. Purchase-order selection reads the real API; purchase-order CRUD UI is still planned.
 - `backend-fastapi/` is not implemented. Root Compose, `src/api/`, and generated Spring OpenAPI types exist.
+- Shipments select one explicit Lot per document. Non-cancelled allocations cannot exceed the sales order;
+  draft/dispatch do not reserve stock. Confirmation rechecks stock/Lot under order/item/Lot locks, decreases both,
+  creates a linked movement/receivable, and closes the order only when cumulative shipments cover its quantity.
+  Receivables use the order's payment-term snapshot; the final shipment reconciles integer-KRW rounding.
+  V15 preserves historical unlinked shipments without guessing Lots/revenue. Cancellation is instruction/dispatch-only;
+  returns, post-departure compensation, multi-Lot documents, FIFO/FEFO, and accounting journals remain follow-up work.
 - Springdoc is pinned to 2.8.14 because 2.8.17 breaks Spring MVC resource path initialization;
   `OpenApiIntegrationTest` guards the OpenAPI JSON and Swagger UI entry points.
 - Preserve user changes in `backend-spring/build.gradle.kts`; do not revert them implicitly.

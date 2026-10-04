@@ -7,7 +7,14 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
-public interface ReceivingRepository extends JpaRepository<ReceivingEntity, Long> {
+public interface ReceivingRepository extends JpaRepository<ReceivingEntity, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<ReceivingEntity> {
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"purchaseOrder", "vendor", "item", "lot", "inventoryTransaction", "reversalTransaction"})
+    Page<ReceivingEntity> findAll(org.springframework.data.jpa.domain.Specification<ReceivingEntity> spec, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from ReceivingEntity r where r.id = :id")
+    java.util.Optional<ReceivingEntity> findForUpdate(Long id);
 
     boolean existsByVendor_Id(Long vendorId);
 

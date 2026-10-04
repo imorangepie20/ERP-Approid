@@ -301,19 +301,26 @@ V12 이전 문서의 조건은 현재 거래처/원견적 기준으로 보완한
 ### 5.3 출하 — /shipments
 
 #### GET /shipments
-쿼리: `status`, `customerId`, `keyword`
+권한: 인증 사용자. 쿼리: `status`, `customerId`, `salesOrderId`, `itemId`, `keyword`, `page`, `size`, `sort`.
+검색은 출하번호·고객사 코드/이름·품번/품명이다. page=0~10000, size=1~100.
+정렬 허용: `shipmentNo`, `salesOrder.salesOrderNo`, `customer.name`, `item.itemNo`, `qty`, `amount`, `deliveryDate`, `status`.
+기본 정렬 `shipmentNo,desc`. 응답은 Spring Page이며 상세와 함께 Lot·출고·미수 번호를 제공한다.
 
 #### POST /shipments
-권한: `SALES`. 출하 지시 생성. 응답 `201`: `ShipmentResponse`.
+권한: `SALES`, `ADMIN`. 출하 지시 생성. 응답 `201`: `ShipmentResponse`.
 요청:
 ```json
 {
-  "salesOrderId": 3, "qty": 120, "deliveryDate": "2026-10-05",
-  "vehicle": "화물차 11T"
+  "salesOrderId": 4, "lotId": 1, "qty": 60, "deliveryDate": "2026-10-15",
+  "vehicle": "화물차 11T", "trackingNo": "운송장번호"
 }
 ```
-오류: `422 BUSINESS_RULE_VIOLATION` (`SALES_ORDER_NOT_CONFIRMED`,
-`INSUFFICIENT_STOCK`)
+수량은 양수·소수 4자리·정수부 14자리 이하다. 차량/송장은 각각 64자 이하.
+확정/생산중 수주만 허용한다. 취소 제외 누적 출하 지시량은 수주량 이하다.
+한 출하에 같은 품목의 Lot 하나를 선택한다. 정상/유통기한임박·미만료·양수 잔량 Lot만 허용한다.
+품목 현재고와 선택 Lot 잔량을 함께 검증한다. 지시/배차/출발은 재고를 예약하거나 차감하지 않는다.
+오류: `400 INVALID_INPUT`, `409 INVALID_STATE_TRANSITION`/`IN_USE`,
+`422 BUSINESS_RULE_VIOLATION`/`INSUFFICIENT_STOCK`, 없는 수주/품목/Lot는 404.
 
 #### POST /shipments/{id}/confirm
 권한: `SALES`, `ADMIN`. **흐름 5: 출하 확정 → 매출 반영**.
@@ -322,17 +329,25 @@ V12 이전 문서의 조건은 현재 거래처/원견적 기준으로 보완한
 ```json
 {
   "shipment": { /* ShipmentResponse */ },
-  "ledgerEntryNo": "LE-2610-0005",
+  "inventoryTxnNo": "IVT-2610-0005",
   "receivableNo": "RV-2610-001"
 }
 ```
 
 실행 결과 (단일 트랜잭션):
-1. 출하 `출하완료`, `deliveryDate` = 오늘
-2. 수주 → `출하완료`
-3. `ledger_entries` 매출 전표 생성 (`입금`)
-4. `receivables` 미수금 생성 (수납기일 = 거래처 `paymentTerms` 적용)
-5. `inventory_transactions` 출하 출고 (음수), `items.stock` 감소
+1. 배차/출발만 확정한다. 출하→`출하완료`, `confirmedDate`=KST 오늘. 배송 예정일은 유지한다.
+2. 누적 확정량=수주량일 때만 수주→`출하완료`. 부분 출하는 기존 확정/생산중 상태를 유지한다.
+3. 같은 품목의 Lot 잔량과 `items.stock`을 차감하고, 실제 Lot/창고의 음수 출하 이력을 생성한다.
+4. 출하별 `receivables`를 생성한다. 수납기일은 KST 확정일+수주 문서의 `paymentTerms` 스냅샷이다.
+5. 출하에 Lot·출고·미수 FK를 보관한다. 금액은 수량×수주 단가의 원 미만 버림이며,
+   마지막 출하는 수주 금액−기존 확정 금액으로 정수 원화 차이를 정산한다.
+6. SHIPMENT/SALES_ORDER/ITEM/LOT/INVENTORY_TRANSACTION/RECEIVABLE 감사 6건을 같은 트랜잭션에 저장한다.
+   출하→수주→품목→Lot 행 잠금으로 중복 확정·재고 유실/초과 출하를 막으며 감사 실패도 전체 롤백한다.
+
+회계 전표 생성은 아직 구현하지 않는다. 출하 금액과 미수 원금을 매출 원천으로 사용하고 전표 연계는 ACC 후속 범위다.
+V15 이전 Lot/출고/미수 연결은 추정하지 않는다. 과거 지시/배차는 실제 Lot을 확인해 PATCH한 후 진행할 수 있다.
+과거 확정 출하는 읽기 전용이며 재확정/취소하지 않는다. FIFO/FEFO 자동 선택, 다중 Lot 문서,
+확정 이후 반품·역매출·재고 보상, idempotency key는 후속 범위다.
 
 오류: `409 INVALID_STATE_TRANSITION`, `422 INSUFFICIENT_STOCK`
 
@@ -340,9 +355,11 @@ V12 이전 문서의 조건은 현재 거래처/원견적 기준으로 보완한
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/shipments/{id}` | 인증 | 상세 |
-| PATCH | `/shipments/{id}` | `SALES` | `지시`/`배차`만. `409` |
-| DELETE | `/shipments/{id}` | `SALES` | `지시`만 |
-| POST | `/shipments/{id}/dispatch` | `SALES` | `지시` → `배차` |
+| PATCH | `/shipments/{id}` | `SALES`, `ADMIN` | `지시`/`배차`만. qty/Lot/예정일/차량/송장 부분 수정, 수주 불변. 빈 요청 400 |
+| DELETE | `/shipments/{id}` | `SALES`, `ADMIN` | 이력 보존을 위해 항상 409 IN_USE (없는 ID 404) |
+| POST | `/shipments/{id}/dispatch` | `SALES`, `ADMIN` | `지시` → `배차` |
+| POST | `/shipments/{id}/depart` | `SALES`, `ADMIN` | `배차` → `출발`, KST 출발일 저장 |
+| POST | `/shipments/{id}/cancel` | `SALES`, `ADMIN` | `지시`/`배차` → `취소`, 이력 보존·누적 지시량 해제 |
 
 ### 5.4 미수금 — /receivables
 
@@ -455,7 +472,7 @@ V13 이전 초과 실적 마감 행은 보존하며 합계 제약은 신규/변�
 
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/purchase-orders` | 인증 | 쿼리: `status`, `vendorId` |
+| GET | `/purchase-orders` | 인증 | 쿼리: `status`, `vendorId`, `page`, `size`, `sort`. 실제 입고 선택 목록에 사용 |
 | POST | `/purchase-orders` | `MATERIAL`, `ADMIN` | 생성. `발주` |
 | GET | `/purchase-orders/{id}` | 인증 | 상세 |
 | PATCH | `/purchase-orders/{id}` | `MATERIAL` | `발주`만 |
@@ -463,6 +480,12 @@ V13 이전 초과 실적 마감 행은 보존하며 합계 제약은 신규/변�
 | POST | `/purchase-orders/{id}/cancel` | `MATERIAL`, `ADMIN` | → `취소` |
 
 ### 7.2 입고 — /receivings
+
+인증 조회. 목록 쿼리: `purchaseOrderId`, `vendorId`, `itemId`(양수), `status`, `keyword`, `page`(0~10000),
+`size`(1~100), `sort`(기본 `receivingNo,desc`). 검색은 입고/발주번호·공급사·품번·품명에 적용한다.
+정렬 허용: `receivingNo`, `purchaseOrder.purchaseOrderNo`, `vendor.name`, `item.itemNo`, `orderQty`,
+`receivedQty`, `defectQty`, `receivedDate`, `status`. 잘못된 필터·정렬·페이지는 400이다.
+발주 선택 목록은 `purchaseOrderNo`, `qty`, `dueDate`, `receivedQty`, `status` 정렬을 지원한다.
 
 #### POST /receivings
 권한: `MATERIAL`, `ADMIN`. **흐름 3: 발주 → 입고**.
@@ -472,34 +495,54 @@ V13 이전 초과 실적 마감 행은 보존하며 합계 제약은 신규/변�
 { "purchaseOrderId": 2, "receivedQty": 1000, "defectQty": 12, "receivedDate": "2026-10-06" }
 ```
 
+`receivedQty`는 불량을 포함한 총 입고수량(양수), `defectQty`는 0 이상/총량 이하다.
+각 수량은 정수 14/소수 4자리까지다. 불량 생략은 0, 입고일 생략은 한국 오늘이다.
+발주/부분입고만 입고할 수 있고 총 입고수량은 발주 잔량 이하여야 한다.
+
 응답 `201`:
 ```json
 {
   "receiving": { /* ReceivingResponse */ },
   "lotNo": "LOT-2610-008",
-  "inventoryTxnNo": "IVT-2610-0009",
-  "ledgerEntryNo": "LE-2610-0006"
+  "inventoryTxnNo": "IVT-2610-0009"
 }
 ```
 
 실행 결과 (단일 트랜잭션):
-1. 입고 이력 생성 (`검수중` → 불량 여부에 따라 `합격`/`부분합격`/`반품`)
-2. 발주서 `receivedQty` 누적, `부분입고`/`입고완료` 상태 전이
-3. Lot 생성 (자재창고)
-4. `inventory_transactions` 입고 (양수 = received - defect), `items.stock` 증가
-5. 매입 전표 생성 (`출금`, 단가 × 입고수량)
+1. 입고 이력 생성 (`합격`/`부분합격`/전량 불량은 `불합격`)
+2. 발주서 `receivedQty`에 **총량** 누적, `부분입고`/`입고완료` 상태 전이
+3. 양품 Lot 생성 (자재창고)
+4. `inventory_transactions` 입고 (양품 = received - defect), `items.stock`에 양품 증가
+5. RECEIVING/PURCHASE_ORDER/LOT/INVENTORY_TRANSACTION/ITEM 감사를 같은 trace로 저장
+
+전량 불량은 Lot·재고 이동을 생성하지 않고 관련 결과 번호를 생략한다(입고/발주/품목 감사 3개).
+발주·품목 잠금으로 동시 초과입고와 동일 품목 재고 유실을 막고 감사 실패도 전체 롤백한다.
+응답은 `goodQty`, `lotNo`, 원 `inventoryTxnNo`, `reversalTxnNo`, `cancelledDate`, `stockApplied`를 제공한다.
+연결/취소 정보가 없으면 생략할 수 있다. 매입 전표·매입채무는 아직 생성하지 않는다.
 
 오류:
 - `404 PURCHASE_ORDER_NOT_FOUND`
 - `422 RECEIVED_QTY_EXCEEDS_ORDER` (잔량 초과)
 - `409 PURCHASE_ORDER_CLOSED` (`입고완료`/`취소`)
+- `400 INVALID_INPUT` (수량/정밀도), `422 BUSINESS_RULE_VIOLATION` (불량>총량/재고 저장범위 초과)
+
+#### POST /receivings/{id}/cancel
+권한: `MATERIAL`, `ADMIN`. 본문 없음. 전체 입고 단위 취소만 지원한다.
+새 입고의 미사용 정상 Lot에 한해 양품 역출고(`refType=RECEIVING_CANCEL`)를 생성하고 Lot 잔량을 0·폐기로 만든다.
+현재고 양품 차감, 발주 누적입고 총량 차감, 발주/부분입고 복원, 입고 취소일/상태/역출고 연결 및 감사를 함께 저장한다.
+원 발주가 취소 상태면 취소를 유지한다. 전량 불량 취소는 재고 이동 없이 누적입고만 복원한다.
+200 응답은 생성 결과와 같은 형태이며 `inventoryTxnNo`는 역출고 번호, 입고 응답 내부 `inventoryTxnNo`는 원 번호다.
+입고/발주/품목/Lot 잠금으로 중복 보상을 차단한다. 감사 실패 시 전체 롤백한다.
+오류: `409 INVALID_STATE_TRANSITION`(중복/미처리), `409 IN_USE`(사용·변경·보류·폐기 Lot, 재고 부족, 과거 연결 불명확).
+V14 이전 이력은 `stockApplied=false`이며 재고나 연결을 추정하지 않아 자동 취소할 수 없다.
+부분 반품·사용 이후 보상·품질 승인·요청 idempotency key는 후속 범위다.
 
 #### 기타
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/receivings` | 인증 | 쿼리: `purchaseOrderId`, `status` |
+| GET | `/receivings` | 인증 | 위 목록 필터·검색·정렬·페이지 |
 | GET | `/receivings/{id}` | 인증 | 상세 |
-| DELETE | `/receivings/{id}` | `MATERIAL` | 이력 삭제 (보상 처리는 Phase 2) |
+| DELETE | `/receivings/{id}` | `MATERIAL`, `ADMIN` | 이력 삭제 금지: 존재하면 `409 IN_USE`. 취소 보상 API 사용 |
 
 ### 7.3 재고 — /inventory
 

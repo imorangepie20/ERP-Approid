@@ -22,6 +22,8 @@ import lombok.Setter;
 import com.erpapproid.core.common.entity.BaseEntity;
 import com.erpapproid.core.domain.item.ItemEntity;
 import com.erpapproid.core.domain.partner.PartnerEntity;
+import com.erpapproid.core.domain.inventory.LotEntity;
+import com.erpapproid.core.domain.inventory.InventoryTransactionEntity;
 
 @Getter
 @Setter
@@ -65,4 +67,22 @@ public class ReceivingEntity extends BaseEntity {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lot_id")
+    private LotEntity lot;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "inventory_txn_id")
+    private InventoryTransactionEntity inventoryTransaction;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reversal_txn_id")
+    private InventoryTransactionEntity reversalTransaction;
+
+    @Column(name = "cancelled_date")
+    private LocalDate cancelledDate;
+
+    @Column(name = "stock_applied", nullable = false)
+    private boolean stockApplied;
 }

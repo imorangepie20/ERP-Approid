@@ -10,6 +10,11 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrderEnti
 
     Optional<PurchaseOrderEntity> findByPurchaseOrderNo(String purchaseOrderNo);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from PurchaseOrderEntity p where p.id = :id")
+    Optional<PurchaseOrderEntity> findForUpdate(Long id);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"vendor", "item"})
     @Query("""
             select p from PurchaseOrderEntity p
             where (:status is null or p.status = :status)

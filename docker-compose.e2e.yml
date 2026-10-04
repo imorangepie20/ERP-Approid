@@ -1,0 +1,42 @@
+# Test-only stack: never attaches the development volume, uses fixed isolated ports.
+name: erp-approid-e2e
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: erp_approid_e2e
+      POSTGRES_USER: erp
+      POSTGRES_PASSWORD: erp_e2e_public_test_only
+    # Ephemeral PostgreSQL storage; no development volume or published DB port.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp -d erp_approid_e2e"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  backend-spring:
+    image: erp-approid-backend-spring:latest
+    build:
+      context: ./backend-spring
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: erp_approid_e2e
+      DB_USERNAME: erp
+      DB_PASSWORD: erp_e2e_public_test_only
+      JWT_SECRET: erp-e2e-public-jwt-secret-test-only-32bytes
+      INTERNAL_KEY: erp-e2e-public-internal-key-test-only
+      CORS_ALLOWED_ORIGINS: http://127.0.0.1:3001
+    ports:
+      - "127.0.0.1:38081:38080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:38080/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s

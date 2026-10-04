@@ -97,10 +97,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 출하 목록 */
+        /** 출하 목록: 검색/상태/고객/수주/품목/페이지/정렬 */
         get: operations["list_1"];
         put?: never;
-        /** 출하 지시 생성 */
+        /** 출하 지시: 한 Lot씩 명시적 선택, 수주 누적량 초과 차단, 재고 예약 없음 */
         post: operations["create_1"];
         delete?: never;
         options?: never;
@@ -117,8 +117,23 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 배차 (지시 → 배차) */
         post: operations["dispatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/shipments/{id}/depart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["depart"];
         delete?: never;
         options?: never;
         head?: never;
@@ -134,8 +149,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 흐름 5: 출하 확정 → 매출/미수 반영 */
+        /** Lot/현재고 차감·부분/완료 수주·미수 생성: 단일 트랜잭션 */
         post: operations["confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/shipments/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 재고 이동 전 지시/배차 출하 취소, 확정 후 보상은 미지원 */
+        post: operations["cancel_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -187,7 +219,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** 수주 취소 (대기만, 확정 후 보상 처리는 후속 생산 업무) */
-        post: operations["cancel_1"];
+        post: operations["cancel_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -241,6 +273,23 @@ export interface paths {
         put?: never;
         /** 흐름 3: 발주 → 입고 */
         post: operations["create_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/receivings/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 입고 취소 (미사용 Lot 역출고 보상) */
+        post: operations["cancel_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -327,7 +376,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** 발주 취소 */
-        post: operations["cancel_2"];
+        post: operations["cancel_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -534,15 +583,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 출하 상세 */
         get: operations["get_1"];
         put?: never;
         post?: never;
-        /** 출하 삭제 (지시만) */
         delete: operations["delete_1"];
         options?: never;
         head?: never;
-        /** 출하 수정 (지시/배차만) */
         patch: operations["update_1"];
         trace?: never;
     };
@@ -705,7 +751,7 @@ export interface paths {
         get: operations["get_7"];
         put?: never;
         post?: never;
-        /** 입고 이력 삭제 */
+        /** 입고 이력 삭제 금지 (취소 보상 API 사용) */
         delete: operations["delete_9"];
         options?: never;
         head?: never;
@@ -975,10 +1021,13 @@ export interface components {
         ShipmentRequest: {
             /** Format: int64 */
             salesOrderId: number;
+            /** Format: int64 */
+            lotId: number;
             qty: number;
             /** Format: date */
             deliveryDate: string;
             vehicle?: string;
+            trackingNo?: string;
         };
         ShipmentResponse: {
             /** Format: int64 */
@@ -1000,10 +1049,22 @@ export interface components {
             deliveryDate?: string;
             vehicle?: string;
             status?: string;
+            itemName?: string;
+            /** Format: int64 */
+            lotId?: number;
+            lotNo?: string;
+            inventoryTxnNo?: string;
+            receivableNo?: string;
+            trackingNo?: string;
+            /** Format: date */
+            departedDate?: string;
+            /** Format: date */
+            confirmedDate?: string;
         };
         ShipmentConfirmResult: {
             shipment?: components["schemas"]["ShipmentResponse"];
             receivableNo?: string;
+            inventoryTxnNo?: string;
         };
         SalesOrderRequest: {
             salesOrderNo: string;
@@ -1120,6 +1181,13 @@ export interface components {
             /** Format: date */
             receivedDate?: string;
             status?: string;
+            goodQty?: number;
+            lotNo?: string;
+            inventoryTxnNo?: string;
+            reversalTxnNo?: string;
+            /** Format: date */
+            cancelledDate?: string;
+            stockApplied?: boolean;
         };
         ReceivableResponse: {
             /** Format: int64 */
@@ -1372,6 +1440,15 @@ export interface components {
             /** Format: int32 */
             priority?: number;
         };
+        ShipmentUpdateRequest: {
+            /** Format: int64 */
+            lotId?: number;
+            qty?: number;
+            /** Format: date */
+            deliveryDate?: string;
+            vehicle?: string;
+            trackingNo?: string;
+        };
         SalesOrderUpdateRequest: {
             qty?: number;
             /** Format: int64 */
@@ -1438,11 +1515,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         PageableObject: {
@@ -1461,13 +1538,6 @@ export interface components {
             sorted?: boolean;
             unsorted?: boolean;
         };
-        Pageable: {
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            size?: number;
-            sort?: string[];
-        };
         PageShipmentResponse: {
             /** Format: int64 */
             totalElements?: number;
@@ -1479,11 +1549,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         PageSalesOrderResponse: {
@@ -1497,11 +1567,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         PageRoutingResponse: {
@@ -1515,11 +1585,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         PageReceivingResponse: {
@@ -1533,12 +1603,19 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
+        };
+        Pageable: {
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            sort?: string[];
         };
         PageReceivableResponse: {
             /** Format: int64 */
@@ -1551,11 +1628,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         ReceivableSummary: {
@@ -1579,11 +1656,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         PagePurchaseOrderResponse: {
@@ -1597,11 +1674,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         PageProductionPlanResponse: {
@@ -1615,11 +1692,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         PagePartnerResponse: {
@@ -1633,11 +1710,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         PageItemResponse: {
@@ -1651,11 +1728,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         InventoryTxnRow: {
@@ -1685,11 +1762,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
         InventoryStockRow: {
@@ -1772,11 +1849,11 @@ export interface components {
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            first?: boolean;
-            last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
             pageable?: components["schemas"]["PageableObject"];
+            first?: boolean;
+            last?: boolean;
             empty?: boolean;
         };
     };
@@ -1938,11 +2015,15 @@ export interface operations {
     };
     list_1: {
         parameters: {
-            query: {
+            query?: {
                 status?: string;
                 customerId?: number;
+                salesOrderId?: number;
+                itemId?: number;
                 keyword?: string;
-                pageable: components["schemas"]["Pageable"];
+                page?: number;
+                size?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;
@@ -2007,6 +2088,28 @@ export interface operations {
             };
         };
     };
+    depart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShipmentResponse"];
+                };
+            };
+        };
+    };
     confirm: {
         parameters: {
             query?: never;
@@ -2025,6 +2128,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ShipmentConfirmResult"];
+                };
+            };
+        };
+    };
+    cancel_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShipmentResponse"];
                 };
             };
         };
@@ -2102,7 +2227,7 @@ export interface operations {
             };
         };
     };
-    cancel_1: {
+    cancel_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -2198,10 +2323,15 @@ export interface operations {
     };
     list_4: {
         parameters: {
-            query: {
+            query?: {
                 purchaseOrderId?: number;
                 status?: string;
-                pageable: components["schemas"]["Pageable"];
+                vendorId?: number;
+                itemId?: number;
+                keyword?: string;
+                page?: number;
+                size?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;
@@ -2232,6 +2362,28 @@ export interface operations {
                 "application/json": components["schemas"]["ReceivingRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceivingCreateResult"];
+                };
+            };
+        };
+    };
+    cancel_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -2341,10 +2493,12 @@ export interface operations {
     };
     list_6: {
         parameters: {
-            query: {
+            query?: {
                 status?: string;
                 vendorId?: number;
-                pageable: components["schemas"]["Pageable"];
+                page?: number;
+                size?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;
@@ -2387,7 +2541,7 @@ export interface operations {
             };
         };
     };
-    cancel_2: {
+    cancel_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -2862,7 +3016,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ShipmentRequest"];
+                "application/json": components["schemas"]["ShipmentUpdateRequest"];
             };
         };
         responses: {

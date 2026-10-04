@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -22,12 +24,27 @@ public class ShipmentDto {
         @NotNull
         @Positive
         private Long salesOrderId;
+        @NotNull @Positive
+        private Long lotId;
         @NotNull
         @DecimalMin(value = "0", inclusive = false)
+        @Digits(integer = 14, fraction = 4)
         private BigDecimal qty;
         @NotNull
         private LocalDate deliveryDate;
-        private String vehicle;
+        @Size(max = 64) private String vehicle;
+        @Size(max = 64) private String trackingNo;
+    }
+
+    @Getter @Builder @Schema(name = "ShipmentUpdateRequest")
+    public static final class UpdateRequest {
+        @Positive private Long lotId;
+        @DecimalMin(value = "0", inclusive = false) @Digits(integer = 14, fraction = 4)
+        private BigDecimal qty;
+        private LocalDate deliveryDate;
+        @Size(max = 64) private String vehicle;
+        @Size(max = 64) private String trackingNo;
+        public boolean hasChanges() { return lotId != null || qty != null || deliveryDate != null || vehicle != null || trackingNo != null; }
     }
 
     @Getter
@@ -47,6 +64,14 @@ public class ShipmentDto {
         private LocalDate deliveryDate;
         private String vehicle;
         private String status;
+        private String itemName;
+        private Long lotId;
+        private String lotNo;
+        private String inventoryTxnNo;
+        private String receivableNo;
+        private String trackingNo;
+        private LocalDate departedDate;
+        private LocalDate confirmedDate;
     }
 
     @Getter
@@ -55,5 +80,6 @@ public class ShipmentDto {
     public static final class ConfirmResult {
         private Response shipment;
         private String receivableNo;
+        private String inventoryTxnNo;
     }
 }

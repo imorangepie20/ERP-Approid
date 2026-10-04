@@ -37,3 +37,7 @@ Thumbs.db
 
 # Local database backups
 backups/
+
+# Browser test artifacts may contain authenticated request traces (local/CI only).
+playwright-report/
+test-results/

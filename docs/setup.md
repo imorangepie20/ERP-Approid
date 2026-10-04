@@ -1,6 +1,6 @@
 # 로컬 통합 환경 실행
 
-루트 Compose는 PostgreSQL 16, Spring Boot API, React 정적 프런트를 함께 실행한다. Spring Boot가 시작될 때 Flyway가 데이터베이스 마이그레이션 V1~V13을 적용하며, 각 서비스의 healthcheck가 통과한 뒤 다음 서비스가 시작된다.
+루트 Compose는 PostgreSQL 16, Spring Boot API, React 정적 프런트를 함께 실행한다. Spring Boot가 시작될 때 Flyway가 데이터베이스 마이그레이션 V1~V15를 적용하며, 각 서비스의 healthcheck가 통과한 뒤 다음 서비스가 시작된다.
 
 > `.env.example`의 값은 로컬 개발 전용 공개 예시다. 운영 또는 공유 환경에서는 DB 비밀번호, JWT secret, internal key를 각각 새로 생성해야 한다.
 > 이 Compose는 로컬 개발 전용이다. 공유 서버나 운영 환경에 그대로 배포해서는 안 된다.
@@ -45,7 +45,7 @@ PostgreSQL 포트는 항상 5432다.
 
 ## 상태 검증
 
-세 컨테이너의 health 상태, Flyway V13 적용, 공개 Actuator health, 보안 헤더, 허용·거부 CORS,
+세 컨테이너의 health 상태, Flyway V15 적용, 공개 Actuator health, 보안 헤더, 허용·거부 CORS,
 개발 관리자 로그인, 관리자 전용 metrics, 프런트 HTTP 응답을 한 번에 검증한다.
 
 ```powershell
@@ -113,6 +113,9 @@ Spring Boot를 Compose 밖에서 직접 실행할 때는 안전을 위해 기본
 기동을 중단하며 Swagger/OpenAPI를 노출하지 않는다.
 
 ## 운영 명령
+
+Phase 1 Chromium E2E는 개발 DB와 분리된 전용 Compose에서 실행한다.
+실행 스크립트, 격리 주의사항, CI 필수 체크 설정은 [Phase 1 E2E](phase1-e2e.md)를 참고한다.
 
 ```powershell
 # 상태

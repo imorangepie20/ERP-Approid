@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Digits;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -23,9 +24,11 @@ public class ReceivingDto {
         @Positive
         private Long purchaseOrderId;
         @NotNull
-        @DecimalMin(value = "0")
+        @DecimalMin(value = "0", inclusive = false)
+        @Digits(integer = 14, fraction = 4)
         private BigDecimal receivedQty;
         @DecimalMin(value = "0")
+        @Digits(integer = 14, fraction = 4)
         private BigDecimal defectQty;
         private LocalDate receivedDate;
     }
@@ -48,6 +51,12 @@ public class ReceivingDto {
         private BigDecimal defectQty;
         private LocalDate receivedDate;
         private String status;
+        private BigDecimal goodQty;
+        private String lotNo;
+        private String inventoryTxnNo;
+        private String reversalTxnNo;
+        private LocalDate cancelledDate;
+        private boolean stockApplied;
     }
 
     @Getter

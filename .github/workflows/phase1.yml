@@ -1,0 +1,106 @@
+name: Phase 1 verification
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: phase1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    name: Frontend lint, types, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: hud-admin-template
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hud-admin-template/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test:e2e:types
+      - run: npm run test -- --maxWorkers=4
+      - run: npm run build
+  backend:
+    name: Backend integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - run: bash ./gradlew test --no-daemon
+        working-directory: backend-spring
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-reports
+          path: |
+            backend-spring/build/reports/tests/test
+            backend-spring/build/test-results/test
+          retention-days: 7
+  e2e:
+    name: Phase 1 Chromium transactions
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hud-admin-template/package-lock.json
+      - run: npm ci
+        working-directory: hud-admin-template
+      - run: npx playwright install --with-deps chromium
+        working-directory: hud-admin-template
+      - run: docker compose --project-name erp-approid-e2e -f docker-compose.e2e.yml up -d --build --wait --wait-timeout 240
+      - name: Install isolated test roles and check Flyway
+        run: |
+          docker compose --project-name erp-approid-e2e -f docker-compose.e2e.yml exec -T postgres psql -U erp -d erp_approid_e2e -v ON_ERROR_STOP=1 < scripts/e2e-users.sql
+          version=$(docker compose --project-name erp-approid-e2e -f docker-compose.e2e.yml exec -T postgres psql -U erp -d erp_approid_e2e -Atc "select max(version::integer) from flyway_schema_history where success")
+          test "$version" = 15
+      - run: npm run generate:api-types
+        working-directory: hud-admin-template
+        env:
+          OPENAPI_CORE_URL: http://127.0.0.1:38081/v3/api-docs
+      - name: Check committed OpenAPI types
+        run: git diff --exit-code -- hud-admin-template/src/api/generated/core.ts
+      - run: npm run test:e2e
+        working-directory: hud-admin-template
+        env:
+          E2E_ISOLATED: 'true'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase1-browser-reports
+          path: |
+            hud-admin-template/playwright-report
+            hud-admin-template/test-results
+          retention-days: 7
+      - name: Stop isolated test stack
+        if: always()
+        run: docker compose --project-name erp-approid-e2e -f docker-compose.e2e.yml down
+  required:
+    name: Phase 1 required
+    if: always()
+    needs: [frontend, backend, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all gates
+        env:
+          FRONTEND: ${{ needs.frontend.result }}
+          BACKEND: ${{ needs.backend.result }}
+          E2E: ${{ needs.e2e.result }}
+        run: test "$FRONTEND" = success && test "$BACKEND" = success && test "$E2E" = success

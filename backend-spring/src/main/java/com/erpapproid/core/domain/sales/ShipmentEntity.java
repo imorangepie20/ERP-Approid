@@ -65,4 +65,25 @@ public class ShipmentEntity extends BaseEntity {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lot_id")
+    private com.erpapproid.core.domain.inventory.LotEntity lot;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "inventory_txn_id", unique = true)
+    private com.erpapproid.core.domain.inventory.InventoryTransactionEntity inventoryTransaction;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "receivable_id", unique = true)
+    private ReceivableEntity receivable;
+
+    @Column(name = "tracking_no", length = 64)
+    private String trackingNo;
+
+    @Column(name = "confirmed_date")
+    private LocalDate confirmedDate;
+
+    @Column(name = "departed_date")
+    private LocalDate departedDate;
 }
