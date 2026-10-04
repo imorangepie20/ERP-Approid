@@ -1,5 +1,11 @@
 # ERP-Approid 프로젝트 인수인계 및 현재 상태
 
+> 이 문서 본문은 아래 기준일의 역사적 분석이다. 2026-10-04 현재 실행 상태는
+> `SERVICE_IMPLEMENTATION_ROADMAP.md` 및 `CLAUDE.md`가 우선한다. Phase 1 분석은 별도 FastAPI가 아닌
+> Spring이며 실제 대시보드/MRP/생산·영업·재고 분석 계약은 `analytics-dashboard.md`, `analytics-mrp.md`,
+> `analytics-production.md`, `analytics-sales.md`, `analytics-inventory.md`를 따른다.
+> 실제 Lot 읽기·원천 추적 및 상태 쓰기 후속 경계는 `lot-tracing.md`를 따른다.
+
 | 항목 | 내용 |
 | --- | --- |
 | 분석 기준일 | 2026-10-02 (Asia/Seoul) |

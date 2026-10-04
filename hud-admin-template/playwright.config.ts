@@ -14,7 +14,7 @@ export default defineConfig({
         url: 'http://127.0.0.1:3001', reuseExistingServer: false,
         env: {
             VITE_API_CORE_URL: 'http://127.0.0.1:38081/api/core',
-            // Required client configuration only; analytics is not implemented or used by Phase 1.
+            // Reserved for future separate analytics; the current dashboard uses the Spring core client.
             VITE_API_ANALYTICS_URL: 'http://127.0.0.1:38082/api/analytics',
         },
     },

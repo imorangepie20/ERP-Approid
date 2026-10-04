@@ -4,6 +4,106 @@
  */
 
 export interface paths {
+    "/api/core/analytics/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 동일 DB 스냅샷의 KPI·월별 추이·현재 위험 알림
+         * @description 기간 기본값은 서울 기준 이번 달. 최대 366일. 잔고/알림은 조회 시점 현재값이며 재고회전율은 원가 이력 부족으로 null.
+         */
+        get: operations["dashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/analytics/inventory/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 현재 재고 정합성·Lot 경과·기간 증감
+         * @description 기간은 수불 증감에만 적용. 현재고/과거 잔액/회전율을 추정하거나 자동 보정하지 않음.
+         */
+        get: operations["read_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/analytics/mrp/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * MRP 제안 및 품목별 재고/발주/예정생산 충당량
+         * @description 기본 계획 종료일은 서울 오늘+90일. 과거 미불출 소비·통계 예측·MOQ/EOQ·재고 예약은 포함하지 않음. 품목 필터는 전체 수량 차감 후 표시만 제한.
+         */
+        get: operations["read_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/analytics/production/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 생산 진척·지연·실적 요약
+         * @description 완료예정일 기준 최대366일. 기본 서울 오늘±30일/활성 오더. 과거 시점 진척이나 설비 가동률을 추정하지 않음.
+         */
+        get: operations["read_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/analytics/sales/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 영업 요약
+         * @description 기간 실적과 현재 잔고/미수 구분. 원가·수납일·부분수납 이력 추정 없음.
+         */
+        get: operations["read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/auth/login": {
         parameters: {
             query?: never;
@@ -228,6 +328,40 @@ export interface paths {
         head?: never;
         /** 품목 수정 */
         patch: operations["update_8"];
+        trace?: never;
+    };
+    "/api/core/lot-traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lot 원천 목록 검색·페이지 */
+        get: operations["list_13"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/lot-traces/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lot 및 연결 수불·입고·작업오더·출하 원천 (수불 페이지) */
+        get: operations["detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/core/lots": {
@@ -982,6 +1116,75 @@ export interface components {
             qty?: number;
             substituteNo?: string;
         };
+        DashboardAlert: {
+            itemName?: string;
+            kind?: string;
+            message?: string;
+            path?: string;
+            referenceNo?: string;
+        };
+        DashboardAlerts: {
+            /** Format: int64 */
+            lowStockItems?: number;
+            /** Format: int64 */
+            overdueSalesOrders?: number;
+            /** Format: int64 */
+            overdueWorkOrders?: number;
+            rows?: components["schemas"]["DashboardAlert"][];
+            /** Format: int64 */
+            total?: number;
+            truncated?: boolean;
+        };
+        DashboardCoverage: {
+            notes?: string[];
+            /** Format: int64 */
+            undatedCompletedWorkOrders?: number;
+            /** Format: int64 */
+            undatedShipments?: number;
+            /** Format: int64 */
+            unknownDeliveryOrders?: number;
+        };
+        DashboardKpis: {
+            backlogKrw?: number;
+            /** Format: int64 */
+            backlogOrders?: number;
+            /** Format: int64 */
+            completedWorkOrders?: number;
+            /** Format: int64 */
+            eligibleDeliveryOrders?: number;
+            inventoryTurnover?: number;
+            inventoryTurnoverReason?: string;
+            meanOrderDefectPercent?: number;
+            onTimeDeliveryPercent?: number;
+            /** Format: int64 */
+            onTimeOrders?: number;
+            productionValueKrw?: number;
+            revenueKrw?: number;
+        };
+        DashboardMetadata: {
+            /** Format: date-time */
+            asOf?: string;
+            /** Format: date */
+            from?: string;
+            /** Format: int64 */
+            itemId?: number;
+            snapshotScope?: string;
+            timeZone?: string;
+            /** Format: date */
+            to?: string;
+        };
+        DashboardResponse: {
+            alerts?: components["schemas"]["DashboardAlerts"];
+            coverage?: components["schemas"]["DashboardCoverage"];
+            kpis?: components["schemas"]["DashboardKpis"];
+            metadata?: components["schemas"]["DashboardMetadata"];
+            trends?: components["schemas"]["DashboardTrend"][];
+        };
+        DashboardTrend: {
+            month?: string;
+            productionValueKrw?: number;
+            revenueKrw?: number;
+        };
         InternalBomRow: {
             /** Format: int64 */
             childId?: number;
@@ -1027,6 +1230,84 @@ export interface components {
             qty?: number;
             status?: string;
             workOrderNo?: string;
+        };
+        InventoryAnalysisResponse: {
+            /** Format: int32 */
+            ageDays?: number;
+            /** Format: date-time */
+            asOf?: string;
+            /** Format: date */
+            from?: string;
+            /** Format: int64 */
+            itemId?: number;
+            itemType?: string;
+            keyword?: string;
+            notes?: string[];
+            /** Format: int32 */
+            page?: number;
+            risk?: string;
+            rows?: components["schemas"]["InventoryAnalysisRow"][];
+            /** Format: int32 */
+            size?: number;
+            sort?: string;
+            summary?: components["schemas"]["InventoryAnalysisSummary"];
+            timeZone?: string;
+            /** Format: date */
+            to?: string;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int64 */
+            totalPages?: number;
+        };
+        InventoryAnalysisRow: {
+            agedLotQty?: number;
+            currentStock?: number;
+            expiredLotQty?: number;
+            /** Format: int64 */
+            futureTransactions?: number;
+            heldLotQty?: number;
+            /** Format: int64 */
+            invalidLots?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            itemType?: string;
+            knownUsableLotQty?: number;
+            ledgerBalance?: number;
+            ledgerMismatch?: boolean;
+            /** Format: int64 */
+            lotCount?: number;
+            lotMismatch?: boolean;
+            lowStock?: boolean;
+            periodDecreaseQty?: number;
+            periodIncreaseQty?: number;
+            periodNetQty?: number;
+            recordedLotQty?: number;
+            safetyStock?: number;
+            stockLedgerDelta?: number;
+            unit?: string;
+        };
+        InventoryAnalysisSummary: {
+            /** Format: int64 */
+            agedItems?: number;
+            /** Format: int64 */
+            expiredItems?: number;
+            /** Format: int64 */
+            futureTransactions?: number;
+            /** Format: int64 */
+            heldItems?: number;
+            /** Format: int64 */
+            invalidLots?: number;
+            inventoryTurnover?: number;
+            /** Format: int64 */
+            ledgerMismatchItems?: number;
+            /** Format: int64 */
+            lotMismatchItems?: number;
+            /** Format: int64 */
+            lowStockItems?: number;
+            /** Format: int64 */
+            totalItems?: number;
         };
         InventoryLowStockRow: {
             /** Format: int64 */
@@ -1148,6 +1429,110 @@ export interface components {
             status?: string;
             warehouse?: string;
         };
+        LotTraceDetail: {
+            /** Format: date-time */
+            asOf?: string;
+            lot?: components["schemas"]["LotTraceRow"];
+            movements?: components["schemas"]["PageLotTraceMovement"];
+            notes?: string[];
+            timeZone?: string;
+        };
+        LotTraceMovement: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            qty?: number;
+            refNo?: string;
+            refType?: string;
+            /** Format: int64 */
+            sourceId?: number;
+            sourceNo?: string;
+            sourceType?: string;
+            /** Format: date */
+            txnDate?: string;
+            txnNo?: string;
+            txnType?: string;
+            unit?: string;
+            warehouse?: string;
+        };
+        LotTraceRow: {
+            expired?: boolean;
+            expiringSoon?: boolean;
+            /** Format: date */
+            expiry?: string;
+            /** Format: int64 */
+            id?: number;
+            invalid?: boolean;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            lotNo?: string;
+            /** Format: date */
+            producedAt?: string;
+            qty?: number;
+            /** Format: date */
+            referenceDate?: string;
+            status?: string;
+            unit?: string;
+            warehouse?: string;
+        };
+        MrpResponse: {
+            /** Format: int32 */
+            activeWorkOrders?: number;
+            /** Format: date-time */
+            asOf?: string;
+            /** Format: int64 */
+            itemId?: number;
+            /** Format: int64 */
+            missingBomItems?: number;
+            notes?: string[];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int64 */
+            productionNeededItems?: number;
+            /** Format: int64 */
+            purchaseNeededItems?: number;
+            rows?: components["schemas"]["MrpRow"][];
+            /** Format: int32 */
+            size?: number;
+            /** Format: date */
+            through?: string;
+            timeZone?: string;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        MrpRow: {
+            action?: string;
+            grossRequirement?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            itemType?: string;
+            lateSupplyQty?: number;
+            /** Format: int32 */
+            leadTimeDays?: number;
+            netRequirement?: number;
+            onHand?: number;
+            onOrder?: number;
+            /** Format: date */
+            orderBy?: string;
+            /** Format: int64 */
+            price?: number;
+            /** Format: date */
+            requiredBy?: string;
+            safetyStock?: number;
+            scheduledProduction?: number;
+            suggestedProductionQty?: number;
+            suggestedPurchaseQty?: number;
+            unit?: string;
+            urgent?: boolean;
+            usableStock?: number;
+        };
         Pageable: {
             /** Format: int32 */
             page?: number;
@@ -1204,6 +1589,42 @@ export interface components {
         };
         PageItemResponse: {
             content?: components["schemas"]["ItemResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageLotTraceMovement: {
+            content?: components["schemas"]["LotTraceMovement"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageLotTraceRow: {
+            content?: components["schemas"]["LotTraceRow"][];
             empty?: boolean;
             first?: boolean;
             last?: boolean;
@@ -1459,6 +1880,79 @@ export interface components {
             status?: string;
             stockQty?: number;
         };
+        ProductionProgressResponse: {
+            /** Format: date-time */
+            asOf?: string;
+            /** Format: date */
+            from?: string;
+            /** Format: int64 */
+            itemId?: number;
+            keyword?: string;
+            notes?: string[];
+            /** Format: int32 */
+            page?: number;
+            rows?: components["schemas"]["ProductionProgressRow"][];
+            /** Format: int32 */
+            size?: number;
+            sort?: string;
+            status?: string;
+            summary?: components["schemas"]["ProductionProgressSummary"];
+            timeZone?: string;
+            /** Format: date */
+            to?: string;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int64 */
+            totalPages?: number;
+        };
+        ProductionProgressRow: {
+            assignee?: string;
+            defectQty?: number;
+            delayed?: boolean;
+            /** Format: date */
+            dueDate?: string;
+            goodQty?: number;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            overActual?: boolean;
+            /** Format: int32 */
+            priority?: number;
+            progressPercent?: number;
+            qty?: number;
+            remainingQty?: number;
+            /** Format: date */
+            startDate?: string;
+            status?: string;
+            unit?: string;
+            workOrderNo?: string;
+            yieldPercent?: number;
+        };
+        ProductionProgressSummary: {
+            /** Format: int64 */
+            activeOrders?: number;
+            /** Format: int64 */
+            cancelledOrders?: number;
+            /** Format: int64 */
+            completedOrders?: number;
+            /** Format: int64 */
+            delayedOrders?: number;
+            /** Format: int64 */
+            eligibleActiveOrders?: number;
+            /** Format: int64 */
+            eligibleYieldOrders?: number;
+            meanActiveProgressPercent?: number;
+            meanReportedYieldPercent?: number;
+            /** Format: int64 */
+            overActualOrders?: number;
+            /** Format: int64 */
+            totalOrders?: number;
+            /** Format: int64 */
+            unassignedActiveOrders?: number;
+        };
         PurchaseOrderRequest: {
             /** Format: date */
             dueDate: string;
@@ -1645,6 +2139,87 @@ export interface components {
             seq?: number;
             stdTime?: number;
             workCenter?: string;
+        };
+        SalesAnalysisResponse: {
+            /** Format: date-time */
+            asOf?: string;
+            /** Format: int64 */
+            customerId?: number;
+            /** Format: date */
+            from?: string;
+            /** Format: int64 */
+            itemId?: number;
+            keyword?: string;
+            notes?: string[];
+            /** Format: int32 */
+            page?: number;
+            rows?: components["schemas"]["SalesAnalysisRow"][];
+            scope?: string;
+            /** Format: int32 */
+            size?: number;
+            sort?: string;
+            summary?: components["schemas"]["SalesAnalysisSummary"];
+            timeZone?: string;
+            /** Format: date */
+            to?: string;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int64 */
+            totalPages?: number;
+        };
+        SalesAnalysisRow: {
+            amountKrw?: number;
+            currentBacklogKrw?: number;
+            currentOpenReceivableKrw?: number;
+            currentOverdueReceivableKrw?: number;
+            /** Format: int64 */
+            customerId?: number;
+            customerName?: string;
+            customerNo?: string;
+            delayed?: boolean;
+            /** Format: date */
+            dueDate?: string;
+            historyUnknown?: boolean;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            knownShippedAmountKrw?: number;
+            knownShippedQty?: number;
+            /** Format: date */
+            orderedAt?: string;
+            periodRevenueKrw?: number;
+            qty?: number;
+            salesOrderNo?: string;
+            status?: string;
+            unit?: string;
+        };
+        SalesAnalysisSummary: {
+            /** Format: int64 */
+            currentBacklogOrders?: number;
+            currentOpenReceivableKrw?: number;
+            /** Format: int64 */
+            currentOpenReceivables?: number;
+            currentOverdueReceivableKrw?: number;
+            /** Format: int64 */
+            currentOverdueReceivables?: number;
+            /** Format: int64 */
+            excludedHistoricalShipments?: number;
+            /** Format: int64 */
+            excludedUnlinkedReceivables?: number;
+            knownCurrentBacklogKrw?: number;
+            /** Format: int64 */
+            periodCancelledOrders?: number;
+            /** Format: int64 */
+            periodConfirmedShipments?: number;
+            periodOrderKrw?: number;
+            /** Format: int64 */
+            periodOrders?: number;
+            periodRevenueKrw?: number;
+            /** Format: int64 */
+            unknownBacklogOrders?: number;
         };
         SalesOrderConfirmResult: {
             salesOrder?: components["schemas"]["SalesOrderResponse"];
@@ -1865,6 +2440,145 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    dashboard: {
+        parameters: {
+            query?: {
+                from?: string;
+                itemId?: number;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DashboardResponse"];
+                };
+            };
+        };
+    };
+    read_3: {
+        parameters: {
+            query?: {
+                ageDays?: number;
+                from?: string;
+                itemId?: number;
+                itemType?: string;
+                keyword?: string;
+                page?: number;
+                risk?: string;
+                size?: number;
+                sort?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InventoryAnalysisResponse"];
+                };
+            };
+        };
+    };
+    read_2: {
+        parameters: {
+            query?: {
+                itemId?: number;
+                page?: number;
+                size?: number;
+                through?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MrpResponse"];
+                };
+            };
+        };
+    };
+    read_1: {
+        parameters: {
+            query?: {
+                from?: string;
+                itemId?: number;
+                keyword?: string;
+                page?: number;
+                size?: number;
+                sort?: string;
+                status?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProductionProgressResponse"];
+                };
+            };
+        };
+    };
+    read: {
+        parameters: {
+            query?: {
+                customerId?: number;
+                from?: string;
+                itemId?: number;
+                keyword?: string;
+                page?: number;
+                scope?: string;
+                size?: number;
+                sort?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SalesAnalysisResponse"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -2265,6 +2979,59 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ItemResponse"];
+                };
+            };
+        };
+    };
+    list_13: {
+        parameters: {
+            query?: {
+                itemId?: number;
+                keyword?: string;
+                page?: number;
+                size?: number;
+                sort?: string;
+                status?: string;
+                warehouse?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageLotTraceRow"];
+                };
+            };
+        };
+    };
+    detail: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LotTraceDetail"];
                 };
             };
         };

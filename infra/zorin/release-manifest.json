@@ -1,0 +1,20 @@
+{
+  "release": "demo-20261004-0812",
+  "sourceBaseCommit": "15cf5a5",
+  "sourceState": "dirty working tree; analytics and Lot-tracing included; not committed or pushed",
+  "scope": "example-data demo, isolated from existing server applications",
+  "imageArchiveSha256": "7d5f4d4b36ede48eb2afa799229e7b2e513c00f10344451a1deec99e199e4a97",
+  "backendImage": "erp-approid-backend:demo-20261004-0812",
+  "backendImageId": "sha256:c327fc66f04d42b4c0d854d774d259c797aefc80a766d16f3b2312bec2ec2405",
+  "backendJarSha256": "d77093d1ed076542d7e8d9250014320f07f96d0f184d0a1fa3f927b135d1aaef",
+  "frontendImage": "erp-approid-web:demo-20261004-0812",
+  "frontendImageId": "sha256:31fa44f6ff61e1f89758a072311c022ec16fe22abe80447e9689ee344728dd06",
+  "frontendBundle": "/assets/index-Bayh9z9v.js",
+  "frontendBundleSha256": "fc98171f6cec56f81498a21407c22aafd7b1d26b554be4b2a742f0970baf3cb3",
+  "coreUrl": "https://erp.approid.team/api/core",
+  "analyticsUrl": "https://erp.approid.team/api/core/analytics",
+  "tunnelId": "c31f7f3f-17d5-4dec-bdbd-526b470eca8c",
+  "frontendTests": {"files": 43, "passed": 307, "failed": 0, "run": "2026-10-04T17:15:23+09:00"},
+  "reusedBackendVerification": {"classes": 33, "passed": 207, "failed": 0, "source": "docs/phase1-e2e.md Lot verification; same immutable backend image"},
+  "productionNpmAudit": {"high": 0, "critical": 0, "moderate": 2, "status": "remaining mitigations/limitations in README.md"}
+}

@@ -12,6 +12,10 @@
 
 ## 1. 서버 (Servers)
 
+2026-10-04 실행 계약: Phase 1 대시보드/MRP는 **Spring `/api/core/analytics`**에서 기존 JWT로 제공한다.
+아래 별도 FastAPI 주소/타입 생성 예시는 원래 설계이며 실행 서버가 아니다. 실제 Core 타입은
+`hud-admin-template`에서 `npm run generate:api-types`로 `src/api/generated/core.ts`에 생성한다.
+
 | 환경 | Spring (core) | FastAPI (analytics) |
 | --- | --- | --- |
 | 로컬 | `http://localhost:38080/api/core` | `http://localhost:38000/api/analytics` |
@@ -479,6 +483,10 @@ V13 이전 초과 실적 마감 행은 보존하며 합계 제약은 신규/변�
 | DELETE | `/purchase-orders/{id}` | `MATERIAL` | `발주`만 |
 | POST | `/purchase-orders/{id}/cancel` | `MATERIAL`, `ADMIN` | → `취소` |
 
+MRP 전환도 기존 POST를 사용한다. 실제 `발주처` 거래처만 허용하며 발주번호 32자, 양수 수량 정수14/소수4자리,
+양수 단가와 합계는 9,007,199,254,740,991원 이하다. 합계는 원 미만 절사하며 overflow를 거부한다(400).
+발주 생성은 현재고를 변경하지 않고 기존 actor/trace 감사를 저장한다.
+
 ### 7.2 입고 — /receivings
 
 인증 조회. 목록 쿼리: `purchaseOrderId`, `vendorId`, `itemId`(양수), `status`, `keyword`, `page`(0~10000),
@@ -561,9 +569,32 @@ V14 이전 이력은 `stockApplied=false`이며 재고나 연결을 추정하지
 | POST | `/lots/{id}/release` | `MATERIAL`, `QUALITY`, `ADMIN` | `보류` → `정상` |
 | POST | `/lots/{id}/dispose` | `QUALITY`, `ADMIN` | → `폐기` (보상 출고 트랜잭션) |
 
+실제 `/inventory/lots` UI는 읽기 전용 `GET /api/core/lot-traces`(검색·필터·정렬·Spring Page)와
+`GET /api/core/lot-traces/{id}`(Lot/기준시각/연결 수불 Page/확인 원천/제약)을 사용한다.
+모든 인증 역할에 허용하며 기존 `/lots` 배열 응답/쓰기 API는 유지한다. 원천은 저장된 입고/출하 수불 FK와
+동일 품목 WORK_ORDER 생산입고 참조로만 확인하며 미연결은 null로 보존한다.
+보류·해제·폐기 UI와 폐기 현재고/잔량 정합성은 후속 범위다. 상세 계약: [Lot 추적](lot-tracing.md).
+
 ---
 
-## 8. 분석 (FastAPI)
+## 8. 분석 — 실제 Spring 계약과 보류된 FastAPI 설계
+
+### 8.0 현재 실행 API (2026-10-04)
+
+| 메서드 | 실제 경로 | 조회 조건/응답 |
+| --- | --- | --- |
+| GET | `/api/core/analytics/dashboard` | `from`, `to`, `itemId`; `metadata`, `kpis`, `trends`, `alerts`, `coverage` |
+| GET | `/api/core/analytics/mrp/suggestions` | `through`, `itemId`, `page`, `size`; 품목별 소요·가용재고·발주/예정생산·부족·제안·기일·제약 |
+| GET | `/api/core/analytics/production/progress` | `from`, `to`, `itemId`, `status`, `keyword`, `sort`, `page`, `size`; 실제 누적 수량·진척·수율·현재 지연, 전체 필터 요약 |
+| GET | `/api/core/analytics/sales/summary` | `from`, `to`, `itemId`, `customerId`, `keyword`, `scope`, `sort`, `page`, `size`; 기간 수주/확정 출하·현재 잔고/미수 원금, 이력 제외 |
+| GET | `/api/core/analytics/inventory/summary` | `from`, `to`, `ageDays`, `itemId`, `itemType`, `risk`, `keyword`, `sort`, `page`, `size`; 현재고·수불/Lot 비교·Lot 경과·기간 부호 증감 |
+
+다섯 API는 REPEATABLE_READ 읽기 전용 스냅샷과 기존 Core 클라이언트/생성 타입을 쓴다.
+영업 요약은 기존 미수 상세와 같은 ADMIN/SALES/ACCOUNTING만 허용하고 다른 분석은 모든 인증 사용자에게 허용한다.
+재고회전율은 원가·평균재고 이력이 없어 null과 이유를 반환한다. 실제 계산식·역사 이력 제외·기간/단위/한도·
+오류·검토 후 발주 정책은 [대시보드](analytics-dashboard.md), [MRP](analytics-mrp.md),
+[생산 진척](analytics-production.md), [영업 요약](analytics-sales.md), [재고 원천](analytics-inventory.md)을 따른다.
+8.1~8.8의 분리 FastAPI 엔드포인트·표본 숫자는 보류된 설계이며 현재 제공되지 않는다.
 
 ### 8.1 GET /analytics/dashboard/kpi
 대시보드 KPI. 캐시: 없음 (실시간).
@@ -714,9 +745,11 @@ FastAPI → Spring 내부 호출. `X-Internal-Key` 헤더 필수.
 | receivings | RW | R | R | RWD | R |
 | inventory | R | R | R | R | R |
 | lots | R + 처분 | R | R | R + 보류/해제 | R + 보류/해제 |
-| analytics/* | R | R | R | R |
+| analytics/* | R | R | R | R | R |
+| analytics/sales/summary (미수 상세 예외) | R | R | - | - | - |
 
 (`R`=조회, `W`=생성/수정, `D`=삭제, 승인=상태 전이 확정)
+ACCOUNTING은 미수 상세와 영업 요약 조회를 허용한다. `analytics/*`의 영업 요약은 별도 행의 권한이 우선한다.
 
 ---
 

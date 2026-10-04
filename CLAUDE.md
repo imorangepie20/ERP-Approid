@@ -4,7 +4,7 @@
 
 ERP-Approid is a manufacturing ERP MVP. The repository contains a React admin UI and a
 Spring Boot core API. Treat `docs/desc.md` as product scope, but verify all design documents
-against code: the PostgreSQL/Spring/Nginx Compose baseline exists, while FastAPI analytics is planned.
+against code: the PostgreSQL/Spring/Nginx Compose baseline exists; Phase 1 analytics uses Spring and FastAPI separation is deferred.
 
 ## Tech Stack
 
@@ -55,7 +55,7 @@ Backend, from `backend-spring/`:
 - New sales documents snapshot customer payment/lead-time terms; V12 reconstructs existing terms from current
   customer masters (and linked quotations), not historical values. Sending marks status only, not email delivery.
 - New standalone and sales-confirmed work orders persist ordered routing snapshots. Existing orders retain
-  empty snapshots; planning/cost consumers and the MRP calculation UI remain follow-up work.
+  empty snapshots; routing capacity/cost consumers remain follow-up work. MRP uses BOM quantities, not routing capacity.
 - Work orders support cumulative actuals, assignment/priority, completion and closing. Completion atomically
   creates the good-quantity Lot/receipt, increases item stock, and records audits under work-order/item locks.
   Actuals cannot exceed the order quantity; completion requires the whole quantity accounted for. Linked orders
@@ -67,7 +67,31 @@ Backend, from `backend-spring/`:
   and creates a reversal, rejecting used/held/disposed Lots. All-defective receipts have no Lot/movement.
   V14 links new receipts to their Lot/original/reversal transactions; historical receipts are not reconstructed
   or automatically cancelled. Purchase-order selection reads the real API; purchase-order CRUD UI is still planned.
+- Phase 1 analytics uses Spring (confirmed 2026-10-04), under `/api/core/analytics` with the existing JWT/core client.
+  Dashboard KPI/trend/current-risk reads use a repeatable-read DB snapshot, not DataContext. Revenue requires actual
+  shipment confirmation/ledger/receivable links; production value uses current item standard price, not actual cost.
+  Historical undated documents are counted as excluded coverage. Inventory turnover remains unavailable until
+  cost/average-inventory history exists. MRP reads multilevel BOM, active work, usable stock and open PO remainders
+  under the same snapshot policy. Shared components are netted once; late supply reduces quantity but is flagged.
+  Reviewed proposals create real purchase orders through the existing audited POST. Component issue history is absent,
+  so whole active work quantities are conservative planning demand, not an actual consumption ledger. See
+  `docs/analytics-mrp.md`. FastAPI separation is deferred.
+- `/analytics` reads Spring production progress/delay by due-date cohort, current actuals and item units.
+  Means are per-order, not mixed-unit quantity totals; legacy over-actual rates are null/excluded. It does not
+  reconstruct historical status or infer machine utilization. Inventory turnover/site analysis remains follow-up.
+  Contract and drill-down boundaries: `docs/analytics-production.md`.
+- `/analytics/sales` reads period orders/confirmed shipments separately from current backlog and open receivable
+  document principal. It preserves ADMIN/SALES/ACCOUNTING receivable authority; other roles receive 403.
+  Unknown historical backlog is null/excluded, orphan receivables are counted as exclusions, not guessed.
+  Partial collections/cash-flow history remain FIN-01. Contract: `docs/analytics-sales.md`.
+- `/analytics/inventory` and `/inventory/stock` share real current stock/ledger/Lot analysis, not DataContext.
+  Signed period movement is separate from current balances. Ledger/Lot differences are warnings, never automatic repairs.
+  Lot aging is manufacturing/receiving-date elapsed time, not last movement. Turnover stays null without cost/average
+  inventory history; site/warehouse balance reconstruction and Lot writes remain follow-up. See `docs/analytics-inventory.md`.
 - `backend-fastapi/` is not implemented. Root Compose, `src/api/`, and generated Spring OpenAPI types exist.
+- `/inventory/lots` reads paged `/lot-traces` and linked signed movements with actual receiving/work-order/shipment
+  drill-downs. Original `/lots` arrays remain compatible with shipment selectors. Stored source links are checked;
+  historical sources are never guessed. Lot write UI/disposal stock compensation remain follow-up. See `docs/lot-tracing.md`.
 - Shipments select one explicit Lot per document. Non-cancelled allocations cannot exceed the sales order;
   draft/dispatch do not reserve stock. Confirmation rechecks stock/Lot under order/item/Lot locks, decreases both,
   creates a linked movement/receivable, and closes the order only when cumulative shipments cover its quantity.

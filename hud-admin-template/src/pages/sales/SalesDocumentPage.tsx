@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { ApiError } from '../../api/http'
 import { actOnSalesDocument, fetchSalesPage, saveSalesDocument, salesStatuses,
@@ -34,7 +34,8 @@ export default function SalesDocumentPage({ resource }: { resource: SalesResourc
     const customers = usePartnerSelection('고객사')
     const selectableItems = items.items.filter(item => item.itemType === '제품')
     const ready = items.ready && customers.ready && selectableItems.length > 0
-    const [keyword, setKeyword] = useState('')
+    const [searchParams] = useSearchParams()
+    const [keyword, setKeyword] = useState(searchParams.get('keyword') ?? '')
     const [status, setStatus] = useState('')
     const [customerId, setCustomerId] = useState('')
     const [page, setPage] = useState(1)

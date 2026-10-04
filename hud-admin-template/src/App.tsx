@@ -5,6 +5,8 @@ import { PublicOnly, RequireAuth } from './auth/RouteGuards'
 // Dashboard
 import Dashboard from './pages/dashboard/Dashboard'
 import Analytics from './pages/dashboard/Analytics'
+import SalesAnalysis from './pages/dashboard/SalesAnalysis'
+import InventoryAnalysis from './pages/dashboard/InventoryAnalysis'
 
 // Sales
 import SalesOrders from './pages/sales/SalesOrders'
@@ -72,6 +74,8 @@ function App() {
                 <Route path="/" element={<RequireAuth><MainLayout /></RequireAuth>}>
                     <Route index element={<Dashboard />} />
                     <Route path="analytics" element={<Analytics />} />
+                    <Route path="analytics/sales" element={<SalesAnalysis />} />
+                    <Route path="analytics/inventory" element={<InventoryAnalysis />} />
 
                     {/* Sales */}
                     <Route path="sales/quotations" element={<SalesQuotations />} />

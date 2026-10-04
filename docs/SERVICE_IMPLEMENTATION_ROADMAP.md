@@ -7,13 +7,16 @@
 | 기준 문서 | `CLAUDE.md`, `docs/desc.md`, `docs/api-spec.md`, `docs/PROJECT_HANDOVER.md` |
 | 현재 기준선 | 운영 기반·인증, 기초정보 CRUD, 견적·수주·작업오더·구매입고·출하 API/UI 연결, 생산/구매입고 현재고·출하 Lot/미수 |
 
+현재 남은 작업은 [미완료 To Do 체크리스트](#implementation-todo)에서 관리한다.
+서비스별 상세 설계는 아래 기존 절을 유지하며, 과거 날짜의 구현 메모는 당시 기록이다.
+
 ## 1. 로드맵 원칙
 
 1. 서버가 업무 상태와 상태 전이의 단일 진실 공급원이 된다.
 2. 새 업무 모듈보다 먼저 빌드·인증·API 클라이언트·실행 환경을 안정화한다.
 3. 업무 서비스는 DB 마이그레이션, API, 권한, 감사, UI, 테스트를 하나의 완료 단위로 본다.
 4. 재고·입고·생산완료·출하확정처럼 여러 테이블을 바꾸는 동작은 단일 트랜잭션으로 처리한다.
-5. FastAPI는 쓰기 업무를 담당하지 않고 집계·분석·추천 결과만 제공한다.
+5. Phase 1 분석·추천은 Spring 읽기 전용 모듈로 제공한다. 향후 분리할 FastAPI도 쓰기 업무를 담당하지 않는다.
 6. 구현 여부는 화면 존재 여부가 아니라 실제 API, 영속화, 권한, 테스트 통과 여부로 판단한다.
 7. 날짜 선택이 필요한 입력은 공통 `DateInput`의 달력 버튼을 제공한다. 업무 폼은
    `FormModal`의 `type: 'date'`로 적용하며, 날짜값은 `YYYY-MM-DD` 형식을 유지한다.
@@ -56,7 +59,7 @@ flowchart LR
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 부분 구현 — 백엔드·프런트 기준선 복구 완료, CI 남음 |
+| 현재 상태 | 기준선·CI 구성 완료 — 현재 미커밋 변경의 원격 CI 검증은 후속 |
 | 목적 | 모든 개발이 신뢰할 수 있는 검증 기준 위에서 진행되도록 함 |
 | 주요 작업 | Spring Boot/springdoc 호환 조합 확정, ESLint flat config 추가, 프런트 테스트 러너 도입, CI 구성 |
 | 산출물 | 백엔드/프런트 공통 검증 명령, CI 워크플로, 실패 리포트 |
@@ -67,6 +70,10 @@ flowchart LR
 프런트는 ESLint 9 flat config와 Node 20 호환 Vitest 4, jsdom, React Testing Library를 구성했다.
 `Button` 동작 테스트 2개와 `npm run lint`, `npm run test`, `npm run build`가 모두 통과한다.
 PLT-01의 남은 작업은 이 검증 명령과 `gradlew test`를 자동 실행하는 CI 구성이다.
+
+2026-10-04 정정: 위 내용은 최초 기준선 작업 당시 기록이다. 현재
+[`phase1.yml`](../.github/workflows/phase1.yml)에 프런트·백엔드·Chromium 및 필수 집계 체크가 있다.
+`15cf5a5`의 원격 성공 기록과 이후 미커밋 변경의 미검증 상태는 백로그 14번 및 To Do에서 구분한다.
 
 ### PLT-02. 로컬 통합 실행 서비스
 
@@ -455,7 +462,7 @@ smoke를 통과했고, 실행 중인 견적/수주 API의 필터·정렬·페이
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 백엔드 있음, UI 일부 프로토타입 |
+| 현재 상태 | 기존 백엔드 있음; 재고 현황은 Spring 실제 현재고·수불·Lot 비교 조회, 정합성 복구/창고 잔액은 후속 |
 | 기능 | 품목별 현재고, 안전재고 미달, 입출고 이력, 창고별 가용재고 |
 | API | `/api/core/inventory/stock`, `/low-stock`, `/transactions` |
 | 데이터 | `items`, `inventory_transactions` |
@@ -465,11 +472,21 @@ smoke를 통과했고, 실행 중인 견적/수주 API의 필터·정렬·페이
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 백엔드 있음, UI 하드코딩 |
+| 현재 상태 | 부분 구현 — 실제 Lot 목록/수불·원천 추적 UI 연결, 상태 쓰기/폐기 정합성은 후속 |
 | 기능 | Lot 조회, 창고, 제조/입고일, 유통기한, 보류·해제·폐기 |
 | API | `/api/core/lots`, `/{id}/hold`, `/{id}/release`, `/{id}/dispose` |
 | 데이터 | `lots`, `inventory_transactions`, `items` |
 | 완료 조건 | Lot별 잔량과 상태가 출하 가능 여부에 반영되고 원천 입고/생산오더까지 역추적 가능 |
+
+읽기 범위는 `GET /api/core/lot-traces` 및 `/{id}`, 실제 `/inventory/lots` 화면이다.
+기존 `/lots` 배열/쓰기 API는 유지한다. 재고 분석에서 품목을 전달하고 저장된 입고/출하 수불 FK 또는
+동일 품목 WORK_ORDER 참조로만 원천을 확인한다. 과거 원천 추정, 보류/해제/폐기 UI와
+폐기 현재고·잔량 보상은 후속 범위이며 [Lot 추적 계약](lot-tracing.md)을 따른다. INV-02 전체 완료는 아니다.
+
+읽기 범위 로컬 검증(2026-10-04): 백엔드207개/33클래스·프런트307개/43파일·실제 Chromium6개를 통과했다.
+Lot 목록/상세·서울 만료 경계·원/역수불·생산/출하/입고 원천 이동·기존 배열 호환·권한·조회 불변성을 확인했고
+개발 DB를 보존하면서 Spring/프런트에 반영했다. [Phase 1 E2E](phase1-e2e.md)의 Lot 추적 절에 근거를 기록한다.
+원격 CI는 미커밋/미푸시로 확인하지 않았다.
 
 ### LOG-01. 출하 서비스
 
@@ -534,30 +551,68 @@ smoke를 통과했고, 실행 중인 견적/수주 API의 필터·정렬·페이
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 미구현, UI 하드코딩 |
+| 현재 상태 | Spring 실제 KPI·월별 추이·현재 위험 알림 API/UI 연결 — 재고회전율은 원가/평균재고 이력 선행 필요 |
 | 책임 | 월매출, 생산액, 수주잔량, 납기준수율, 불량률, 회전율, 경보 집계 |
-| 목표 API | `/api/analytics/dashboard/kpi`, `/trends`, `/alerts` |
-| 구현 후보 | 설계대로 FastAPI 또는 초기 Spring read model |
+| 실제 API | `GET /api/core/analytics/dashboard?from=YYYY-MM-DD&to=YYYY-MM-DD&itemId=...` — 동일 스냅샷 단일 응답 |
+| 구현 방식 | 2026-10-04 사용자 결정: Spring 읽기 전용 모듈, FastAPI 분리는 보류 |
 | 완료 조건 | 모든 KPI에 계산식·기준시각·필터 정의가 있고 시드/실데이터 검증값과 일치 |
+
+집계 정의와 과거 이력 제외 정책은 [Spring 대시보드 계약](analytics-dashboard.md)에 기록한다.
+재고회전율 수치 제공이 남아 있으므로 ANL-01 전체 완료로 표시하지 않는다. `/analytics`의 확장 분석 화면은
+ANL-03 생산 진척 분석이며 이번 운영 대시보드(`/`)와 구분한다.
 
 ### ANL-02. MRP 발주제안 서비스
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 미구현, 프런트에 단순 계산 프로토타입 존재 |
+| 현재 상태 | Spring 다단계 BOM·실제 공급잔량 계산과 검토 후 실제 발주 연결 로컬 검증 통과 — 현재 변경의 원격 CI 확인 필요 |
 | 책임 | BOM 전개, 작업오더 소요량, 현재고, 안전재고, 리드타임 기반 발주 제안 |
-| 목표 API | `/api/analytics/mrp/suggestions`, `/coverage` |
+| 실제 API | `GET /api/core/analytics/mrp/suggestions` — 소요·공급·부족·계산 제약 단일 스냅샷, 기존 `POST /purchase-orders`로 발주 전환 |
 | 의존성 | MST-01, MST-03, PRD-02, INV-01 |
 | 완료 조건 | 다단계 BOM, 손실률, 기존 발주잔량, 단위 정합성을 반영하고 제안→발주 전환 가능 |
+
+현재 계약은 [Spring MRP 발주제안](analytics-mrp.md)에 기록한다. 공유 자품목을 부모부터 합산해
+가용재고·미입고 발주·예정 생산을 한 번 차감하며, 늦은 공급은 별도 위험으로 표시한다.
+실제 구성품 불출 이력이 없어 활성 오더 전체 지시량을 계획 소요량으로 사용한다. 과거 소비를 추정해
+복원하지 않으며 안전재고·품목 기본단위를 유지한다. 제안은 예약이 아니고 발주처·단가·납기를
+사용자가 확인해야 한다. `/coverage` 별도 API·통계 예측·자동 작업오더 생성은 이번 범위에 포함하지 않는다.
 
 ### ANL-03. 생산·영업·재고 분석 서비스
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 미구현 |
+| 현재 상태 | 부분 구현 — Spring 생산·영업·현재 재고/Lot 원천 API/화면 연결, 원가 회전율·사업장 분석은 후속 범위 |
 | 목표 API | `/production/progress`, `/sales/summary`, `/inventory/turnover` |
 | 기능 | 작업오더 진척/지연, 수주·출하·미수 요약, 재고 회전율과 장기재고 |
 | 완료 조건 | 조회 기간·사업장·품목 필터, 계산식 문서화, 대시보드 drill-down 연결 |
+
+생산 조회는 `GET /api/core/analytics/production/progress`이며 `/analytics`에서 실제 작업오더의
+단위별 지시·양품·불량·잔량·진척·수율·현재 지연을 표시한다. 완료예정일로 대상 오더를 선택하되
+과거 시점의 상태는 복원하지 않는다. 과거 초과 실적은 경고하고 평균에서 제외한다.
+필터/정렬/페이지·실적 새로고침·작업오더 drill-down과 미지원 범위는
+[Spring 생산 분석 계약](analytics-production.md)에 기록한다. ANL-03 전체 완료로 표시하지 않는다.
+
+영업 조회는 `GET /api/core/analytics/sales/summary`와 `/analytics/sales`다. 기간 수주/확정 출하와
+현재 잔고/미수 문서 원금을 구분하고 ADMIN/SALES/ACCOUNTING만 허용한다. 미연결 이력은 제외/경고하며
+실제 수주·출하 화면에 연결한다. 부분수납/수납일은 추정하지 않는다. [영업 요약 계약](analytics-sales.md)을 따른다.
+
+생산 진척 로컬 검증(2026-10-04): 백엔드197개·프런트241개·실제 Chromium6개, 생성 타입·빌드·
+린트(오류0/기존 경고48)를 통과했다. 상세 기록은 [Phase 1 E2E](phase1-e2e.md)의 생산 분석 절을 따른다.
+새 변경의 원격 CI는 커밋/푸시 전이므로 확인하지 않았다.
+
+영업 요약 로컬 검증(2026-10-04): 백엔드200개/31클래스·프런트265개/39파일·실제 Chromium6개를 통과했다.
+기간/현재 금액 분리·다중 출하/미수 중복 방지·권한·읽기 전용·수주/출하 이동과 실제 생성 타입을 검증했고,
+기존 개발 Spring/프런트에 반영했다. [Phase 1 E2E](phase1-e2e.md)의 영업 요약 절에 근거를 기록한다.
+미수 수납/부분수납, 재고회전율 및 사업장 분석은 별도 후속 범위이며 ANL-03 전체 완료는 아니다.
+
+재고 조회는 `GET /api/core/analytics/inventory/summary`이며 `/analytics/inventory`와 기존 `/inventory/stock`에서
+현재고·수불/Lot 차이, 확인된 Lot 원천량, 제조·입고일 경과, 기간 부호 증감을 구분한다.
+초기잔액/과거 누락을 자동 보정하거나 회전율을 추정하지 않는다. [재고 분석 계약](analytics-inventory.md)을 따른다.
+
+재고 원천 로컬 검증(2026-10-04): 백엔드203개/32클래스·프런트287개/41파일·실제 Chromium6개를 통과했다.
+현재고/전체 수불/기간 증감 분리, Lot 상태·만료/경과 경계, 조회 불변성·권한·생성 타입과
+실제 입고/취소 이후 재고 화면·품목/MRP 이동을 확인했다. 기존 개발 DB를 보존하면서 Spring/프런트에 반영했다.
+[Phase 1 E2E](phase1-e2e.md)의 재고 원천 절에 근거를 기록하며 원격 CI는 커밋/푸시 후 확인한다.
 
 ### ANL-04. 분석 전용 FastAPI 서비스
 
@@ -569,8 +624,8 @@ smoke를 통과했고, 실행 중인 견적/수주 API의 필터·정렬·페이
 | 연동 | Spring `/api/core/internal/*`, `X-Internal-Key`, TTL 캐시 |
 | 완료 조건 | health/OpenAPI, 읽기 전용 권한, 503 실패 정책, pytest 계약 테스트 통과 |
 
-FastAPI를 도입하기 전, 별도 배포·관측·보안 비용보다 독립 분석 서비스의 이점이 큰지 결정해야 한다.
-초기 KPI가 단순 SQL 집계라면 Spring 내부 모듈로 먼저 제공하고 분리 시점을 늦출 수 있다.
+2026-10-04 결정: Phase 1의 ANL-01/02는 기존 Spring 내부 모듈로 구현한다. ANL-04 FastAPI 도입은
+별도 배포·관측·보안 비용보다 독립 분석 서비스의 이점이 커지는 시점에 재검토한다.
 
 ## 8. Phase 2 — 제조 운영 확장 서비스
 
@@ -790,17 +845,24 @@ FastAPI를 도입하기 전, 별도 배포·관측·보안 비용보다 독립 �
     - [x] PRD-02: 실제 작업오더 화면·누적 실적·생산완료 Lot/입고/현재고/감사
     - [x] PUR-02: 구매입고 API/UI와 부분입고·현재고·전체 입고 취소 보상
     - [x] LOG-01: 출하 API/UI와 Lot·현재고·매출 원천·미수
-14. [ ] Phase 1 핵심 E2E와 CI 필수 체크 구성
+14. [x] Phase 1 핵심 E2E와 CI 필수 체크 구성
     - [x] 실제 Chromium 거래·인증·권한 테스트와 격리 실행, 로컬 CI 동등 검사
-    - [ ] GitHub Actions 원격 실행 성공과 `Phase 1 required` 브랜치 보호 적용 확인
+    - [x] GitHub Actions 원격 실행 성공과 `Phase 1 required` 브랜치 보호 적용 확인
+    - 2026-10-04: main `15cf5a5` 원격 CI 전체 success, 필수 체크는 GitHub Actions 제공자에 고정.
+      strict=true, 관리자 강제 적용은 꺼짐(관리자 우회 가능); 세부 정책은 아래 실행 문서에 기록.
     - 실행/보고서/보호 설정: [Phase 1 E2E](phase1-e2e.md)
-15. [ ] ANL-01/02 구현 방식 결정 후 실제 대시보드와 MRP 연결
+15. [ ] ANL-01/02 실제 연결 이후 잔여 범위와 현재 변경 원격 검증
+    - [x] 구현 방식: Spring 분석 모듈 사용, FastAPI 분리 보류(2026-10-04 사용자 결정)
+    - [x] ANL-01: 실제 대시보드 API/UI 연결 및 로컬 검증 — [계약](analytics-dashboard.md), [검증](phase1-e2e.md)
+    - [x] ANL-02: 실제 MRP·다단계 BOM·발주잔량·제안→발주 연결 및 로컬 검증 — [계약](analytics-mrp.md), [검증](phase1-e2e.md)
+    - [ ] ANL-01: 원가·기간 평균재고 이력 기반 재고회전율 제공（To Do `TODO-019`）
+    - [ ] 현재 분석·Lot 및 배포 변경의 원격 CI 확인（To Do `TODO-049`）
 
 ## 14. 범위 결정이 필요한 항목
 
 구현에 들어가기 전 제품 책임자가 다음을 확정해야 한다.
 
-- FastAPI를 Phase 1에 도입할지, 분석 기능을 먼저 Spring에 구현할지
+- Phase 1 분석은 Spring 우선으로 확정(2026-10-04); FastAPI 분리 시점은 추후 재검토
 - 단일 공장 가정을 유지할 기간과 다공장 전환 예상 시점
 - 회계가 자체 원장인지 외부 회계 시스템 연동 중심인지
 - Lot 추적에 바코드/QR과 유통기한 FIFO/FEFO가 필수인지
@@ -810,3 +872,107 @@ FastAPI를 도입하기 전, 별도 배포·관측·보안 비용보다 독립 �
 - Zorin OS + Cloudflare Tunnel이 운영 표준인지 데모 환경인지
 
 이 결정들은 데이터 모델과 서비스 경계를 바꾸므로 구현 도중 암묵적으로 정하지 않는다.
+
+<a id="implementation-todo"></a>
+
+## 15. 미완료 To Do 체크리스트
+
+기준일: **2026-10-04**. 이 절은 남은 작업의 체크 상태를 관리하는 곳이다.
+기능별 상세 계약은 기존 서비스 절과 연결 문서가 담당한다. 현재 체크리스트에는 완료된
+기초정보 CRUD·견적/수주·작업오더·입고/출하·Spring 분석 조회·Lot 읽기 구현을 다시 넣지 않는다.
+
+### 관리 방법
+
+- `[ ]`는 미완료다. `[x]`는 해당 항목의 완료 기준을 충족하고 검증 근거가 있을 때만 사용한다.
+- 항목의 `TODO-번호`는 유지한다. 새 항목은 마지막 번호 다음에 추가하고, 번호를 재사용하지 않는다.
+- 체크 시 줄 끝에 `완료 YYYY-MM-DD / 커밋 또는 소스 / 테스트·검증 결과`를 남긴다.
+- 모달만 열림, 화면만 존재함, 메모리 저장, 발송 상태만 바뀜은 실제 저장·발송 완료가 아니다.
+- `[부분]`은 기존 API/조회/일부 업무가 있으나 적힌 범위가 남음, `[미구현]`은 해당 동작 미연결,
+  `[검증]`은 구현과 별개로 확인이 남음, `[결정]`은 범위 승인 또는 채택이 먼저 필요한 항목이다.
+- 외부 발송·계정·공급사·결제 서비스가 필요한 항목은 자격 증명과 승인 없이 실제 발송하지 않는다.
+- 문서 작성은 기능 구현 승인이 아니다. 이 목록을 추가하면서 앱·DB·서버 상태는 변경하지 않았다.
+
+### A. 우선 연결할 화면과 무반응 버튼
+
+- [ ] **TODO-001 / FIN-01 / [부분] 미납관리 실데이터 목록** — 고정 배열을 `/receivables`·요약 API로 교체하고 고객/상태/연체 필터·검색·페이지·오류/재시도를 제공한다. 근거: [현재 화면](../hud-admin-template/src/pages/sales/SalesReceivables.tsx), [기존 API](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableController.java).
+- [ ] **TODO-002 / FIN-01 / [부분] 전액·부분수납과 수납 이력** — 현재 수납완료 상태 변경을 금액/수납일/잔액 이력으로 확장하고 중복·초과·동시 수납을 차단하며 권한/감사와 실제 UI를 검증한다. 근거: [FIN-01](#fin-01-미수금-수납-서비스), [현재 collect](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableController.java).
+- [ ] **TODO-003 / FIN-01·INT-02 / [미구현] ‘독촉 발송’ 모달** — 실제 미수 대상 선택, 수신자·미납 금액·내용 미리보기, 취소/확인, 권한·입력 검증을 연결한다. 실제 발송 전에는 성공으로 표시하지 않는다. 근거: [클릭 동작 없는 버튼](../hud-admin-template/src/pages/sales/SalesReceivables.tsx).
+- [ ] **TODO-004 / FIN-01·INT-02 / [미구현] 실제 독촉 발송·결과 이력** — `TODO-003` 및 메시지 기반 `TODO-047` 이후 이메일/SMS 채널을 확정하고 요청·발송·실패·재시도·중복방지·감사를 저장한다. 근거: [INT-02](#int-02-메시지-발송-서비스).
+- [ ] **TODO-005 / PUR-01 / [부분] 발주 CRUD 화면 API 전환** — DataContext 저장을 실제 `/purchase-orders`로 교체하고 발주처·품목 ID, 금액/납기, 수정·취소 제한, 부분입고 잔량·권한/감사를 연결한다. 근거: [현재 메모리 발주](../hud-admin-template/src/pages/purchase/PurchaseOrders.tsx), [PUR-01](#pur-01-발주-서비스).
+- [ ] **TODO-006 / PUR-01·PUR-02 / [부분] 발주 화면의 입고 액션 통합** — 메모리 `receivePurchaseOrder` 경로를 제거하고 실제 입고 화면/API로 연결해 두 화면의 발주잔량·재고가 일치하도록 한다. 근거: [현재 입고 모달 경로](../hud-admin-template/src/pages/purchase/PurchaseOrders.tsx), [실제 입고 화면](../hud-admin-template/src/pages/purchase/PurchaseReceiving.tsx).
+- [ ] **TODO-007 / PRD-01 / [부분] 생산계획 조회·‘계획 등록’·확정/마감** — 예제 목록과 무반응 등록 버튼을 실제 생산계획 API에 연결하고 상태 전이·권한·감사를 검증한다. 근거: [현재 화면](../hud-admin-template/src/pages/production/ProductionPlan.tsx), [PRD-01](#prd-01-생산계획-서비스).
+- [ ] **TODO-008 / PRD-01 / [부분] 생산계획 수량 산출** — 수주잔량·현재고를 실제 조회해 월/주 계획량을 산출하고 산출 근거를 남긴다. 근거: [PRD-01 완료 조건](#prd-01-생산계획-서비스).
+- [ ] **TODO-009 / UI / [미구현] 미구현 버튼 표시 정리** — 검사/불량/점검/직원/외주/공지/알림 등록 및 Settings 저장처럼 동작 없는 버튼을 구현 전에는 비활성·‘준비 중’ 안내로 구분한다. 메뉴 숨김 여부는 제품 결정 후 적용한다. 근거: [검사](../hud-admin-template/src/pages/quality/QualityInspections.tsx), [불량](../hud-admin-template/src/pages/quality/QualityDefects.tsx), [점검](../hud-admin-template/src/pages/equipment/EquipmentMaintenance.tsx), [직원](../hud-admin-template/src/pages/hr/HumanResources.tsx), [외주](../hud-admin-template/src/pages/subcontract/Subcontract.tsx), [공지](../hud-admin-template/src/pages/board/BoardNotices.tsx), [알림](../hud-admin-template/src/pages/board/BoardNotify.tsx), [설정](../hud-admin-template/src/pages/Settings.tsx).
+
+### B. 기존 거래 기능의 남은 정합성·상태 처리
+
+- [ ] **TODO-010 / INV-02 / [부분] Lot 폐기 정합성** — Lot 잔량·품목 현재고·보상 수불을 같은 트랜잭션으로 갱신하고 출하/입고취소와의 충돌, 중복 폐기, 감사 실패 롤백을 검증한 뒤 폐기 UI를 연결한다. 근거: [현재 폐기 API](../backend-spring/src/main/java/com/erpapproid/core/api/inventory/LotController.java), [Lot 계약](lot-tracing.md).
+- [ ] **TODO-011 / INV-02 / [부분] Lot 보류·해제 UI** — 기존 API를 권한별 확인 모달에 연결하고 폐기/취소 Lot 복구 차단·출하 가능 상태·캐시 갱신을 검증한다. 근거: [현재 읽기 전용 화면](../hud-admin-template/src/pages/inventory/LotTracePage.tsx), [상태 API](../backend-spring/src/main/java/com/erpapproid/core/api/inventory/LotController.java).
+- [ ] **TODO-012 / INV-01 / [부분] 재고 초기잔액·대사·조정 절차** — 현재고/수불/Lot 차이를 검토·승인·감사 가능한 조정으로 처리하고 과거 원천을 추정하거나 자동 보정하지 않는다. 근거: [재고 분석의 미지원 범위](analytics-inventory.md).
+- [ ] **TODO-013 / PRD-02·INV-01 / [미구현] 원자재 불출·반납** — 작업오더/BOM 기반 실제 구성품 소모와 Lot별 불출·반납을 기록하고 완제품 입고와 원자재 차감의 정합성을 검증한다. 근거: [PRD-02 후속 범위](#prd-02-작업오더-서비스), [MRP 수요 한계](analytics-mrp.md).
+- [ ] **TODO-014 / PRD-02·MST-04 / [부분] 공정별 착수·실적·완료** — 보관된 라우팅 스냅샷을 공정별 실적에 연결하고 전체 작업오더 양품/불량과 대사한다. 근거: [PRD-02](#prd-02-작업오더-서비스), [MST-04](#mst-04-공정-라우팅-서비스).
+- [ ] **TODO-015 / SAL-02·PRD-02 / [미구현] 확정 수주·완료 작업오더 보상 취소** — 이미 생성된 오더·Lot·재고 및 연결 출하의 보상/차단 규칙을 정의하고 이력을 보존한다. 근거: [SAL-02 제한](#sal-02-수주-서비스), [PRD-02 후속 범위](#prd-02-작업오더-서비스).
+- [ ] **TODO-016 / PUR-02 / [미구현] 부분 반품·사용 후 입고 보상** — 현재 미사용 Lot 전체 입고 취소와 구분해 부분 수량·사용 이후 보상·품질 승인·매입채무를 연결한다. 근거: [PUR-02 후속 범위](#pur-02-입고-서비스).
+- [ ] **TODO-017 / PUR-02 / [미구현] 입고 요청 재전송 키** — 명시적 idempotency key로 동일 요청의 결과를 재사용하고 중복 입고를 차단한다. 근거: [현재 재전송 제한](#pur-02-입고-서비스).
+- [ ] **TODO-018 / LOG-01·INV-02 / [미구현] 출하 확정 후 반품·다중 Lot·예약** — 반품/보상, 한 문서의 다중 Lot, 예약·FIFO/FEFO 정책을 먼저 확정한 뒤 재고·미수 보상과 동시 할당을 검증한다. 근거: [LOG-01 후속 범위](#log-01-출하-서비스), [Lot 가용량 제한](lot-tracing.md).
+
+### C. 분석·계획의 남은 범위
+
+- [ ] **TODO-019 / ANL-01·ANL-03 / [부분] 실제 재고회전율** — 원가 및 기간 평균재고 이력을 먼저 구현하고 계산식·기간·단위·제외 조건을 고정한다. 현재 `null`을 추정 숫자로 대체하지 않는다. 근거: [대시보드](analytics-dashboard.md), [재고 분석](analytics-inventory.md).
+- [ ] **TODO-020 / INV-01·ANL-03·ENT-01 / [부분] 창고·사업장별 실제 잔액/분석** — 현재 Lot 창고 문자열과 실제 창고별 초기잔액·가용재고·사업장 이력을 구분해 데이터 모델 및 집계를 연결한다. 근거: [재고 분석](analytics-inventory.md), [ENT-01](#ent-01-다공장다창고-서비스).
+- [ ] **TODO-021 / MST-03·ANL-02 / [부분] 대체자재 배정** — BOM의 대체 품번 문자열을 실제 재고·수급 배정 정책에 연결하고 원자재 중복 충당을 방지한다. 근거: [MST-03 후속 범위](#mst-03-bom-서비스), [MRP 계약](analytics-mrp.md).
+- [ ] **TODO-022 / MST-04·PRD-01·EAM-01 / [부분] 공정 능력·일정 계획** — 표준시간 스냅샷을 설비/작업장 능력·가동 캘린더·외주 리드타임에 연결한다. 현재 MRP를 설비 능력 계획으로 표시하지 않는다. 근거: [MST-04](#mst-04-공정-라우팅-서비스), [MRP 계약](analytics-mrp.md).
+
+### D. 품질·설비·외주·공지
+
+- [ ] **TODO-023 / QMS-01 / [미구현] 품질검사·‘검사 등록’** — 검사기준/측정값 CRUD·결과/재검사 모달·API/DB를 만들고 입고/작업오더/Lot 및 불합격 보류에 연결한다. 근거: [현재 예제 화면](../hud-admin-template/src/pages/quality/QualityInspections.tsx), [QMS-01](#qms-01-품질검사-서비스).
+- [ ] **TODO-024 / QMS-02 / [미구현] 불량·부적합·클레임** — ‘불량 등록’, 원인/불량코드, 재작업·폐기·특채 승인, 시정조치·고객 클레임 및 원천 추적을 구현한다. 근거: [현재 화면](../hud-admin-template/src/pages/quality/QualityDefects.tsx), [QMS-02](#qms-02-부적합불량클레임-서비스).
+- [ ] **TODO-025 / EAM-01 / [미구현] 설비 마스터·가동/OEE** — 고정 설비 목록을 실제 API/DB로 전환하고 설비/작업장·생산능력·가동/유휴/고장 이력을 실적에 연결한다. 근거: [현재 화면](../hud-admin-template/src/pages/equipment/Equipment.tsx), [EAM-01](#eam-01-설비-마스터가동-서비스).
+- [ ] **TODO-026 / EAM-02 / [미구현] 보전·‘점검 등록’** — 점검/수리 폼과 예방보전 일정·부품/비용 이력·예정 알림·고장 설비 배정 차단을 구현한다. 근거: [현재 화면](../hud-admin-template/src/pages/equipment/EquipmentMaintenance.tsx), [EAM-02](#eam-02-설비-보전-서비스).
+- [ ] **TODO-027 / OUT-01 / [미구현] 외주·‘외주 발주’** — 실제 발주·반출/반입·공정 실적·불량·외주재고·납기·비용을 연결한다. 근거: [현재 화면](../hud-admin-template/src/pages/subcontract/Subcontract.tsx), [OUT-01](#out-01-외주공정-서비스).
+- [ ] **TODO-028 / COL-01 / [미구현] 공지·‘공지 등록’** — 실제 공지 CRUD·대상 권한·조회·읽음 처리를 구현한다. 근거: [현재 화면](../hud-admin-template/src/pages/board/BoardNotices.tsx), [COL-01](#col-01-공지업무알림-서비스).
+- [ ] **TODO-029 / COL-01 / [미구현] 업무알림·‘알림 발송’** — 대상 사용자/역할, 생성 규칙·중복 억제·읽음/미읽음·보존 및 업무 이벤트를 저장한다. 외부 메시지는 `TODO-047`과 구분한다. 근거: [현재 화면](../hud-admin-template/src/pages/board/BoardNotify.tsx), [COL-01](#col-01-공지업무알림-서비스).
+
+### E. 원가·회계·인사·관리
+
+- [ ] **TODO-030 / CST-01 / [미구현] 표준원가·버전** — BOM 재료비+라우팅 노무비+경비+외주비, 기준일 재현·변경 영향 비교를 실제 API/DB로 구현한다. 근거: [현재 원가/회계 예제](../hud-admin-template/src/pages/accounting/Accounting.tsx), [CST-01](#cst-01-표준원가-서비스).
+- [ ] **TODO-031 / CST-02 / [미구현] 실제원가·차이 분석** — 실제 불출·공정 실적·설비/외주 비용을 작업오더 마감 원가와 차이 원인에 연결한다. 근거: [CST-02](#cst-02-실제원가차이분석-서비스).
+- [ ] **TODO-032 / ACC-01 / [미구현] 계정과목·전표** — 입금/출금/대체, 승인·역분개, 차대 균형·마감 수정 차단·감사를 구현한다. 근거: [ACC-01](#acc-01-전표계정과목-서비스).
+- [ ] **TODO-033 / ACC-02 / [부분] 채권·채무·수납/지급 대사** — 기존 미수 생성 이후 매입채무·지급·연령분석·원거래/전표 추적을 구현한다. 미수 수납은 `TODO-002`와 연결한다. 근거: [ACC-02](#acc-02-채권채무세금계산서-서비스).
+- [ ] **TODO-034 / ACC-02·INT-01 / [미구현] 세금계산서** — 자체 저장/발행 범위와 외부 공급사를 확정하고 발행·조회·실패 재처리·원거래 추적을 연결한다. 근거: [ACC-02](#acc-02-채권채무세금계산서-서비스), [INT-01](#int-01-세무은행-연동-서비스).
+- [ ] **TODO-035 / ACC-03 / [미구현] 결산·재고평가·손익** — 월/분기/연 마감, 잠금·재개방 승인 및 원장과 보고서 합계를 검증한다. 근거: [ACC-03](#acc-03-결산손익-서비스).
+- [ ] **TODO-036 / HRM-01 / [미구현] 조직·직원·‘직원 등록’** — 사업장/부서/직위/직원 CRUD·재직 상태·사용자 연결을 구현하고 작업오더 담당자를 직원 ID에 연결한다. 근거: [현재 화면](../hud-admin-template/src/pages/hr/HumanResources.tsx), [HRM-01](#hrm-01-조직직원-서비스).
+- [ ] **TODO-037 / ADM-01 / [부분] 사용자·역할 관리 UI/API** — 기존 사용자/역할 DB 위에 생성·잠금·비활성·역할/메뉴권한 변경 및 최소권한·감사를 제공한다. 근거: [ADM-01](#adm-01-시스템-관리-서비스).
+- [ ] **TODO-038 / ADM-01 / [미구현] 프로필·설정 실제 저장** — 고정 예제 프로필과 ‘Save Changes’를 현재 사용자 API에 연결하고 ERP에 필요한 환경설정만 영속화한다. 템플릿 Billing 등의 채택 여부는 먼저 결정한다. 근거: [Profile](../hud-admin-template/src/pages/Profile.tsx), [Settings](../hud-admin-template/src/pages/Settings.tsx).
+- [ ] **TODO-039 / PLT-04·ADM-01 / [미구현] 비밀번호 변경·재설정** — 본인 확인, 안전한 변경/초기화, 세션 영향 및 관리자 조치를 구현한다. 근거: [현재 인증 API](../backend-spring/src/main/java/com/erpapproid/core/api/auth/AuthController.java), [PLT-04 후속 범위](#plt-04-인증세션권한-서비스).
+- [ ] **TODO-040 / PLT-04 / [결정] Refresh token·SSO·저장 방식 개선** — 기존 access token/sessionStorage와 구분해 채택 범위·회전/폐기·쿠키/BFF·CSRF를 설계한 뒤 구현한다. 근거: [인증 결정](decisions/auth-session-storage.md), [PLT-04](#plt-04-인증세션권한-서비스).
+- [ ] **TODO-041 / PLT-04 / [미구현] 로그인 이력·계정 잠금** — 실패/성공 이력, 잠금·해제 정책을 서버에 구현한다. Nginx 빈도 제한은 계정 잠금의 대체가 아니다. 근거: [PLT-04 후속 범위](#plt-04-인증세션권한-서비스), [데모 프록시](../infra/zorin/nginx.conf).
+- [ ] **TODO-042 / ADM-01·PLT-05 / [부분] 감사로그 관리자 조회·보존** — 기존 저장된 actor/trace/before/after를 권한별 검색·조회하고 장기 보존/파티셔닝 정책을 연결한다. 근거: [ADM-01](#adm-01-시스템-관리-서비스), [운영 정책](operations.md).
+
+### F. 범위 결정 후 진행할 확장 항목
+
+- [ ] **TODO-043 / ENT-01 / [결정] 다공장·다창고 전환** — 조직별 데이터 격리·접근 범위·공장 간 이동 및 기존 데이터 이관 정책을 확정하고 구현한다. 근거: [ENT-01](#ent-01-다공장다창고-서비스).
+- [ ] **TODO-044 / PRT-01 / [미구현] 현장 작업자 포털** — 모바일/태블릿 작업지시·실적·바코드/QR 및 오프라인/재전송 정책을 구현한다. 근거: [PRT-01](#prt-01-현장-작업자-포털).
+- [ ] **TODO-045 / PRT-02 / [미구현] 거래처 포털** — 고객/공급사별 문서 조회·다운로드·문의 이력 및 거래처 데이터 격리를 구현한다. 근거: [PRT-02](#prt-02-거래처-포털).
+- [ ] **TODO-046 / INT-01 / [미구현] 은행·외부 회계 연동** — 입출금 대사·내보내기·재처리 키·실패 큐·응답 감사를 구현한다. 세금계산서는 `TODO-034`로 별도 관리한다. 근거: [INT-01](#int-01-세무은행-연동-서비스).
+- [ ] **TODO-047 / INT-02 / [미구현] 공통 메시지 발송 기반** — 이메일/SMS/LMS 공급사·비밀 관리·템플릿·수신동의/차단·재시도·중복방지·발송 이력을 구현한다. 독촉은 `TODO-004`, 견적 실제 이메일/PDF 전송도 이 기반에 연결한다. 근거: [INT-02](#int-02-메시지-발송-서비스), [견적 발송의 현재 한계](#sal-01-견적-서비스).
+- [ ] **TODO-048 / ANL-04 / [결정·보류] FastAPI 분석 분리** — Spring 우선 결정을 유지한다. 독립 서비스의 이점이 확인되고 사용자 승인 시에만 읽기 전용 계정·배포/관측·health/OpenAPI·계약 테스트를 구현한다. 현재 Spring 분석이 미구현이라는 뜻이 아니다. 근거: [ANL-04 보류 결정](#anl-04-분석-전용-fastapi-서비스).
+
+### G. 현재 변경·데모 배포 이후 검증/운영
+
+- [ ] **TODO-049 / PLT-01 / [검증] 현재 변경의 원격 CI·릴리스 식별** — 사용자가 커밋/푸시를 요청하면 분석·Lot·배포·의존성 변경을 검토/검증하고 해당 커밋의 원격 필수 체크를 확인한다. 이전 `15cf5a5` 성공을 새 변경의 성공으로 재사용하지 않는다. 근거: [검증 기록](phase1-e2e.md), [실제 워크플로](../.github/workflows/phase1.yml), [데모 릴리스](../infra/zorin/release-manifest.json).
+- [ ] **TODO-050 / 배포 / [검증] 외부 자동 검증 7개 재확인** — Python 기본 User-Agent의 외부 요청 403을 검증기 계층에서 처리하고 전체 체크를 재실행한다. 1차 결과는 PASS 4/FAIL 3이며 브라우저 정상만으로 완료 처리하지 않는다. 근거: [현재 검증기](../infra/zorin/verify.py), [운영 절차](../infra/zorin/README.md). 상세 실패 JSON은 서버의 비공개 릴리스 아티팩트에 보관돼 있다.
+- [ ] **TODO-051 / 보안 / [검증] 의존성·컨테이너 취약점 정리** — 남은 Router 중간 위험 2건, 빌드 전용 의존성 경고와 미실시 백엔드/베이스 이미지 스캔을 분류·조치·재검증한다. 데모를 민감한 실운영 데이터에 사용하기 전 검토한다. 근거: [데모 보안 한계](../infra/zorin/README.md), [현재 lockfile](../hud-admin-template/package-lock.json).
+- [ ] **TODO-052 / PLT-06 / [부분] 자동·외부 암호화 백업** — 실제 일일 스케줄, 별도 저장소 전송·보존·실패 알림·복원 훈련으로 RPO를 검증한다. 기존 로컬 dump/복원 성공과 구분한다. 근거: [운영 정책](operations.md), [데모 한계](../infra/zorin/README.md).
+- [ ] **TODO-053 / PLT-05 / [부분] 중앙 로그·감시·장애 알림** — 구조화 로그/health/metrics 기반 수집·검색·접근 통제·uptime/오류·용량 알림을 연결한다. 기존 컨테이너 순환 로그를 장기 보존으로 표시하지 않는다. 근거: [운영 정책](operations.md), [데모 한계](../infra/zorin/README.md).
+- [ ] **TODO-054 / 배포 / [검증] 재부팅·앱 롤백 훈련** — 승인된 점검 시간에 ERP의 재기동/터널·DNS·인증과 보존된 릴리스 전환을 검증한다. 기존 다른 서비스나 원본 DB를 삭제하지 않는다. 근거: [데모 복구/롤백 절차](../infra/zorin/README.md).
+- [ ] **TODO-055 / 품질 / [부분] UI 성능·접근성·린트 정리** — 큰 JS 번들 코드 분할, 기존 린트 경고, 실제 브라우저 색상 대비·반응형/키보드 검증을 단계적으로 처리한다. 근거: [기존 검증 경고/검사 범위](phase1-e2e.md).
+- [ ] **TODO-056 / 문서 / [부분] 이전 상태 기록 정합화** — PROJECT_HANDOVER 및 과거 서비스 메모의 ‘마스터 외 미연결’, ‘E2E 없음’, ‘분석 분리 미결정’, ‘프런트만 배포’ 등 오래된 설명을 날짜별 이력과 현재 상태로 분리하고 최신 소스/검증에 연결한다. 근거: [이전 인수인계](PROJECT_HANDOVER.md), [현재 앱 경로](../hud-admin-template/src/App.tsx), [현재 데모 구성](../infra/zorin/compose.yml).
+
+### 우선순위와 목록 범위
+
+권장 순서는 **미납 목록/수납 → 독촉 확인 모달 → 발송 기반/실제 발송 → 발주 API 전환 → 생산계획 → Lot 쓰기 정합성**이다.
+현재 배포 검증 `TODO-050`과 공개 보안 `TODO-051`은 병행 점검 대상이다. 이 순서는 자동 구현·발송·푸시 승인이 아니다.
+
+메뉴에 없는 HUD 템플릿 예제(POS·AI·차트 데모 등)는 ERP 미구현 업무로 세지 않는다.
+새 요구사항이나 잘게 나눈 하위 작업은 이 절에 추가하고, 완료된 항목은 근거와 체크를 남겨 이력을 유지한다.

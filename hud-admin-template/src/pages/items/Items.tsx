@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import {
     createItem,
@@ -104,7 +105,8 @@ const Items = () => {
     const { core, user } = useAuth()
     const queryClient = useQueryClient()
     const roles = useMemo(() => user?.roles ?? [], [user?.roles])
-    const [searchQuery, setSearchQuery] = useState('')
+    const [searchParams] = useSearchParams()
+    const [searchQuery, setSearchQuery] = useState(() => searchParams.get('keyword') ?? '')
     const debouncedSearchQuery = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS)
     const [currentPage, setCurrentPage] = useState(1)
     const [rowsPerPage, setRowsPerPage] = useState(10)

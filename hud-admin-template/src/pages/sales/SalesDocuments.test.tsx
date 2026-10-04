@@ -17,9 +17,9 @@ const common = { id: 42, customerId: 90, customerName: partner.name, itemId: 7, 
 const quote = { ...common, quotationNo: 'QT-LIVE', validUntil: '2026-12-20', status: '작성중' }
 const order = { ...common, salesOrderNo: 'SO-LIVE', quotationId: null, quotationNo: null, workOrderNos: [] as string[], orderedAt: '2026-10-02', status: '대기' }
 const page = (content: unknown[], total = content.length, number = 0) => ({ content, number, size: 10, totalElements: total, totalPages: Math.ceil(total / 10) })
-function mount(orders = false) {
+function mount(orders = false, entry = '/') {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{orders ? <SalesOrders /> : <SalesQuotations />}</MemoryRouter>
+        <MemoryRouter initialEntries={[entry]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{orders ? <SalesOrders /> : <SalesQuotations />}</MemoryRouter>
     </QueryClientProvider>)
 }
 function options(url: URL): Response | undefined {
@@ -28,6 +28,11 @@ function options(url: URL): Response | undefined {
 }
 async function ready(name: string) { await waitFor(() => expect(screen.getByRole('button', { name: `${name} 등록` })).toBeEnabled(), { timeout: 5000 }) }
 beforeEach(() => { state.fetch.mockReset(); state.roles = ['SALES'] })
+it('initializes a real sales-order analysis drill-down keyword', async () => {
+    state.fetch.mockImplementation(async input => options(new URL(String(input))) ?? Response.json(page([order])))
+    mount(true, '/sales/orders?keyword=SO-LIVE'); await screen.findByText('SO-LIVE')
+    expect(state.fetch.mock.calls.some(([u]) => new URL(String(u)).pathname.endsWith('/sales-orders') && new URL(String(u)).searchParams.get('keyword') === 'SO-LIVE')).toBe(true)
+})
 
 it('creates, edits and deletes API quotations with immutable IDs, server amounts and calendar inputs', async () => {
     let rows: typeof quote[] = []

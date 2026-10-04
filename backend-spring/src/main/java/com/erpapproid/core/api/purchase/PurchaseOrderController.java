@@ -1,6 +1,7 @@
 package com.erpapproid.core.api.purchase;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Set;
 
@@ -88,6 +89,9 @@ public class PurchaseOrderController {
         PartnerEntity vendor = partnerRepository.findById(request.getVendorId())
                 .orElseThrow(() -> new DomainException(ErrorCode.PARTNER_NOT_FOUND,
                         "발주처를 찾을 수 없습니다: " + request.getVendorId()));
+        if (!"발주처".equals(vendor.getPartnerType())) {
+            throw MasterListQuery.invalid("발주처 거래처를 선택해야 합니다.");
+        }
         ItemEntity item = itemRepository.findById(request.getItemId())
                 .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
                         "품목을 찾을 수 없습니다: " + request.getItemId()));
@@ -97,7 +101,7 @@ public class PurchaseOrderController {
                 .item(item)
                 .qty(request.getQty())
                 .unitPrice(request.getUnitPrice())
-                .amount(request.getQty().multiply(BigDecimal.valueOf(request.getUnitPrice())).longValue())
+                .amount(amount(request.getQty(), request.getUnitPrice()))
                 .dueDate(request.getDueDate())
                 .status(Constants.PO_OPEN)
                 .receivedQty(BigDecimal.ZERO)
@@ -128,8 +132,7 @@ public class PurchaseOrderController {
             entity.setUnitPrice(request.getUnitPrice());
         }
         if (request.getQty() != null && request.getUnitPrice() != null) {
-            entity.setAmount(request.getQty()
-                    .multiply(BigDecimal.valueOf(request.getUnitPrice())).longValue());
+            entity.setAmount(amount(request.getQty(), request.getUnitPrice()));
         }
         if (request.getDueDate() != null) {
             entity.setDueDate(request.getDueDate());
@@ -178,6 +181,14 @@ public class PurchaseOrderController {
         auditService.record(AuditEvent.sensitiveChange("CANCEL", "PURCHASE_ORDER",
                 saved.getPurchaseOrderNo(), before, toResponse(saved)));
         return ResponseEntity.ok(toResponse(saved));
+    }
+
+    private long amount(BigDecimal qty, long price) {
+        BigDecimal amount = qty.multiply(BigDecimal.valueOf(price)).setScale(0, RoundingMode.DOWN);
+        if (amount.compareTo(BigDecimal.valueOf(9007199254740991L)) > 0) {
+            throw MasterListQuery.invalid("발주 금액이 지원 범위를 초과했습니다.");
+        }
+        return amount.longValueExact();
     }
 
     private Response toResponse(PurchaseOrderEntity entity) {

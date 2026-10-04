@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import axe from 'axe-core'
 import { createHttpClient } from '../../api/http'
 import SalesShipments from './SalesShipments'
@@ -18,8 +19,17 @@ function options(url: URL) {
     if (url.pathname.endsWith('/sales-orders')) return Response.json(page([order, { ...order, id: 91, salesOrderNo: 'SO-CANCEL', status: '취소' }]))
     if (url.pathname.endsWith('/lots')) return Response.json(lots)
 }
-function mount() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><SalesShipments /></QueryClientProvider>) }
+function mount(entry = '/sales/shipments') { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[entry]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><SalesShipments /></MemoryRouter></QueryClientProvider>) }
+it('initializes an analysis order drill-down as an actual API filter', async () => {
+    mount('/sales/shipments?salesOrderId=90'); await screen.findByText('SH-LIVE')
+    expect(state.fetch.mock.calls.some(([input]) => new URL(String(input)).pathname.endsWith('/shipments') && new URL(String(input)).searchParams.get('salesOrderId') === '90')).toBe(true)
+})
 beforeEach(() => { state.fetch.mockReset(); state.roles = ['SALES']; state.fetch.mockImplementation(async input => options(new URL(String(input))) ?? Response.json(page([row]))) })
+
+it('initializes the Lot source document as an actual shipment search', async () => {
+    mount('/sales/shipments?keyword=SH-LIVE'); await screen.findByText('SH-LIVE')
+    expect(state.fetch.mock.calls.some(([input]) => new URL(String(input)).pathname.endsWith('/shipments') && new URL(String(input)).searchParams.get('keyword') === 'SH-LIVE')).toBe(true)
+})
 
 it('creates with real order/Lot IDs, shows allocated balance, calendar and refreshes caches', async () => {
     state.fetch.mockImplementation(async (input, init) => {

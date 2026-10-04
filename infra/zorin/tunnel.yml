@@ -1,0 +1,7 @@
+tunnel: c31f7f3f-17d5-4dec-bdbd-526b470eca8c
+credentials-file: /etc/cloudflared/tunnel.json
+metrics: 0.0.0.0:2000
+ingress:
+  - hostname: erp.approid.team
+    service: http://frontend:80
+  - service: http_status:404

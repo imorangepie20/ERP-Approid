@@ -51,13 +51,13 @@ function page(content = [item], overrides: Record<string, unknown> = {}) {
     }
 }
 
-function renderItems(fetchMock: typeof fetch) {
+function renderItems(fetchMock: typeof fetch, path = '/items') {
     saveSession(sessionStorage, 'access-token', 3600)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     return render(
         <QueryClientProvider client={queryClient}>
             <AuthProvider env={env} storage={sessionStorage} fetch={fetchMock}>
-                <MemoryRouter><Items /></MemoryRouter>
+                <MemoryRouter initialEntries={[path]}><Items /></MemoryRouter>
             </AuthProvider>
         </QueryClientProvider>,
     )
@@ -361,6 +361,14 @@ describe('Items', () => {
 
         expect(await screen.findByRole('status')).toHaveTextContent('품목을 삭제했습니다.')
         expect(deleted).toBe(true)
+    })
+
+    it('applies the dashboard alert keyword to the initial server query', async () => {
+        const fetchMock = createFetchMock(() => Response.json(page()))
+        renderItems(fetchMock, '/items?keyword=M-S002')
+        await screen.findByText('M-S002')
+        expect(screen.getByPlaceholderText('품번, 품명 검색...')).toHaveValue('M-S002')
+        expect(fetchMock.mock.calls.some(([input]) => new URL(String(input)).searchParams.get('keyword') === 'M-S002')).toBe(true)
     })
 
     it('keeps the form open and shows the trace id when a write fails', async () => {

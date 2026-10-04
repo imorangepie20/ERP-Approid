@@ -1,147 +1,100 @@
-import { useMemo } from 'react'
-import { ShoppingCart, TrendingDown, Clock, Package } from 'lucide-react'
-import DataTable, { DataTableColumn } from '../../components/common/DataTable'
-import StatCard from '../../components/common/StatCard'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { fetchMrp, createMrpPurchase, addDateDays, type MrpRow, type MrpPurchase } from '../../api/mrp'
+import { seoulToday } from '../../api/dashboard'
+import { ApiError } from '../../api/http'
+import { useAuth } from '../../auth/AuthContext'
+import { useItemSelection } from '../../hooks/useItemSelection'
+import { usePartnerSelection } from '../../hooks/usePartnerSelection'
+import { AsyncState } from '../../components/common/AsyncState'
 import HudCard from '../../components/common/HudCard'
 import Button from '../../components/common/Button'
-import { useData, useCollection, nextId } from '../../store/DataContext'
-import type { MrpSuggestion } from '../../store/types'
+import DateInput from '../../components/common/DateInput'
+import FormModal, { type ModalField } from '../../components/common/FormModal'
 
-const PurchaseMrp = () => {
-    const items = useCollection('items')
-    const { purchaseOrders, create, workOrders } = useData()
-
-    // ============================================================
-    // MRP 연산: BOM 전개 → 자재 소요량 → 재고/리드타임 기반 발주 제안
-    // ============================================================
-    const suggestions = useMemo<MrpSuggestion[]>(() => {
-        const materialItems = items.filter(i => i.type === '자재')
-        return materialItems.map((mi, index) => {
-            // 진행중인 작업오더 기준 소요량(단순화: 작업오더 수량 × 안전재고 정책)
-            const activeQty = workOrders
-                .filter(w => w.status === '진행중' || w.status === '지시')
-                .reduce((acc, w) => acc + w.qty, 0)
-            const requirement = Math.round(activeQty * 0.5)
-            const shortfall = Math.max(0, requirement + mi.safetyStock - mi.stock)
-            const reorderPoint = mi.safetyStock + Math.round(requirement * (mi.leadTime / 30))
-            const suggestedQty = shortfall > 0 ? Math.ceil(shortfall * 1.1) : 0
-
-            return {
-                id: `MRP-${String(index + 1).padStart(3, '0')}`,
-                item: mi.name,
-                unit: mi.unit,
-                requirement,
-                onHand: mi.stock,
-                shortfall,
-                reorderPoint,
-                leadTime: mi.leadTime,
-                suggestedQty,
-                reason: shortfall > 0
-                    ? `안전재고 ${mi.safetyStock} + 소요 ${requirement} 대비 부족 (${shortfall}${mi.unit})`
-                    : '충분한 재고 보유',
-            }
-        })
-    }, [items, workOrders])
-
-    const needOrder = suggestions.filter(s => s.suggestedQty > 0)
-
-    const handleCreatePo = (s: MrpSuggestion) => {
-        const vendor = purchaseOrders.find(p => p.item === s.item)?.vendor ?? '대한강철'
-        create('purchaseOrders', {
-            id: nextId('PO', purchaseOrders),
-            vendor,
-            item: s.item,
-            qty: s.suggestedQty,
-            unitPrice: items.find(i => i.name === s.item)?.price ?? 0,
-            amount: s.suggestedQty * (items.find(i => i.name === s.item)?.price ?? 0),
-            dueDate: new Date(Date.now() + s.leadTime * 86400000).toISOString().slice(0, 10),
-            status: '발주',
-            receivedQty: 0,
-        })
-        window.alert(`${s.item} 발주가 생성되었습니다.`)
+const actions: Record<string, string> = { PURCHASE: '발주 필요', PRODUCE: '생산 보충 필요', MISSING_BOM: 'BOM 확인 필요', EXPEDITE: '공급 납기 조정 필요', COVERED: '수량 충당' }
+const amount = (qty: number, unit: string) => `${qty.toLocaleString('ko-KR', { maximumFractionDigits: 4 })} ${unit}`
+export default function PurchaseMrp() {
+    const { core, user } = useAuth()
+    const cache = useQueryClient(), items = useItemSelection(), vendors = usePartnerSelection('발주처')
+    const canWrite = user?.roles.some(role => role === 'MATERIAL' || role === 'ADMIN') ?? false
+    const [through, setThrough] = useState(() => addDateDays(seoulToday(), 90))
+    const [appliedThrough, setAppliedThrough] = useState(through)
+    const [params] = useSearchParams()
+    const [itemId, setItemId] = useState(() => {
+        const value = params.get('itemId') ?? ''
+        return /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value)) ? value : ''
+    }), [page, setPage] = useState(0)
+    const [target, setTarget] = useState<MrpRow | null>(null)
+    const [values, setValues] = useState<Record<string, string>>({})
+    const [created, setCreated] = useState<MrpPurchase | null>(null)
+    const query = useQuery({ queryKey: ['mrp', { through: appliedThrough, itemId, page }],
+        queryFn: ({ signal }) => fetchMrp(core, { through: appliedThrough, itemId: itemId ? Number(itemId) : undefined, page, size: 50 }, signal), staleTime: 0 })
+    const create = useMutation({ mutationFn: () => createMrpPurchase(core, { purchaseOrderNo: values.purchaseOrderNo,
+        vendorId: Number(values.vendorId), itemId: target!.itemId, qty: target!.suggestedPurchaseQty,
+        unitPrice: Number(values.unitPrice), dueDate: values.dueDate }),
+        onSuccess: async po => {
+            setCreated(po); setTarget(null); setPage(0)
+            await Promise.all(['mrp', 'purchase-orders', 'dashboard'].map(key => cache.invalidateQueries({ queryKey: [key] })))
+        } })
+    const open = (row: MrpRow) => {
+        create.reset(); setCreated(null); setTarget(row)
+        const earliest = addDateDays(seoulToday(), row.leadTimeDays)
+        setValues({ purchaseOrderNo: `PO-MRP-${crypto.randomUUID().slice(0, 18).toUpperCase()}`, vendorId: '',
+            qty: String(row.suggestedPurchaseQty), unitPrice: String(row.price || ''), dueDate: row.requiredBy > earliest ? row.requiredBy : earliest })
     }
-
-    const handleCreateAll = () => {
-        needOrder.forEach((s, idx) => {
-            const vendor = purchaseOrders.find(p => p.item === s.item)?.vendor ?? '대한강철'
-            const price = items.find(i => i.name === s.item)?.price ?? 0
-            create('purchaseOrders', {
-                id: `${nextId('PO', purchaseOrders)}-${idx}`,
-                vendor,
-                item: s.item,
-                qty: s.suggestedQty,
-                unitPrice: price,
-                amount: s.suggestedQty * price,
-                dueDate: new Date(Date.now() + s.leadTime * 86400000).toISOString().slice(0, 10),
-                status: '발주',
-                receivedQty: 0,
-            })
-        })
-        window.alert(`${needOrder.length}건의 발주가 일괄 생성되었습니다.`)
-    }
-
-    const columns: DataTableColumn<MrpSuggestion>[] = [
-        { key: 'item', label: '자재', render: row => <span className="text-hud-text-primary">{row.item}</span> },
-        { key: 'onHand', label: '현재고', render: row => <span className="font-mono">{row.onHand.toLocaleString()} {row.unit}</span> },
-        { key: 'requirement', label: '소요량', render: row => <span className="font-mono">{row.requirement.toLocaleString()} {row.unit}</span> },
-        { key: 'reorderPoint', label: '발주점', render: row => <span className="font-mono text-hud-text-muted">{row.reorderPoint.toLocaleString()} {row.unit}</span> },
-        {
-            key: 'shortfall', label: '부족량',
-            render: row => <span className={`font-mono ${row.shortfall > 0 ? 'text-hud-accent-danger' : 'text-hud-text-muted'}`}>{row.shortfall.toLocaleString()} {row.unit}</span>
-        },
-        { key: 'leadTime', label: '리드타임', render: row => <span className="font-mono">{row.leadTime}일</span> },
-        {
-            key: 'suggestedQty', label: '제안 발주량',
-            render: row => row.suggestedQty > 0
-                ? <span className="font-mono text-hud-accent-primary">{row.suggestedQty.toLocaleString()} {row.unit}</span>
-                : <span className="text-hud-text-muted text-xs">-</span>
-        },
-        { key: 'reason', label: '사유', render: row => <span className="text-xs text-hud-text-muted">{row.reason}</span> },
-        {
-            key: 'actions', label: '관리', sortable: false,
-            render: row => row.suggestedQty > 0 ? (
-                <Button variant="outline" size="sm" onClick={() => handleCreatePo(row)}>
-                    발주 전환
-                </Button>
-            ) : <span className="text-hud-text-muted text-xs">-</span>
-        },
+    const fields: ModalField[] = [
+        { key: 'purchaseOrderNo', label: '발주번호', type: 'text', required: true, maxLength: 32 },
+        vendors.field('vendorId', '발주처'),
+        { key: 'qty', label: `제안 수량 (${target?.unit ?? ''})`, type: 'number', required: true, readOnly: true, step: 0.0001 },
+        { key: 'unitPrice', label: '확인 단가(원)', type: 'number', required: true, min: 1, step: 1 },
+        { key: 'dueDate', label: '배송 예정일', type: 'date', required: true },
     ]
-
-    return (
-        <>
-            <DataTable<MrpSuggestion>
-                title="MRP · 발주 제안"
-                subtitle="BOM 전개 소요량과 리드타임을 기반으로 발주 시점/수량을 제안합니다."
-                columns={columns}
-                data={suggestions}
-                rowKey="id"
-                searchPlaceholder="자재명 검색..."
-                toolbar={
-                    <Button
-                        variant="primary"
-                        glow
-                        disabled={needOrder.length === 0}
-                        onClick={handleCreateAll}
-                    >
-                        제안 일괄 발주 ({needOrder.length}건)
-                    </Button>
-                }
-            />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-                <StatCard title="분석 자재 수" value={suggestions.length.toString()} icon={<Package size={24} />} variant="primary" />
-                <StatCard title="발주 필요" value={needOrder.length.toString()} icon={<TrendingDown size={24} />} variant="danger" />
-                <StatCard title="총 부족량" value={needOrder.reduce((acc, s) => acc + s.shortfall, 0).toLocaleString()} icon={<ShoppingCart size={24} />} variant="warning" />
-                <StatCard title="최장 리드타임" value={`${Math.max(0, ...suggestions.map(s => s.leadTime))}일`} icon={<Clock size={24} />} variant="secondary" />
-            </div>
-            <HudCard title="발주점 산출 근거" subtitle="desc.md: 발주점 = 안전재고 + 소비 × 리드타임" className="mt-6">
-                <p className="text-sm text-hud-text-secondary leading-relaxed">
-                    발주점은 <span className="font-mono text-hud-accent-primary">안전재고 + 일평균 소비량 × 리드타임</span>으로 산출됩니다.
-                    현재고가 발주점 이하로 떨어지면 리드타임 내 도착하도록 발주 수량을 제안하며,
-                    제안된 수량은 <span className="font-mono">단가 × 수량</span>으로 발주서를 생성합니다.
-                </p>
-            </HudCard>
-        </>
-    )
+    const data = query.data
+    return <div className="space-y-6">
+        <div><h1 className="text-2xl font-bold text-hud-text-primary">MRP · 발주 제안</h1>
+            <p className="mt-1 text-sm text-hud-text-muted">Spring 실제 BOM·작업오더·재고·발주잔량 조회 · 계획 참고값이며 재고 예약이 아닙니다.</p></div>
+        <HudCard title="계획 조회" headingLevel={2}>
+            <form className="flex flex-wrap items-end gap-4" onSubmit={e => { e.preventDefault(); setPage(0); if (through === appliedThrough) { void query.refetch() } else setAppliedThrough(through) }}>
+                <label className="text-sm">계획 종료일<DateInput aria-label="계획 종료일" className="mt-1 rounded-lg border border-hud-border-secondary bg-hud-bg-primary px-3 py-2 text-sm text-hud-text-primary" value={through} required
+                    min={seoulToday()} max={addDateDays(seoulToday(), 365)} onChange={e => setThrough(e.target.value)} /></label>
+                <label className="text-sm">표시 품목<select aria-label="표시 품목" className="mt-1 block rounded-lg border border-hud-border-secondary bg-hud-bg-primary px-3 py-2 text-sm text-hud-text-primary" value={itemId} disabled={!items.ready}
+                    onChange={e => { setItemId(e.target.value); setPage(0) }}><option value="">전체 품목</option>{items.options.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></label>
+                <Button type="submit" disabled={query.isFetching || !through}>계획 재조회</Button>
+            </form>{items.status}
+        </HudCard>
+        <AsyncState isLoading={query.isPending} error={query.error} onRetry={() => { void query.refetch() }} loadingMessage="MRP를 계산하는 중...">
+            {data && <>
+                <p className="text-sm text-hud-text-muted">기준시각 {new Date(data.asOf).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (서울) · 계획 종료 {data.through} · 전체 활성 오더 {data.activeWorkOrders}건 · 발주 필요 {data.purchaseNeededItems}품목 · 생산 보충 {data.productionNeededItems}품목 · BOM 확인 {data.missingBomItems}품목</p>
+                <HudCard title="품목별 소요와 공급 충당" headingLevel={2}>
+                    {data.rows.length === 0 ? <p>해당 품목·페이지에 소요량 또는 보충 제안이 없습니다.</p> : <div className="overflow-x-auto"><table className="w-full text-sm">
+                        <caption className="sr-only">품목별 MRP 소요량과 가용재고 및 발주 제안</caption>
+                        <thead><tr>{['품목', '소요량', '가용재고', '안전재고', '미입고 발주', '예정 생산', '지연 공급', '부족량', '발주 제안', '소요일 / 발주마감', '조치'].map(h => <th key={h} scope="col" className="p-2 text-left whitespace-nowrap">{h}</th>)}</tr></thead>
+                        <tbody>{data.rows.map(row => <tr key={row.itemId} className="border-t border-hud-border-secondary">
+                            <th scope="row" className="p-2 text-left font-normal whitespace-nowrap">{row.itemNo}<br />{row.itemName}</th>
+                            {[row.grossRequirement, row.usableStock, row.safetyStock, row.onOrder, row.scheduledProduction, row.lateSupplyQty, row.netRequirement, row.suggestedPurchaseQty].map((q, n) => <td key={n} className="p-2 font-mono whitespace-nowrap">{amount(q, row.unit)}</td>)}
+                            <td className="p-2 whitespace-nowrap">{row.requiredBy}<br />{row.orderBy}{row.urgent && <span className="block text-hud-accent-warning">발주마감 경과</span>}</td>
+                            <td className="p-2 whitespace-nowrap"><p className="mb-2">{actions[row.action]}</p>{canWrite && row.suggestedPurchaseQty > 0 && <Button size="sm" variant="outline" disabled={!vendors.ready || create.isPending} onClick={() => open(row)}>발주 전환</Button>}</td>
+                        </tr>)}</tbody>
+                    </table></div>}
+                    <div className="mt-4 flex items-center gap-3"><Button variant="outline" disabled={page === 0 || query.isFetching} onClick={() => setPage(page - 1)}>이전</Button>
+                        <span className="text-sm">{page + 1} / {Math.max(1, data.totalPages)} 페이지 · {data.totalElements}품목</span>
+                        <Button variant="outline" disabled={page + 1 >= data.totalPages || query.isFetching} onClick={() => setPage(page + 1)}>다음</Button></div>
+                </HudCard>
+                {canWrite && vendors.status}
+                <HudCard title="계산 근거와 제약" headingLevel={2}><ul className="list-disc space-y-2 pl-5 text-xs text-hud-text-muted">{data.notes.map(note => <li key={note}>{note}</li>)}</ul></HudCard>
+            </>}
+        </AsyncState>
+        {created && <HudCard title="등록된 실제 발주" headingLevel={2}><div role="status" className="space-y-2 text-sm">
+            <p>{created.purchaseOrderNo} · {created.vendorName} · {created.itemNo} · {created.qty.toLocaleString()} · {created.amount.toLocaleString()}원 · {created.dueDate} · {created.status}</p>
+            <p>발주가 DB에 저장됐습니다. 현재고는 변하지 않으며, 새 발주잔량이 다음 MRP에 반영됩니다.</p>
+            <Link to="/purchase/receiving" className="text-hud-accent-primary underline">실제 발주 선택·입고 화면</Link>
+        </div></HudCard>}
+        <FormModal isOpen={target !== null} onClose={() => { if (!create.isPending) setTarget(null) }} title="MRP 제안 발주 전환"
+            subtitle={`${target?.itemNo ?? ''} · ${target?.itemName ?? ''} · 발주처를 직접 선택하고 기준단가와 배송일을 확인하세요. 오래된 제안은 먼저 재조회하세요.`}
+            fields={fields} values={values} onChange={(key, value) => setValues(v => ({ ...v, [key]: value }))}
+            onSubmit={() => create.mutate()} isSubmitting={create.isPending} submitLabel="발주 확정"
+            error={create.error ? <><p>{create.error instanceof ApiError ? create.error.message : '발주를 등록하지 못했습니다.'}</p>{create.error instanceof ApiError && create.error.traceId && <p>Trace ID: {create.error.traceId}</p>}</> : undefined} />
+    </div>
 }
-
-export default PurchaseMrp

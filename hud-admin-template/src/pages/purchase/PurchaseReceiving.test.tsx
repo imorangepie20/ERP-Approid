@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 import axe from 'axe-core'
 import { createHttpClient } from '../../api/http'
@@ -16,10 +17,16 @@ const row = { id: 42, receivingNo: 'RC-LIVE', purchaseOrderId: 90, purchaseOrder
     orderQty: 100, receivedQty: 10, defectQty: 2, goodQty: 8, receivedDate: '2026-10-02', status: '부분합격',
     stockApplied: true, lotNo: 'LOT-LIVE', inventoryTxnNo: 'TX-LIVE', reversalTxnNo: null as string | null, cancelledDate: null as string | null }
 const page = (content: unknown[], total = content.length, number = 0) => ({ content, number, size: 10, totalElements: total, totalPages: Math.ceil(total / 10) })
-function mount() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><PurchaseReceiving /></QueryClientProvider>) }
+function mount(entry = '/purchase/receiving') { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[entry]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><PurchaseReceiving /></MemoryRouter></QueryClientProvider>) }
 function options(url: URL) { if (url.pathname.endsWith('/purchase-orders')) return Response.json(page([po, { ...po, id: 91, purchaseOrderNo: 'PO-CLOSED', status: '입고완료' }, { ...po, id: 92, purchaseOrderNo: 'PO-CANCEL', status: '취소' }])) }
 async function ready() { await waitFor(() => expect(screen.getByRole('button', { name: '입고 등록' })).toBeEnabled(), { timeout: 5000 }) }
 beforeEach(() => { state.fetch.mockReset(); state.roles = ['MATERIAL'] })
+
+it('initializes the Lot source document as an actual receiving search', async () => {
+    state.fetch.mockImplementation(async input => options(new URL(String(input))) ?? Response.json(page([row])))
+    mount('/purchase/receiving?keyword=RC-LIVE'); await screen.findByText('RC-LIVE')
+    expect(state.fetch.mock.calls.some(([input]) => new URL(String(input)).pathname.endsWith('/receivings') && new URL(String(input)).searchParams.get('keyword') === 'RC-LIVE')).toBe(true)
+})
 
 it('creates receipts with real purchase IDs, remaining quantities and calendar input then refreshes related data', async () => {
     let rows: typeof row[] = [], ordered = po

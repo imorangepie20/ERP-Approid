@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { Plus } from 'lucide-react'
 import { ApiError } from '../../api/http'
@@ -24,7 +25,8 @@ export default function PurchaseReceiving() {
     const { core, user } = useAuth()
     const canWrite = user?.roles.some(r => r === 'ADMIN' || r === 'MATERIAL') ?? false
     const cache = useQueryClient()
-    const [keyword, setKeyword] = useState('')
+    const [searchParams] = useSearchParams()
+    const [keyword, setKeyword] = useState(() => searchParams.get('keyword') ?? '')
     const [status, setStatus] = useState('')
     const [purchaseOrderId, setPurchaseOrderId] = useState('')
     const [page, setPage] = useState(1)

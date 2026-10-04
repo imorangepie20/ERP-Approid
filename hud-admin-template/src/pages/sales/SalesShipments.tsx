@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { ApiError } from '../../api/http'
 import { actOnShipment, fetchShipment, fetchShipmentAllocation, fetchShipmentLots, fetchShipmentOrders, fetchShipmentPage,
@@ -24,7 +25,8 @@ function errorContent(error: unknown) {
 export default function SalesShipments() {
     const { core, user } = useAuth(); const cache = useQueryClient()
     const canWrite = user?.roles.some(r => r === 'ADMIN' || r === 'SALES') ?? false
-    const [keyword, setKeyword] = useState(''), [status, setStatus] = useState(''), [orderFilter, setOrderFilter] = useState('')
+    const [searchParams] = useSearchParams()
+    const [keyword, setKeyword] = useState(() => searchParams.get('keyword') ?? ''), [status, setStatus] = useState(''), [orderFilter, setOrderFilter] = useState(searchParams.get('salesOrderId') ?? '')
     const [page, setPage] = useState(1), [size, setSize] = useState(10), [sort, setSort] = useState('shipmentNo')
     const [direction, setDirection] = useState<'asc' | 'desc'>('desc')
     const [formOpen, setFormOpen] = useState(false), [editing, setEditing] = useState<ShipmentRow | null>(null)

@@ -72,8 +72,11 @@ npm run generate:api-types
 
 기본 OpenAPI 주소는 `http://127.0.0.1:38080/v3/api-docs`다. 다른 주소를 쓰려면
 `OPENAPI_CORE_URL` 환경 변수를 지정한다. 생성 결과 `src/api/generated/core.ts`는 프런트와
-백엔드 계약 변경을 코드 리뷰에서 확인할 수 있도록 저장소에 포함한다. Analytics 서비스의
-OpenAPI 타입 생성과 실제 호출 검증은 ANL-04에서 추가한다.
+백엔드 계약 변경을 코드 리뷰에서 확인할 수 있도록 저장소에 포함한다. Phase 1 대시보드·MRP·생산/영업/재고 분석은
+같은 Spring/core 주소·JWT·OpenAPI 타입을 사용하므로 별도 Analytics 서버를 기동할 필요가 없다.
+`VITE_API_ANALYTICS_URL`은 향후 분리용 미사용 설정이다. 계약/복구는
+[대시보드](analytics-dashboard.md), [MRP](analytics-mrp.md), [생산 분석](analytics-production.md),
+[영업 요약](analytics-sales.md), [재고 원천](analytics-inventory.md), [Lot 추적](lot-tracing.md), [격리 E2E](phase1-e2e.md)를 참고한다.
 
 대체 포트와 프로젝트명을 사용하려면 별도 환경 파일을 만든 뒤 현재 PowerShell 세션에서 검증 스크립트를 호출한다.
 

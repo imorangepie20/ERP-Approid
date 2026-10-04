@@ -19,6 +19,9 @@ jobs:
         working-directory: hud-admin-template
     steps:
       - uses: actions/checkout@v4
+      - name: Deployment verifier regression checks
+        run: python3 -m unittest discover -s infra/zorin -p test_verify.py -v
+        working-directory: .
       - uses: actions/setup-node@v4
         with:
           node-version: 22

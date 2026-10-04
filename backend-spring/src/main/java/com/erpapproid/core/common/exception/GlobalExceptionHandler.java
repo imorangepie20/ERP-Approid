@@ -74,6 +74,16 @@ public class GlobalExceptionHandler {
         return build(ErrorCode.INVALID_INPUT, "지원하지 않는 Content-Type 입니다: " + ex.getContentType(), null);
     }
 
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+            org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        var methods = ex.getSupportedHttpMethods();
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .allow(methods == null ? new org.springframework.http.HttpMethod[0]
+                        : methods.toArray(org.springframework.http.HttpMethod[]::new))
+                .body(build(ErrorCode.METHOD_NOT_ALLOWED, "지원하지 않는 HTTP 메서드입니다.", null).getBody());
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return build(ErrorCode.INVALID_INPUT, "파라미터 타입이 올바르지 않습니다: " + ex.getName(), null);

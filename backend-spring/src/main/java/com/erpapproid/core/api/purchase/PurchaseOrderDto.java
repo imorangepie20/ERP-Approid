@@ -8,6 +8,9 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -21,6 +24,7 @@ public class PurchaseOrderDto {
     @Schema(name = "PurchaseOrderRequest")
     public static final class Request {
         @NotBlank
+        @Size(max = 32)
         private String purchaseOrderNo;
         @NotNull
         @Positive
@@ -30,9 +34,11 @@ public class PurchaseOrderDto {
         private Long itemId;
         @NotNull
         @DecimalMin(value = "0", inclusive = false)
+        @Digits(integer = 14, fraction = 4)
         private BigDecimal qty;
         @NotNull
         @Positive
+        @Max(9007199254740991L)
         private Long unitPrice;
         @NotNull
         private LocalDate dueDate;
