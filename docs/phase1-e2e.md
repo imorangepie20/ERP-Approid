@@ -304,3 +304,34 @@ lint(오류 0/기존 경고 48), actionlint와 diff 검사 모두 통과했다.
 - PASS: 계약/로드맵/운영 문서 diff 검토, `git diff --check` 종료0 및 새 소스/문서60개 후행 공백 없음.
 - UNVERIFIED: 이번 변경의 원격 CI는 미커밋/미푸시이므로 실행하지 않았다.
   Lot 보류·해제·폐기 UI/기존 폐기 현재고·잔량 보상은 후속 범위이며 INV-02 전체 완료로 표시하지 않는다.
+
+## 분석·Lot 커밋/푸시 및 Zorin 재배포 — 2026-10-04
+
+- PASS: `156f2a618be975cd2903189ce5f643ce930377ce`를 main에 커밋/푸시했고 원격 main SHA가 일치한다.
+  [실행 37190769893](https://github.com/imorangepie20/ERP-Approid/actions/runs/37190769893)의
+  Frontend, Backend, Chromium transactions, Phase 1 required가 모두 success다.
+- PASS: 로컬 Gradle 전체 검증 종료0/UP-TO-DATE(소스 변경 없음), XML 33클래스/207개,
+  실패·오류·스킵0. 프런트 전체307개/43파일, 생성 순서 회귀3개, E2E 타입 검사,
+  lint 오류0/기존 경고48 및 공개 HTTPS 설정의 TypeScript/Vite build 종료0.
+  기존 단일 청크/Browserslist 경고와 공개 의존성 위험은 별도 To Do로 유지한다.
+- PASS: 최신 소스를 Docker로 빌드하고 실제 격리 Chromium6개/1.2분, 재시도0,
+  OpenAPI 타입 SHA256 `6A0C8D0561E62C13A1A473A2238673E329E5C5F8674A8546F0CD4EBB032D6173`
+  일치. 테스트 컨테이너/tmpfs만 정리했고 개발·데모 DB를 보존했다.
+- PASS: `demo-20261004-156f2a6` 소스 아카이브 SHA256
+  `9ea1b51f4145f73c0307ac7b90c92458bc5e83f379ac3a74c3da4f23bbe03735`, 이미지 아카이브
+  `7444878e174b992f52d05ff4a1ec6ca31b08d0f428c1c3a84ce0388521f2a17d`가 로컬/서버에서 일치한다.
+  이전 이미지·배포 설정·DB 백업을 보존한 뒤 ERP backend/frontend만 교체했고 PostgreSQL ID는 그대로다.
+- PASS: 공개 브라우저 로그인/대시보드/Lot 목록, same-origin API6회, runtime 오류0.
+  `test-results/deploy-demo/dashboard.png`, `lots.png`는 비공개 로컬 산출물이다.
+- 배포 검증 1차는 PASS5/FAIL2였다. 동일 출처에 ACAO를 강제한 검증기와 다른 앱의 역사적
+  컨테이너 ID 비교가 원인이었다. 실제 인증 조회200/비허용 Origin403을 확인하고 검증기를 수정했다.
+  다른 앱이 18:10에 별도 교체되어 첫 구간의 보존을 소급 판정하지 않았다.
+- PASS: 18:12:58 KST 재검증 구간 시작 전에 비ERP59개 기준을 캡처하고 ERP 앱만 재기동했다.
+  전체7개 PASS/종료0: 호스트, prod/비밀 권한, 3 healthy 앱/V1–V15, 터널,
+  HTTPS/번들/401/CSP/HSTS, 인증/404/동일 출처200·비허용403/429, DB 복원·비ERP ID59개 보존.
+  원본/복원 item/Lot/migration `8/8/15`, admin1이다. 원본 DB는 변경하지 않았고 임시 복원 DB만 제거했다.
+  서버 보고서는 `/home/approid/erp-approid/artifacts/demo-20261004-156f2a6/verification.json`이다.
+- PASS: 검증기 근접 unittest6개와 문서 diff/`git diff --check` 종료0.
+  검증기 보정은 애플리케이션 이미지 변경이 아니며 해당 소스를 별도로 커밋/CI 확인한다.
+  초기 릴리스의 실패 이력·첫 재검증 결과는 보존한다. 실제 생산 데이터 인증, 외부 자동 백업,
+  전면 CVE 검사, 호스트 재부팅/앱 롤백 훈련은 이번 성공으로 완료 처리하지 않는다.

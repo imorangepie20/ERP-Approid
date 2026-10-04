@@ -124,7 +124,7 @@ def authentication():
         assert status == 404, path
     allowed = {'Origin': URL, 'Access-Control-Request-Method': 'GET'}
     status, headers, _ = request('/api/core/items', headers=allowed, method='OPTIONS')
-    assert status == 200 and headers.get('Access-Control-Allow-Origin') == URL
+    same_origin_preflight(status, headers)
     allowed['Origin'] = 'https://untrusted.example'
     status, headers, _ = request('/api/core/items', headers=allowed, method='OPTIONS')
     assert status == 403 and headers.get('Access-Control-Allow-Origin') is None
@@ -135,9 +135,16 @@ def authentication():
     return 'Admin login/me/items/BOM/routing/Lot 200; old login 401; private/docs 404; CORS 200/403; login limit 429'
 
 
-def operations():
+def same_origin_preflight(status, headers):
+    # Forwarded HTTPS/Host make this a same-origin request, not a cross-origin one.
+    # Spring correctly omits ACAO in that case. Never accept a wildcard/foreign origin.
+    assert status == 200 and headers.get('Access-Control-Allow-Origin') in (None, URL)
+
+
+def operations(baseline_directory=None):
     recovery()
-    baseline = (ROOT / 'artifacts/demo-20261004-0812/existing-containers.txt').read_text().splitlines()
+    baseline = ((baseline_directory or report_path().parent) / 'existing-containers.txt').read_text().splitlines()
+    assert baseline, 'Missing non-ERP pre-rollout baseline'
     current = subprocess.check_output(['docker', 'ps', '--format', '{{.Names}} {{.ID}}'], text=True).splitlines()
     assert set(baseline).issubset(set(current)), 'Existing container identities changed'
     assert (ROOT / 'deploy/README.md').is_file()
@@ -161,7 +168,8 @@ if __name__ == '__main__':
     target.parent.mkdir(parents=True, exist_ok=True)
     for name, function in [('1-host', host), ('2-security', security), ('3-deployment', deployment),
                            ('4-tunnel-dns', tunnel), ('5-public-https-api', public),
-                           ('6-auth-access', authentication), ('7-recovery-runbook', operations)]:
+                           ('6-auth-access', authentication),
+                           ('7-recovery-runbook', lambda: operations(target.parent))]:
         check(name, function)
     target.write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
     raise SystemExit(0 if all(result['status'] == 'PASS' for result in results) else 1)

@@ -47,6 +47,30 @@ class DeploymentVerifierTest(unittest.TestCase):
             with self.subTest(release=release), self.assertRaises(ValueError):
                 verify.report_path(release)
 
+    def test_same_origin_preflight_does_not_require_cross_origin_header(self):
+        verify.same_origin_preflight(200, {})
+        verify.same_origin_preflight(200, {'Access-Control-Allow-Origin': verify.URL})
+        for status, headers in ((403, {}), (200, {'Access-Control-Allow-Origin': '*'}),
+                                (200, {'Access-Control-Allow-Origin': 'https://untrusted.example'})):
+            with self.subTest(status=status, headers=headers), self.assertRaises(AssertionError):
+                verify.same_origin_preflight(status, headers)
+
+    def test_operations_uses_release_baseline_and_detects_container_replacement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release = root / 'artifacts/demo-new'
+            release.mkdir(parents=True)
+            (release / 'existing-containers.txt').write_text('existing-app before-id\n')
+            (root / 'deploy').mkdir()
+            (root / 'deploy/README.md').write_text('runbook')
+            with patch('verify.ROOT', root), patch('verify.recovery'), \
+                    patch('verify.subprocess.check_output', return_value='existing-app before-id\nERP new-id\n'):
+                self.assertIn('1 prior containers unchanged', verify.operations(release))
+            with patch('verify.ROOT', root), patch('verify.recovery'), \
+                    patch('verify.subprocess.check_output', return_value='existing-app replaced-id\n'):
+                with self.assertRaises(AssertionError):
+                    verify.operations(release)
+
 
 if __name__ == '__main__':
     unittest.main()

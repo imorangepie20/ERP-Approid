@@ -41,6 +41,10 @@ any later rollout. Never overwrite a deployed release tag: use a new release ide
 Before an update, back up the current DB, inspect Flyway history, and ensure the new migrations
 are backwards compatible. Change only the ERP release image references. Do NOT run `down -v`,
 prune volumes, clear business tables, reuse the initial seed bootstrap or remove other projects.
+Capture running non-ERP container names/IDs immediately before each rollout in
+`artifacts/<new-release>/existing-containers.txt` (exclude Compose project `erp-approid-demo`).
+The verifier uses that release-specific baseline, never the historical first-release IDs:
+other projects can legitimately change between ERP releases. Preserve the original baseline.
 
 ## First bootstrap (already performed; do not repeat)
 
@@ -82,6 +86,10 @@ It does not change Cloudflare access rules or weaken expected HTTP status checks
 Reports go to `artifacts/<current backend image tag>/verification.json`; `--release <identifier>`
 can select the retained release directory explicitly without overwriting the initial report.
 Local regressions run with `python -m unittest discover -s infra/zorin -p test_verify.py`.
+The same-origin OPTIONS check accepts absent or exactly matching ACAO, since forwarded public
+HTTPS/Host makes it a same-origin request. It still rejects wildcard/foreign ACAO, tests actual
+authenticated browser reads, and requires a foreign Origin to return 403 without ACAO. See
+[Spring CorsUtils](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/cors/CorsUtils.html).
 
 `verify.py` tests public TLS, actual bundle URLs, unauthenticated/authenticated endpoints, CORS,
 hidden internal/docs routes and login rate limiting. Its final auth check temporarily limits
