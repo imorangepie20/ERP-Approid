@@ -74,7 +74,7 @@ jobs:
         run: |
           docker compose --project-name erp-approid-e2e -f docker-compose.e2e.yml exec -T postgres psql -U erp -d erp_approid_e2e -v ON_ERROR_STOP=1 < scripts/e2e-users.sql
           version=$(docker compose --project-name erp-approid-e2e -f docker-compose.e2e.yml exec -T postgres psql -U erp -d erp_approid_e2e -Atc "select max(version::integer) from flyway_schema_history where success")
-          test "$version" = 15
+          test "$version" = 19
       - run: npm run generate:api-types
         working-directory: hud-admin-template
         env:

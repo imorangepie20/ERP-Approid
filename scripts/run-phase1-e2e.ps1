@@ -26,7 +26,7 @@ try {
         & docker @compose exec -T postgres psql -U erp -d erp_approid_e2e -v ON_ERROR_STOP=1
     if ($LASTEXITCODE -ne 0) { throw 'Isolated role fixture failed' }
     $version = & docker @compose exec -T postgres psql -U erp -d erp_approid_e2e -Atc 'select max(version::integer) from flyway_schema_history where success'
-    if ($LASTEXITCODE -ne 0 -or "$version".Trim() -ne '15') { throw 'Expected Flyway V15' }
+    if ($LASTEXITCODE -ne 0 -or "$version".Trim() -ne '19') { throw 'Expected Flyway V19' }
     Set-Location (Join-Path $repo 'hud-admin-template')
     $env:E2E_ISOLATED = 'true'
     & npm.cmd run test:e2e:types

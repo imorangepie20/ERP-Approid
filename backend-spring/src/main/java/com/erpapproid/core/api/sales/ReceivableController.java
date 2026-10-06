@@ -116,6 +116,7 @@ public class ReceivableController {
 
     @PostMapping("/{id}/reminders")
     @PreAuthorize("hasAnyRole('ADMIN','ACCOUNTING')")
+    @Transactional
     public ResponseEntity<com.erpapproid.core.api.messaging.MessageDto.Result> requestReminder(@PathVariable Long id,
             @Valid @RequestBody com.erpapproid.core.api.messaging.MessageDto.Request input) {
         var result=reminderService.request(id,input);
@@ -125,6 +126,7 @@ public class ReceivableController {
     @Operation(summary = "전액·부분 수납", description = "금액·수납일·요청 UUID 필수. 동일 처리자/키/입력 재전송은 중복 저장하지 않습니다.")
     @PostMapping("/{id}/collect")
     @PreAuthorize("hasAnyRole('ACCOUNTING', 'ADMIN')")
+    @Transactional
     public ResponseEntity<ReceivableDto.CollectionResult> collect(@PathVariable Long id,
             @Valid @RequestBody ReceivableDto.CollectionRequest input) {
         if (id <= 0) throw MasterListQuery.invalid("미수금 ID는 양수여야 합니다.");

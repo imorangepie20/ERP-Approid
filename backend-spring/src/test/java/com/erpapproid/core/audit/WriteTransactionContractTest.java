@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 
 import com.erpapproid.core.api.bom.BomController;
 import com.erpapproid.core.api.inventory.LotController;
+import com.erpapproid.core.api.messaging.MessageContactController;
 import com.erpapproid.core.api.item.ItemController;
 import com.erpapproid.core.api.partner.PartnerController;
 import com.erpapproid.core.api.production.ProductionPlanController;
@@ -34,7 +35,7 @@ class WriteTransactionContractTest {
             RoutingController.class, QuotationController.class, SalesOrderController.class,
             ShipmentController.class, ReceivableController.class, PurchaseOrderController.class,
             ReceivingController.class, ProductionPlanController.class, WorkOrderController.class,
-            LotController.class);
+            LotController.class, MessageContactController.class);
 
     @Test
     void every_business_write_endpoint_has_a_transaction_boundary() {

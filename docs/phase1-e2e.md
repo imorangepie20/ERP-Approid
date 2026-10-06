@@ -40,7 +40,7 @@ docker compose --project-name erp-approid-e2e -f docker-compose.e2e.yml down
 `E2E_ISOLATED=true` 없이 Playwright를 직접 실행하면 구성 단계에서 중단한다.
 이 변수만 설정하는 것은 DB 격리 증명이 아니므로 준비/계정 guard를 수행하는 위 스크립트를 권장한다.
 테스트는 고유 문서번호·품목을 만들고 workers=1, retries=0으로 실행한다.
-실패를 재시도로 숨기지 않는다. 새 DB의 Flyway 버전은 V15여야 한다.
+실패를 재시도로 숨기지 않는다. 새 DB의 Flyway 버전은 V19여야 한다.
 운영 대시보드는 기존 Spring core 클라이언트의 `/api/core/analytics/dashboard`를 사용한다.
 별도 Analytics 서버용 설정은 여전히 미사용 loopback 38082 주소이며 FastAPI를 기동하지 않는다.
 
@@ -66,7 +66,7 @@ CI artifact 보관 기간은 7일로 제한한다. 외부 공유 전 민감 정�
 
 1. Frontend: npm ci, lint, E2E TypeScript, OpenAPI 생성 순서 회귀 테스트, Vitest 전체, production build.
 2. Backend: Java 21, Gradle 전체 통합 테스트(Testcontainers), 테스트 보고서 업로드.
-3. E2E: 격리 Compose를 새로 빌드/기동, 테스트 역할/V15 확인, 실제 OpenAPI 타입 재생성 후
+3. E2E: 격리 Compose를 새로 빌드/기동, 테스트 역할/V19 확인, 실제 OpenAPI 타입 재생성 후
    committed 타입 drift 검사, Chromium 검사 5건, 보고서 업로드 및 항상 스택 정리.
 
 `Phase 1 required`는 세 작업 결과가 전부 success일 때만 성공한다. 상위 작업의 실패/취소/skip을
