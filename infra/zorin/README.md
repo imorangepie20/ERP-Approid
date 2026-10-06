@@ -97,6 +97,40 @@ further login attempts through that connector; allow the bucket to refill before
 It never logs JWTs/passwords or writes business documents. A JSON report is saved under the
 release artifacts. Recovery uses a uniquely named temporary DB and drops only that DB afterwards.
 
+## Optional internal SMTP connection
+
+`smtp.override.yml` is opt-in: install it as `deploy/smtp.override.yml` only after
+provisioning the private mounts below. `manage.py` includes it automatically when present.
+Manual `erp-compose` commands must add `-f deploy/smtp.override.yml` when it exists.
+This maps `mail.approid.team` to the existing LAN host for the ERP backend only;
+public DNS, MX records, Mailcow, and other applications are not changed.
+
+- Clone the deployed image's Java `cacerts` into `runtime/smtp/cacerts`, then import
+  the exact current Mailcow public certificate as `erp-mail-exact`. Preserve all original
+  trusted roots. Mount the truststore and `runtime/smtp/mail-server.pem` read-only.
+  The standard `changeit` truststore integrity password is not an SMTP credential.
+- Copy the approved password privately from the protected operator mailbox file into
+  `secrets/smtp/spring.mail.password`. Both parent directories must be mode 700.
+  The ERP copy is mode 444 so container UID 999 can read the exact read-only file mount;
+  the original operator file stays mode 600. Never put its value in environment variables,
+  Git, command arguments, logs, or an image. Spring reads the mounted config tree.
+- Require authenticated STARTTLS and hostname verification. Do not disable verification
+  or trust arbitrary certificates. Certificate renewal needs an approved truststore refresh;
+  credential rotation needs a private copy refresh and backend recreation.
+- Validate merged Compose using `config --quiet`, then recreate only `backend-spring`
+  with `up -d --no-deps --wait`. Keep the same image and database; no feature rollout
+  or migration is part of this configuration change. Email delivery remains disabled.
+- `SmtpReadinessProbe.java` is a standalone operator connection test, not the ERP reminder
+  API. Compile for Java 21 and run inside the ERP container. Its `auth` and `wrong-host`
+  modes do not send email. `send <UUID>` sends exactly one fixed test to the approved Gmail
+  recipient; use only with explicit approval and an exclusive attempt record. Feed the
+  password through stdin. After ambiguous DATA results, inspect the message ID in server
+  logs; never automatically resend. SMTP acceptance is not proof of inbox receipt.
+
+Before applying, retain the current helper, configuration hashes, image ID, and all running
+container identities. To roll back, retain/rename the opt-in override and recreate only the
+backend using base Compose and the unchanged release image. Keep private assets for recovery.
+
 ## Recovery and rollback
 
 Backups are custom-format binary `pg_dump` files with matching SHA-256. A restore drill checks

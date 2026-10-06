@@ -54,6 +54,7 @@ public class PartnerController {
     private final ReceivableRepository receivableRepository;
     private final ReceivingRepository receivingRepository;
     private final AuditService auditService;
+    private final com.erpapproid.core.domain.messaging.PartnerMessageContactRepository messageContacts;
 
     @Operation(summary = "거래처 목록")
     @GetMapping
@@ -120,7 +121,7 @@ public class PartnerController {
     @Transactional
     public ResponseEntity<Response> update(@PathVariable Long id, @Valid @RequestBody UpdateRequest request) {
         if (!request.hasChanges()) throw invalid("수정할 거래처 정보를 입력하세요.");
-        PartnerEntity entity = partnerRepository.findById(id)
+        PartnerEntity entity = partnerRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PARTNER_NOT_FOUND,
                         "거래처를 찾을 수 없습니다: " + id));
         Response before = toResponse(entity);
@@ -136,7 +137,7 @@ public class PartnerController {
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        PartnerEntity entity = partnerRepository.findById(id)
+        PartnerEntity entity = partnerRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.PARTNER_NOT_FOUND,
                         "거래처를 찾을 수 없습니다: " + id));
         boolean inUse = salesOrderRepository.existsByCustomer_Id(id)
@@ -144,7 +145,8 @@ public class PartnerController {
                 || quotationRepository.existsByCustomer_Id(id)
                 || shipmentRepository.existsByCustomer_Id(id)
                 || receivableRepository.existsByCustomer_Id(id)
-                || receivingRepository.existsByVendor_Id(id);
+                || receivingRepository.existsByVendor_Id(id)
+                || messageContacts.existsByPartner_Id(id);
         if (inUse) {
             throw new DomainException(ErrorCode.PARTNER_IN_USE,
                     "거래처를 참조 중인 데이터가 있습니다.");

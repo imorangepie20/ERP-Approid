@@ -47,6 +47,7 @@ interface DataTableProps<T extends Record<string, any>> {
     searchPlaceholder?: string
     initialPageSize?: number
     toolbar?: ReactNode
+    exportAction?: ReactNode
     filter?: ReactNode
     remote?: DataTableRemoteState
     asyncState?: DataTableAsyncState
@@ -61,6 +62,7 @@ function DataTable<T extends Record<string, any>>({
     searchPlaceholder = '검색...',
     initialPageSize = 10,
     toolbar,
+    exportAction,
     filter,
     remote,
     asyncState,
@@ -175,6 +177,7 @@ function DataTable<T extends Record<string, any>>({
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-hud-text-muted" size={16} />
                             <input
                                 type="text"
+                                aria-label={searchPlaceholder}
                                 value={effectiveSearchQuery}
                                 onChange={(e) => {
                                     if (remote) {
@@ -193,9 +196,9 @@ function DataTable<T extends Record<string, any>>({
                                 필터
                             </Button>
                         )}
-                        <Button variant="outline" size="sm" leftIcon={<Download size={14} />}>
+                        {exportAction === undefined ? <Button variant="outline" size="sm" leftIcon={<Download size={14} />}>
                             내보내기
-                        </Button>
+                        </Button> : exportAction}
                     </div>
                 </div>
 

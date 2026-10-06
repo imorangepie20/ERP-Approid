@@ -7,6 +7,10 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface PartnerRepository extends JpaRepository<PartnerEntity, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from PartnerEntity p where p.id = :id")
+    java.util.Optional<PartnerEntity> findForUpdate(Long id);
+
     boolean existsByPartnerNo(String partnerNo);
 
     @Query("""

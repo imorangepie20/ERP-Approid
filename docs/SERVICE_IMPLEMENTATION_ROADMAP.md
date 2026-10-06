@@ -539,11 +539,15 @@ Lot 목록/상세·서울 만료 경계·원/역수불·생산/출하/입고 원
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 백엔드 있음, UI 하드코딩 |
+| 현재 상태 | 실제 미수 목록·원금/잔액 요약·수납 이력·독촉 검토 모달 연결(로컬); 실제 발송·전표는 후속 |
 | 기능 | 고객별 미수 조회, 연체 요약, 전액/부분 수납, 수납 이력 |
-| API | `/api/core/receivables`, `/summary`, `/{id}/collect` |
+| API | `/api/core/receivables`, `/summary`, `/{id}`, `/{id}/collect`, `/{id}/reminder-preview`(읽기 전용) |
 | 데이터 | `receivables`, `sales_orders`, `partners` |
 | 완료 조건 | 출하 확정 금액과 미수 원금 일치, 중복/초과수납 방지, 회계 전표 연계 지점 정의 |
+
+TODO-001 [미수 목록 계약](receivables-list.md), TODO-002 [수납 계약](receivables-collections.md)에 경계를 기록한다.
+TODO-003 [독촉 검토 계약](receivables-reminders.md)의 확인은 발송 요청이나 성공이 아니다.
+실제 전표·은행 대사·독촉 발송을 포함한 FIN-01 전체 완료는 아니다.
 
 ## 7. Phase 1C — 분석·추천 서비스
 
@@ -603,7 +607,7 @@ ANL-03 생산 진척 분석이며 이번 운영 대시보드(`/`)와 구분한�
 영업 요약 로컬 검증(2026-10-04): 백엔드200개/31클래스·프런트265개/39파일·실제 Chromium6개를 통과했다.
 기간/현재 금액 분리·다중 출하/미수 중복 방지·권한·읽기 전용·수주/출하 이동과 실제 생성 타입을 검증했고,
 기존 개발 Spring/프런트에 반영했다. [Phase 1 E2E](phase1-e2e.md)의 영업 요약 절에 근거를 기록한다.
-미수 수납/부분수납, 재고회전율 및 사업장 분석은 별도 후속 범위이며 ANL-03 전체 완료는 아니다.
+수납의 기간별 현금흐름 분석, 재고회전율 및 사업장 분석은 별도 후속 범위이며 ANL-03 전체 완료는 아니다.
 
 재고 조회는 `GET /api/core/analytics/inventory/summary`이며 `/analytics/inventory`와 기존 `/inventory/stock`에서
 현재고·수불/Lot 차이, 확인된 Lot 원천량, 제조·입고일 경과, 기간 부호 증감을 구분한다.
@@ -894,9 +898,9 @@ ANL-03 생산 진척 분석이며 이번 운영 대시보드(`/`)와 구분한�
 
 ### A. 우선 연결할 화면과 무반응 버튼
 
-- [ ] **TODO-001 / FIN-01 / [부분] 미납관리 실데이터 목록** — 고정 배열을 `/receivables`·요약 API로 교체하고 고객/상태/연체 필터·검색·페이지·오류/재시도를 제공한다. 근거: [현재 화면](../hud-admin-template/src/pages/sales/SalesReceivables.tsx), [기존 API](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableController.java).
-- [ ] **TODO-002 / FIN-01 / [부분] 전액·부분수납과 수납 이력** — 현재 수납완료 상태 변경을 금액/수납일/잔액 이력으로 확장하고 중복·초과·동시 수납을 차단하며 권한/감사와 실제 UI를 검증한다. 근거: [FIN-01](#fin-01-미수금-수납-서비스), [현재 collect](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableController.java).
-- [ ] **TODO-003 / FIN-01·INT-02 / [미구현] ‘독촉 발송’ 모달** — 실제 미수 대상 선택, 수신자·미납 금액·내용 미리보기, 취소/확인, 권한·입력 검증을 연결한다. 실제 발송 전에는 성공으로 표시하지 않는다. 근거: [클릭 동작 없는 버튼](../hud-admin-template/src/pages/sales/SalesReceivables.tsx).
+- [x] **TODO-001 / FIN-01 / [조회 검증 완료] 미납관리 실데이터 목록** — 실제 `/receivables`·전체 문서 원금 요약 API, 고객/저장상태/한국 날짜 연체 필터, 리터럴 검색·서버 정렬·페이지·오류/재시도·권한을 연결했다. 관련 백엔드 15개, 프런트 25개 및 타입/변경 파일 lint 검증을 통과했다. 이번 변경은 로컬이며 배포된 `156f2a6`에는 미포함; 수납 확장은 TODO-002, 남은 독촉 모달/실제 발송은 TODO-003~004로 관리한다. 근거: [화면](../hud-admin-template/src/pages/sales/SalesReceivables.tsx), [API](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableController.java), [계약·검증 경로](receivables-list.md). 완료 2026-10-04 / 위 소스 / 백엔드15·프런트25·타입/lint PASS.
+- [x] **TODO-002 / FIN-01 / [수납 검증 완료] 전액·부분수납과 수납 이력** — 실제 금액/수납일/처리자/처리 후 잔액 이력과 화면을 연결했다. 문서 잠금·요청 UUID로 중복/초과/동시 수납을 차단하고 필수 감사 실패는 전체 롤백한다. V16~18은 기존 완료액만 이월하며 가짜 과거 이력을 만들지 않는다. 본문 없는 collect는 400이며 통신 오류 재시도는 같은 키를 유지한다. 회계 전표·취소/환불·외부 입금 대사는 후속이고 로컬 미배포다. 근거: [수납 서비스](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableCollectionService.java), [수납 화면](../hud-admin-template/src/pages/sales/ReceivableCollectionDialog.tsx), [계약·운영 경계·검증](receivables-collections.md). 완료 2026-10-04 / 위 소스 / 백엔드22·프런트37·실제 OpenAPI 생성 일치·타입/lint·문서 링크/diff PASS.
+- [x] **TODO-003 / FIN-01·INT-02 / [검토 모달 검증 완료] ‘독촉 발송’ 모달** — 실제 날짜 연체 미수의 검색/페이지/대상 선택, 현재 잔액·거래처 연락처, 검토용 채널·수신자·추가 안내·확인 체크와 취소를 연결했다. 확인 직전 최신 정보를 재조회해 변경/완료/오류를 차단하고 ‘검토 완료·미발송’으로만 표시한다. 미등록 주소·수신동의·채널을 추정하지 않으며 실제 발송/저장/요청 이력은 TODO-004/047 후속이다. 로컬 미배포. 근거: [화면](../hud-admin-template/src/pages/sales/ReceivableReminderDialog.tsx), [읽기 API](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableController.java), [계약·검증](receivables-reminders.md). 완료 2026-10-04 / 위 소스 / 백엔드13·프런트41·실제 OpenAPI 생성 일치·타입/lint·문서 링크/diff PASS.
 - [ ] **TODO-004 / FIN-01·INT-02 / [미구현] 실제 독촉 발송·결과 이력** — `TODO-003` 및 메시지 기반 `TODO-047` 이후 이메일/SMS 채널을 확정하고 요청·발송·실패·재시도·중복방지·감사를 저장한다. 근거: [INT-02](#int-02-메시지-발송-서비스).
 - [ ] **TODO-005 / PUR-01 / [부분] 발주 CRUD 화면 API 전환** — DataContext 저장을 실제 `/purchase-orders`로 교체하고 발주처·품목 ID, 금액/납기, 수정·취소 제한, 부분입고 잔량·권한/감사를 연결한다. 근거: [현재 메모리 발주](../hud-admin-template/src/pages/purchase/PurchaseOrders.tsx), [PUR-01](#pur-01-발주-서비스).
 - [ ] **TODO-006 / PUR-01·PUR-02 / [부분] 발주 화면의 입고 액션 통합** — 메모리 `receivePurchaseOrder` 경로를 제거하고 실제 입고 화면/API로 연결해 두 화면의 발주잔량·재고가 일치하도록 한다. 근거: [현재 입고 모달 경로](../hud-admin-template/src/pages/purchase/PurchaseOrders.tsx), [실제 입고 화면](../hud-admin-template/src/pages/purchase/PurchaseReceiving.tsx).

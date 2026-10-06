@@ -12,11 +12,14 @@ ROOT = Path('/home/approid/erp-approid')
 
 
 def compose(*args, **kwargs):
-    return subprocess.run([
+    command = [
         'docker', 'compose', '--env-file', str(ROOT / 'secrets/production.env'),
         '--env-file', str(ROOT / 'deploy/release.env'), '-f', str(ROOT / 'deploy/compose.yml'),
-        *args,
-    ], cwd=ROOT, check=True, **kwargs)
+    ]
+    smtp_override = ROOT / 'deploy/smtp.override.yml'
+    if smtp_override.is_file():
+        command.extend(['-f', str(smtp_override)])
+    return subprocess.run(command + list(args), cwd=ROOT, check=True, **kwargs)
 
 
 def sql(statement, database='erp_demo'):

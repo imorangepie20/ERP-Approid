@@ -101,4 +101,25 @@ class AuditServiceTest {
         assertThat(transactional).isNotNull();
         assertThat(transactional.propagation()).isEqualTo(Propagation.MANDATORY);
     }
+
+    @Test
+    void records_retained_worker_actor_and_trace_without_faking_request_authentication() {
+        var service = new AuditService(repository, new ObjectMapper(), actorProvider, new SimpleMeterRegistry());
+        TransactionSynchronizationManager.initSynchronization();
+        service.recordAsActor(AuditEvent.created("MESSAGE", "synthetic-message", Map.of("state", "DISPATCHING")), 7L, "retained-trace");
+        var captor = ArgumentCaptor.forClass(AuditLogEntity.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getActorId()).isEqualTo(7L);
+        assertThat(captor.getValue().getTraceId()).isEqualTo("retained-trace");
+        org.mockito.Mockito.verifyNoInteractions(actorProvider);
+    }
+
+    @Test
+    void worker_audit_rejects_missing_actor_and_requires_business_transaction() throws Exception {
+        var service = new AuditService(repository, new ObjectMapper(), actorProvider, new SimpleMeterRegistry());
+        assertThatThrownBy(() -> service.recordAsActor(AuditEvent.created("MESSAGE", "synthetic-message", Map.of("state", "DISPATCHING")), null, "trace"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(AuditService.class.getMethod("recordAsActor", AuditEvent.class, Long.class, String.class)
+                .getAnnotation(Transactional.class).propagation()).isEqualTo(Propagation.MANDATORY);
+    }
 }

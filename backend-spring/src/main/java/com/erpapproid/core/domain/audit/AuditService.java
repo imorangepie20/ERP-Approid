@@ -63,6 +63,24 @@ public class AuditService {
         });
     }
 
+    /** Internal worker entry: uses the authenticated request actor/trace retained in the queue, never REST input. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordAsActor(AuditEvent event, Long actorId, String traceId) {
+        try {
+            if (actorId == null || actorId <= 0 || traceId == null || traceId.isBlank() || traceId.length() > 128) {
+                throw new IllegalStateException("Retained worker audit actor and trace are required");
+            }
+            auditLogRepository.save(AuditLogEntity.builder().actorId(actorId).action(event.action())
+                    .entityType(event.entityType()).entityNo(event.entityNo()).beforeJson(toJson(event.beforeSnapshot()))
+                    .afterJson(toJson(event.afterSnapshot())).sensitive(event.sensitive()).traceId(traceId)
+                    .occurredAt(java.time.Instant.now()).build());
+            incrementRecordedAfterCommit();
+        } catch (RuntimeException ex) {
+            meterRegistry.counter("erp.audit.events", "outcome", "failed").increment();
+            throw ex;
+        }
+    }
+
     private String toJson(Object value) {
         if (value == null) {
             return null;

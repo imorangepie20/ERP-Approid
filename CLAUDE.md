@@ -50,6 +50,24 @@ Backend, from `backend-spring/`:
   Purchase-order editing and the remaining business screens still use prototypes or memory-only DataContext.
 - Login, session restoration/expiry, protected routes, logout, and role-controlled item/BOM action boundaries are implemented.
 - Many pages use hardcoded local arrays rather than DataContext.
+- `/sales/receivables` reads real paged Spring receivables and global document-principal summary, with customer/status/
+  date-derived overdue filters. Date calculations use Asia/Seoul today, not stale stored overdue days. Unlinked orders
+  remain explicit nulls. ADMIN/ACCOUNTING record full/partial collections with locked balances, per-document request UUIDs,
+  immutable actor/date/balance history and atomic sensitive audit. V16–V18 carry legacy completed amounts forward without
+  inventing historical payments; response-loss retries retain the same key in browser session storage. Journals, reversals,
+  cross-device external-payment reconciliation and reminder delivery remain follow-up. See `docs/receivables-list.md`
+  and `docs/receivables-collections.md`. The reminder dialog reads real overdue targets/current contact and rechecks
+  balances/contact before review confirmation; confirmation is explicitly unsent and does not save/enqueue a message.
+  Generic partner contact does not establish a channel, consent, or delivery authority. Actual delivery remains TODO-004/047.
+  The local EMAIL-03 backend now persists reviewed EMAIL requests and sensitive audit atomically, with immutable
+  snapshots, original UUID/actor/trace, idempotent replay and real request history. MESSAGE audit entity_no uses the
+  lossless 32-hex UUID form to respect the existing column; API/queue/snapshot retain the canonical UUID.
+  Delivery stays disabled by default. The local EMAIL-04 worker uses skip-locked single-row claims, retained actor/trace,
+  current business/role preflight, separate short transactions and token-matched results. Mock-transport tests verify
+  that collections can commit during transport. No production SMTP adapter is installed; retries/lease recovery and
+  the review UI connection remain EMAIL-05~07. This is not an operational reminder-delivery certification.
+  See `docs/receivables-reminders.md` and `docs/superpowers/plans/2026-10-04-receivable-email-delivery-plan.md`.
+  These local receivables changes are not deployed yet.
 - Quotations support draft editing/sending and unexpired sent-quotation conversion. Sales confirmation creates
   a persistent work order. Simple cancellation is waiting-only; confirmed-order compensation is follow-up work.
 - New sales documents snapshot customer payment/lead-time terms; V12 reconstructs existing terms from current
@@ -83,7 +101,8 @@ Backend, from `backend-spring/`:
 - `/analytics/sales` reads period orders/confirmed shipments separately from current backlog and open receivable
   document principal. It preserves ADMIN/SALES/ACCOUNTING receivable authority; other roles receive 403.
   Unknown historical backlog is null/excluded, orphan receivables are counted as exclusions, not guessed.
-  Partial collections/cash-flow history remain FIN-01. Contract: `docs/analytics-sales.md`.
+  Recorded partial collections do not change this principal metric; period cash-flow analysis remains follow-up.
+  Contract: `docs/analytics-sales.md`.
 - `/analytics/inventory` and `/inventory/stock` share real current stock/ledger/Lot analysis, not DataContext.
   Signed period movement is separate from current balances. Ledger/Lot differences are warnings, never automatic repairs.
   Lot aging is manufacturing/receiving-date elapsed time, not last movement. Turnover stays null without cost/average

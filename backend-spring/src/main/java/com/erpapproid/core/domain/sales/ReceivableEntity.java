@@ -48,6 +48,14 @@ public class ReceivableEntity extends BaseEntity {
     @Column(name = "amount", nullable = false)
     private Long amount;
 
+    @Builder.Default
+    @Column(name = "collected_amount", nullable = false)
+    private Long collectedAmount = 0L;
+
+    @Builder.Default
+    @Column(name = "opening_collected_amount", nullable = false)
+    private Long openingCollectedAmount = 0L;
+
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 

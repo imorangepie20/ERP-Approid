@@ -14,6 +14,14 @@ const columns: DataTableColumn<Row>[] = [
 ]
 
 describe('DataTable', () => {
+    it('labels the search and allows a page to omit unsupported export actions', () => {
+        const view = render(<DataTable columns={columns} data={[]} rowKey="id" />)
+        expect(screen.getByRole('textbox', { name: '검색...' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: '내보내기' })).toBeInTheDocument()
+        view.rerender(<DataTable columns={columns} data={[]} rowKey="id" exportAction={null} />)
+        expect(screen.queryByRole('button', { name: '내보내기' })).not.toBeInTheDocument()
+    })
+
     it('keeps the existing client-side search and pagination behavior by default', () => {
         const data = Array.from({ length: 6 }, (_, index) => ({
             id: index + 1,

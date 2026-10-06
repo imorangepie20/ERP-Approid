@@ -355,7 +355,7 @@ export interface paths {
             cookie?: never;
         };
         /** Lot 및 연결 수불·입고·작업오더·출하 원천 (수불 페이지) */
-        get: operations["detail"];
+        get: operations["detail_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -663,6 +663,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/receivables/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 미수금 잔액·수납 이력 */
+        get: operations["detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/receivables/{id}/collect": {
         parameters: {
             query?: never;
@@ -672,8 +689,31 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 수납 완료 */
+        /**
+         * 전액·부분 수납
+         * @description 금액·수납일·요청 UUID 필수. 동일 처리자/키/입력 재전송은 중복 저장하지 않습니다.
+         */
         post: operations["collect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/receivables/{id}/reminder-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 독촉 검토용 현재 미수·거래처 연락처
+         * @description 읽기 전용. 채널·수신동의·발송 상태를 추정하지 않으며 발송하지 않습니다.
+         */
+        get: operations["reminderPreview"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1713,6 +1753,24 @@ export interface components {
             /** Format: int32 */
             totalPages?: number;
         };
+        PageReceivableCollectionResponse: {
+            content?: components["schemas"]["ReceivableCollectionResponse"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
         PageReceivableResponse: {
             content?: components["schemas"]["ReceivableResponse"][];
             empty?: boolean;
@@ -2035,9 +2093,50 @@ export interface components {
             /** Format: date */
             validUntil?: string;
         };
+        ReceivableCollectionRequest: {
+            /** Format: int64 */
+            amount: number;
+            /** Format: date */
+            collectedOn: string;
+            /** Format: uuid */
+            requestId: string;
+        };
+        ReceivableCollectionResponse: {
+            /** Format: int64 */
+            actorId?: number;
+            /** Format: int64 */
+            amount?: number;
+            /** Format: date */
+            collectedOn?: string;
+            /** Format: int64 */
+            id?: number;
+            /** Format: date-time */
+            recordedAt?: string;
+            /** Format: int64 */
+            remainingAmount?: number;
+            /** Format: uuid */
+            requestId?: string;
+            traceId?: string;
+        };
+        ReceivableCollectionResult: {
+            collection?: components["schemas"]["ReceivableCollectionResponse"];
+            receivable?: components["schemas"]["ReceivableResponse"];
+            replayed?: boolean;
+        };
+        ReceivableDetail: {
+            collections?: components["schemas"]["PageReceivableCollectionResponse"];
+            receivable?: components["schemas"]["ReceivableResponse"];
+        };
+        ReceivableReminderPreview: {
+            contact?: string;
+            contactName?: string;
+            receivable?: components["schemas"]["ReceivableResponse"];
+        };
         ReceivableResponse: {
             /** Format: int64 */
             amount?: number;
+            /** Format: int64 */
+            collectedAmount?: number;
             /** Format: int64 */
             customerId?: number;
             customerName?: string;
@@ -2045,10 +2144,16 @@ export interface components {
             dueDate?: string;
             /** Format: int64 */
             id?: number;
+            /** Format: int64 */
+            openingCollectedAmount?: number;
             overdue?: boolean;
             /** Format: int32 */
             overdueDays?: number;
             receivableNo?: string;
+            /** Format: date */
+            referenceDate?: string;
+            /** Format: int64 */
+            remainingAmount?: number;
             /** Format: int64 */
             salesOrderId?: number;
             salesOrderNo?: string;
@@ -2058,11 +2163,17 @@ export interface components {
             /** Format: int64 */
             openAmount?: number;
             /** Format: int64 */
+            openBalance?: number;
+            /** Format: int64 */
             openCount?: number;
             /** Format: int64 */
             overdueAmount?: number;
             /** Format: int64 */
+            overdueBalance?: number;
+            /** Format: int64 */
             overdueCount?: number;
+            /** Format: date */
+            referenceDate?: string;
         };
         ReceivingCreateResult: {
             inventoryTxnNo?: string;
@@ -3011,7 +3122,7 @@ export interface operations {
             };
         };
     };
-    detail: {
+    detail_1: {
         parameters: {
             query?: {
                 page?: number;
@@ -3645,9 +3756,13 @@ export interface operations {
     };
     list_11: {
         parameters: {
-            query: {
+            query?: {
                 customerId?: number;
-                pageable: components["schemas"]["Pageable"];
+                keyword?: string;
+                overdue?: boolean;
+                page?: number;
+                size?: number;
+                sort?: string;
                 status?: string;
             };
             header?: never;
@@ -3667,7 +3782,58 @@ export interface operations {
             };
         };
     };
+    detail: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceivableDetail"];
+                };
+            };
+        };
+    };
     collect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceivableCollectionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceivableCollectionResult"];
+                };
+            };
+        };
+    };
+    reminderPreview: {
         parameters: {
             query?: never;
             header?: never;
@@ -3684,7 +3850,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ReceivableResponse"];
+                    "*/*": components["schemas"]["ReceivableReminderPreview"];
                 };
             };
         };

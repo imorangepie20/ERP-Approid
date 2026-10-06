@@ -369,12 +369,37 @@ V15 이전 Lot/출고/미수 연결은 추정하지 않는다. 과거 지시/배
 
 | 메서드 | 경로 | 권한 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/receivables` | `SALES`, `ACCOUNTING`, `ADMIN` | 쿼리: `status`, `customerId` |
-| GET | `/receivables/summary` | `SALES`, `ACCOUNTING`, `ADMIN` | 미수/연체 요약 |
-| POST | `/receivables/{id}/collect` | `ACCOUNTING`, `ADMIN` | `미수` → `수납완료` |
+| GET | `/receivables` | `SALES`, `ACCOUNTING`, `ADMIN` | 고객/상태/한국 날짜 연체/리터럴 검색, 서버 정렬·페이지 |
+| GET | `/receivables/summary` | `SALES`, `ACCOUNTING`, `ADMIN` | 전체 문서 원금과 현재 미수/연체 잔액 요약 |
+| GET | `/receivables/{id}` | `SALES`, `ACCOUNTING`, `ADMIN` | 현재 미수와 최신순 서버 페이지 수납 이력 |
+| GET | `/receivables/{id}/reminder-preview` | `SALES`, `ACCOUNTING`, `ADMIN` | 동일 읽기 스냅샷의 현재 미수·거래처 연락처. 검토 전용이며 발송하지 않음 |
+| POST | `/receivables/{id}/reminders` | `ACCOUNTING`, `ADMIN` | 등록·허용된 EMAIL 연락처와 최신 snapshotHash 확인 후 QUEUED 저장. 신규 202, 동일 처리자·키·입력 재조회 200 |
+| GET | `/receivables/{id}/reminders` | `SALES`, `ACCOUNTING`, `ADMIN` | 요청 이력 서버 페이지, 기본 20·최대 100 |
+| GET | `/messages/{uuid}` | `SALES`, `ACCOUNTING`, `ADMIN` | 저장한 수신자·본문·잔액 스냅샷과 실제 상태·시도 이력 |
+| POST | `/receivables/{id}/collect` | `ACCOUNTING`, `ADMIN` | `{amount,collectedOn,requestId}` 필수, 전액·부분수납; 동일 요청 재전송 중복 방지 |
 
-> 연체 여부는 조회 시점에 계산 (`due_date < CURRENT_DATE`).
-> `desc.md` 3.2 독촉 이력은 Phase 2.
+한국 기준일보다 기일이 이전이고 양수 미수 잔액인 경우만 날짜 연체다. 본문 없는 이전 collect는 400이며
+새 응답은 `{receivable,collection,replayed}`다. 상세 필터는 [목록 계약](receivables-list.md),
+금액/키/이력/오류/마이그레이션은 [수납 계약](receivables-collections.md)을 따른다.
+[독촉 검토 모달](receivables-reminders.md)은 TODO-003이며 확인은 미발송/미저장이다. 실제 발송은 TODO-004/047 후속이다.
+
+EMAIL-03의 서버 요청 API는 로컬 구현이며 기존 검토 모달에는 아직 연결하지 않았다.
+preview는 기존 필드에 `messageContact`, `snapshotHash`, `emailDispatchEnabled`, `emailSubject`, `emailBody`를 추가한다.
+요청 입력은 `{requestId,contactId,expectedSnapshotHash,note,acknowledged}`다. 서버가 단일 수신자와
+잔액 본문을 생성하고 UUID·요청 actor/Trace ID·15분 만료·필수 감사를 같은 트랜잭션에 저장한다.
+같은 키에 다른 입력/처리자는 409, 최신 스냅샷 변경·active/UNKNOWN·서울 날짜 당일 접수 중복도 409,
+비연체/미허용 연락처는 422, 설정 비활성은 503이다. 기본 발송은 비활성이며 운영 SMTP adapter는 아직 없다.
+`MESSAGE` 감사의 `entity_no`는 UUID 하이픈만 제거한 32자 소문자 hex다. UUID 비트는 손실되지 않으며
+API/메시지 PK와 감사 `after_json.id`에는 원래 UUID를 유지한다. 기존 VARCHAR(32)와 migration은 변경하지 않는다.
+큐 저장은 발송 성공이 아니다. EMAIL-04 worker는 한 번에 한 건의 QUEUED 메시지를 skip-locked로
+확보하고 120초 lease/token을 저장한다. 5초 간격 poll은 최대 10건이다. 발송 직전 미수→거래처→연락처→
+메시지 잠금 순서로 최신 잔액/hash·허용·만료·현재 요청자의 활성 계정과 ADMIN/ACCOUNTING 역할을 확인한다.
+변경/만료는 STALE, 권한 회수는 FAILED다. 시도와 감사·DISPATCHING을 커밋한 뒤 트랜잭션 밖에서
+transport를 호출하므로 그동안 수납을 예약하거나 막지 않는다. 같은 token의 결과만 한 번 저장한다.
+불명확한 오류는 UNKNOWN이며 재전송하지 않는다. 명시적 미접수는 이 단계에서 FAILED로 남긴다.
+SMTP adapter·자동/수동 재시도·lease 복구·화면 연결은
+[이메일 구현 계획](superpowers/plans/2026-10-04-receivable-email-delivery-plan.md)의 EMAIL-05~08 후속이다.
+worker 검증은 격리 DB·모의 transport이며 실제 SMTP 제출/최종 수신 또는 운영 활성화의 증거가 아니다.
 
 ---
 

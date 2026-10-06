@@ -1,0 +1,27 @@
+# Opt-in only: retain the shared server's public DNS, Mailcow and tunnel configuration.
+services:
+  backend-spring:
+    extra_hosts:
+      - "mail.approid.team:192.168.219.174"
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -Xms128m -Xmx512m
+        -Djavax.net.ssl.trustStore=/run/erp-smtp/cacerts
+        -Djavax.net.ssl.trustStorePassword=changeit
+      ERP_MESSAGING_EMAIL_ENABLED: "false"
+      SPRING_CONFIG_IMPORT: configtree:/run/secrets/smtp/
+      SPRING_MAIL_HOST: mail.approid.team
+      SPRING_MAIL_PORT: "587"
+      SPRING_MAIL_USERNAME: primemaster@approid.team
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_CHECKSERVERIDENTITY: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_CONNECTIONTIMEOUT: "5000"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_TIMEOUT: "3000"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_WRITETIMEOUT: "5000"
+      SPRING_MAIL_PROPERTIES_MAIL_DEBUG: "false"
+    volumes:
+      - ../runtime/smtp/cacerts:/run/erp-smtp/cacerts:ro
+      - ../runtime/smtp/mail-server.pem:/run/erp-smtp/mail-server.pem:ro
+      - ../secrets/smtp/spring.mail.password:/run/secrets/smtp/spring.mail.password:ro
