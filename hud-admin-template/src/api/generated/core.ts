@@ -448,6 +448,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/messages/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/partners": {
         parameters: {
             query?: never;
@@ -1633,6 +1649,10 @@ export interface components {
             /** @enum {string} */
             state?: "QUEUED" | "CLAIMED" | "DISPATCHING" | "RETRY_WAIT" | "SMTP_ACCEPTED" | "FAILED" | "STALE" | "UNKNOWN";
             subject?: string;
+        };
+        MessageRetryRequest: {
+            /** Format: uuid */
+            retryRequestId: string;
         };
         MessageSummary: {
             /** Format: date-time */
@@ -3422,6 +3442,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["MessageResponse"];
+                };
+            };
+        };
+    };
+    retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageRetryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MessageRequestResult"];
                 };
             };
         };

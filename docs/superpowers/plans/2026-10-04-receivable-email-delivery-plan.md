@@ -31,8 +31,8 @@ SMTP starter 추가가 필요한 단계에서만 build.gradle.kts의 관련 depe
 - [x] **EMAIL-02** 수신 주소·허용/차단 관리
 - [x] **EMAIL-03** preview·요청·본문·감사·이력 API
 - [x] **EMAIL-04** claim·최신 검증·발송 상태 worker
-- [ ] **EMAIL-05** SMTP adapter·안전한 설정
-- [ ] **EMAIL-06** 재시도·중단/복구·접수 불명 처리
+- [x] **EMAIL-05** SMTP adapter·안전한 설정 — 2026-10-06 / `faf6a49` / 새 테스트 9건 + 전체 백엔드 GREEN. 인증 STARTTLS 제출, 5/3/5초 타임아웃, 고정 발신자/Message-ID, ACCEPTED/일시/영구/UNKNOWN 분류, 기본 비활성 fail-closed. 모의 전송만 검증, 실제 SMTP 미사용.
+- [x] **EMAIL-06** 재시도·중단/복구·접수 불명 처리 — 2026-10-06 / `3ca0c41` / 새 테스트 10건 + 전체 백엔드 GREEN. 명시적 미접수 30/120초·3회 자동 재시도, poll 시 만료 CLAIMED 재확보·DISPATCHING→UNKNOWN, 수동 retry(FAILED+미접수·3회 미만·hash 일치·ADMIN/ACCOUNTING), UNKNOWN 차단·동일 토큰 늦은 접수 1회 확정.
 - [ ] **EMAIL-07** 실제 발송 모달·이력·생성 타입
 - [ ] **EMAIL-08** 이메일 마일스톤 검증과 문서 정합화
 
