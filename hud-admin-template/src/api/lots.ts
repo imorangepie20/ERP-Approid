@@ -31,3 +31,19 @@ export async function disposeLot(client: HttpClient, lotId: number): Promise<Lot
     if (row.id !== lotId || row.status !== '폐기') return invalidMasterResponse(r.status, r.traceId)
     return row
 }
+
+async function transition(client: HttpClient, lotId: number, action: 'hold' | 'release', expected: string): Promise<LotRow> {
+    if (!id(lotId)) invalidInput('Lot ID가 올바르지 않습니다.')
+    const r = await client.post<unknown>(`lots/${lotId}/${action}`, {})
+    const row = lotRow(r.data, r.status, r.traceId)
+    if (row.id !== lotId || row.status !== expected) return invalidMasterResponse(r.status, r.traceId)
+    return row
+}
+
+export async function holdLot(client: HttpClient, lotId: number): Promise<LotRow> {
+    return transition(client, lotId, 'hold', '보류')
+}
+
+export async function releaseLot(client: HttpClient, lotId: number): Promise<LotRow> {
+    return transition(client, lotId, 'release', '정상')
+}

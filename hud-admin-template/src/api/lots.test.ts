@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { createHttpClient } from './http'
-import { disposeLot } from './lots'
+import { disposeLot, holdLot, releaseLot } from './lots'
 
 const row = (overrides = {}) => ({ id: 21, lotNo: 'LOT-LIVE', itemId: 9, itemNo: 'M-LIVE', itemName: '실제 자재',
     warehouse: '자재창고', qty: 0, producedAt: '2026-10-01', expiry: null, status: '폐기', expiringSoon: false, ...overrides })
@@ -23,4 +23,19 @@ it('rejects malformed disposal responses', async () => {
         Response.json({ ...row(), status: 'UNKNOWN' }, { headers: { 'X-Trace-Id': 'trace-lot' } }))
     const core = createHttpClient({ baseUrl: 'https://core.test/api/core', fetch, getAccessToken: () => 'jwt' })
     await expect(disposeLot(core, 21)).rejects.toMatchObject({ code: 'INVALID_RESPONSE', traceId: 'trace-lot' })
+})
+
+it('holds a usable lot and releases a held lot', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json(row({ qty: 5, status: '보류' })))
+    const core = createHttpClient({ baseUrl: 'https://core.test/api/core', fetch, getAccessToken: () => 'jwt' })
+    expect((await holdLot(core, 21)).status).toBe('보류')
+    expect(fetch.mock.calls[0][1]?.method).toBe('POST')
+    expect(String(fetch.mock.calls[0][0])).toContain('/lots/21/hold')
+    fetch.mockResolvedValue(Response.json(row({ qty: 5, status: '정상' })))
+    expect((await releaseLot(core, 21)).status).toBe('정상')
+    expect(String(fetch.mock.calls[1][0])).toContain('/lots/21/release')
+    await expect(holdLot(core, 0)).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    await expect(releaseLot(core, 0)).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    fetch.mockResolvedValue(Response.json(row({ qty: 5, status: '정상' })))
+    await expect(holdLot(core, 21)).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
 })

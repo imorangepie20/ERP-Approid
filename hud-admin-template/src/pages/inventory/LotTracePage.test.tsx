@@ -82,3 +82,46 @@ it('hides the dispose action from non-quality roles', async () => {
     await screen.findByRole('dialog')
     expect(screen.queryByRole('button', { name: 'Lot 폐기' })).not.toBeInTheDocument()
 })
+it('holds a usable lot through a confirmation dialog then refetches the list', async () => {
+    mount(); const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'LOT-LIVE' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(await within(dialog).findByRole('button', { name: 'Lot 보류' }))
+    state.fetch.mockImplementation(async (input, init) => {
+        const url = new URL(String(input))
+        if (init?.method === 'POST' && url.pathname.endsWith('/lots/7/hold')) {
+            return Response.json({ id: 7, lotNo: 'LOT-LIVE', itemId: 9, itemNo: 'M-LIVE', itemName: '실제 자재',
+                warehouse: '기록창고', qty: 5, producedAt: '2026-10-01', expiry: null, status: '보류', expiringSoon: false })
+        }
+        return options(input) ?? Response.json(url.pathname.endsWith('/7') ? { ...lotTraceDetail(), lot: { ...lotTraceDetail().lot, status: '보류' } } : lotTracePage())
+    })
+    await user.click(screen.getByRole('button', { name: '보류 확인' }))
+    await screen.findByText(/Lot을 보류했습니다. LOT-LIVE/)
+    expect(state.fetch.mock.calls.some(([input, init]) => String(input).includes('/lots/7/hold') && init?.method === 'POST')).toBe(true)
+})
+it('releases a held lot through a confirmation dialog then refetches the list', async () => {
+    const held = () => ({ ...lotTraceDetail(), lot: { ...lotTraceDetail().lot, status: '보류' } })
+    state.fetch.mockImplementation(async input => options(input) ?? Response.json(new URL(String(input)).pathname.endsWith('/7') ? held() : lotTracePage()))
+    mount(); const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'LOT-LIVE' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).queryByRole('button', { name: 'Lot 보류' })).not.toBeInTheDocument()
+    await user.click(await within(dialog).findByRole('button', { name: 'Lot 해제' }))
+    state.fetch.mockImplementation(async (input, init) => {
+        const url = new URL(String(input))
+        if (init?.method === 'POST' && url.pathname.endsWith('/lots/7/release')) {
+            return Response.json({ id: 7, lotNo: 'LOT-LIVE', itemId: 9, itemNo: 'M-LIVE', itemName: '실제 자재',
+                warehouse: '기록창고', qty: 5, producedAt: '2026-10-01', expiry: null, status: '정상', expiringSoon: false })
+        }
+        return options(input) ?? Response.json(url.pathname.endsWith('/7') ? lotTraceDetail() : lotTracePage())
+    })
+    await user.click(screen.getByRole('button', { name: '해제 확인' }))
+    await screen.findByText(/Lot 보류를 해제했습니다. LOT-LIVE/)
+})
+it('hides hold and release actions from unauthorized roles', async () => {
+    state.roles = ['SALES']; mount(); const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'LOT-LIVE' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).queryByRole('button', { name: 'Lot 보류' })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Lot 해제' })).not.toBeInTheDocument()
+})
