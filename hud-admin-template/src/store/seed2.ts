@@ -6,22 +6,9 @@ import type {
     Maintenance,
     Notice,
     Notify,
-    Receiving,
     Shipment,
     Subcontract,
 } from './types'
-
-// ============================================================
-// 자재·구매
-// ============================================================
-
-export const seedReceivings: Receiving[] = [
-    { id: 'RC-2610-001', purchaseOrder: 'PO-2610-001', vendor: '대한강철', item: '강판 3.0mm', orderQty: 200, receivedQty: 200, defectQty: 0, date: '2026-10-04', status: '합격' },
-    { id: 'RC-2610-002', purchaseOrder: 'PO-2610-002', vendor: '대한강철', item: '파이프 Ø48.6', orderQty: 1500, receivedQty: 1000, defectQty: 12, date: '2026-10-06', status: '부분합격' },
-    { id: 'RC-2610-003', purchaseOrder: 'PO-2610-003', vendor: '코리아 폴리머', item: 'ABS 펠릿', orderQty: 800, receivedQty: 800, defectQty: 5, date: '2026-10-07', status: '합격' },
-    { id: 'RC-2609-004', purchaseOrder: 'PO-2609-004', vendor: '코리아 폴리머', item: 'ABS 펠릿', orderQty: 500, receivedQty: 500, defectQty: 0, date: '2026-09-14', status: '합격' },
-    { id: 'RC-2609-005', purchaseOrder: 'PO-2609-005', vendor: '대한강철', item: '강판 3.0mm', orderQty: 120, receivedQty: 120, defectQty: 3, date: '2026-09-18', status: '부분합격' },
-]
 
 // ============================================================
 // 재고

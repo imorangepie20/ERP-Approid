@@ -28,7 +28,7 @@ export default function PurchaseReceiving() {
     const [searchParams] = useSearchParams()
     const [keyword, setKeyword] = useState(() => searchParams.get('keyword') ?? '')
     const [status, setStatus] = useState('')
-    const [purchaseOrderId, setPurchaseOrderId] = useState('')
+    const [purchaseOrderId, setPurchaseOrderId] = useState(() => searchParams.get('purchaseOrderId') ?? '')
     const [page, setPage] = useState(1)
     const [size, setSize] = useState(10)
     const [sort, setSort] = useState('receivingNo')

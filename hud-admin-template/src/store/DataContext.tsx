@@ -16,7 +16,6 @@ import type {
     ProductionPlan,
     PurchaseOrder,
     Quotation,
-    Receiving,
     Receivable,
     Routing,
     SalesOrder,
@@ -48,7 +47,6 @@ import {
     seedMaintenances,
     seedNotices,
     seedNotifies,
-    seedReceivings,
     seedShipments,
     seedSubcontracts,
 } from './seed2'
@@ -95,7 +93,6 @@ export interface DataState {
     workOrders: WorkOrder[]
     // 자재·구매
     purchaseOrders: PurchaseOrder[]
-    receivings: Receiving[]
     lots: Lot[]
     // 품질
     inspections: Inspection[]
@@ -125,7 +122,6 @@ const initialState: DataState = {
     plans: seedPlans,
     workOrders: seedWorkOrders,
     purchaseOrders: seedPurchaseOrders,
-    receivings: seedReceivings,
     lots: seedLots,
     inspections: seedInspections,
     defects: seedDefects,
@@ -155,8 +151,6 @@ interface DataContextValue extends DataState {
     quotationToOrder: (quotationId: string) => string | null
     /** 수주 확정 → 작업오더 생성 + 상태 변경 */
     confirmSalesOrder: (salesOrderId: string) => string | null
-    /** 발주 → 입고 등록 (재고/아이템 증가, 검수) */
-    receivePurchaseOrder: (purchaseOrderId: string, receivedQty: number, defectQty: number) => string | null
     /** 작업오더 완료 → 완제품 입고(LOT) + 원가 집계 + 매출 출하 연결 */
     completeWorkOrder: (workOrderId: string) => void
     /** 출하 확정 → 매출 반영(매출전표) + 수주 완료 */
@@ -248,71 +242,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }, [state.salesOrders, state.workOrders])
 
     // ============================================================
-    // 흐름 3: 발주 → 입고 → 재고 증가
-    // ============================================================
-    const receivePurchaseOrder = useCallback((purchaseOrderId: string, receivedQty: number, defectQty: number): string | null => {
-        const po = state.purchaseOrders.find(x => x.id === purchaseOrderId)
-        if (!po) return null
-
-        const receivingId = nextId('RC', state.receivings)
-        const totalReceived = po.receivedQty + receivedQty
-        const status: PurchaseOrder['status'] =
-            totalReceived >= po.qty ? '입고완료' : '부분입고'
-        const receivingStatus: Receiving['status'] =
-            defectQty === 0 ? '합격' : receivedQty - defectQty > 0 ? '부분합격' : '반품'
-
-        const receiving: Receiving = {
-            id: receivingId,
-            purchaseOrder: po.id,
-            vendor: po.vendor,
-            item: po.item,
-            orderQty: po.qty,
-            receivedQty,
-            defectQty,
-            date: today(),
-            status: receivingStatus,
-        }
-
-        // 입고된 자재의 재고/LOT 반영
-        const targetItem = state.items.find(i => i.name === po.item)
-        const newLot: Lot = {
-            id: nextId('LOT', state.lots),
-            item: targetItem?.id ?? po.item,
-            warehouse: '자재창고',
-            qty: receivedQty - defectQty,
-            producedAt: today(),
-            expiry: '9999-12-31',
-            status: '정상',
-        }
-
-        const ledgerEntry: LedgerEntry = {
-            id: nextId('LE', state.ledger),
-            date: today(),
-            account: '매입원가',
-            description: `${po.id} ${po.item} ${receivedQty}${targetItem?.unit ?? ''}`,
-            type: '출금',
-            amount: po.unitPrice * receivedQty,
-        }
-
-        setState(prev => ({
-            ...prev,
-            purchaseOrders: prev.purchaseOrders.map(x =>
-                x.id === purchaseOrderId
-                    ? { ...x, receivedQty: totalReceived, status }
-                    : x
-            ),
-            receivings: [...prev.receivings, receiving],
-            lots: [...prev.lots, newLot],
-            items: prev.items.map(i =>
-                i.name === po.item ? { ...i, stock: i.stock + (receivedQty - defectQty) } : i
-            ),
-            ledger: [...prev.ledger, ledgerEntry],
-        }))
-        return receivingId
-    }, [state.purchaseOrders, state.receivings, state.lots, state.items, state.ledger])
-
-    // ============================================================
-    // 흐름 4: 작업오더 완료 → 완제품 입고 + 원가 집계
+    // 흐름 3: 작업오더 완료 → 완제품 입고 + 원가 집계
     // ============================================================
     const completeWorkOrder = useCallback((workOrderId: string) => {
         const wo = state.workOrders.find(x => x.id === workOrderId)
@@ -373,7 +303,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }, [state.workOrders, state.routings, state.items, state.subcontracts, state.lots, state.costs])
 
     // ============================================================
-    // 흐름 5: 출하 확정 → 매출 전표 + 수주 완료
+    // 흐름 4: 출하 확정 → 매출 전표 + 수주 완료
     // ============================================================
     const confirmShipment = useCallback((shipmentId: string) => {
         const sh = state.shipments.find(x => x.id === shipmentId)
@@ -425,10 +355,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         remove,
         quotationToOrder,
         confirmSalesOrder,
-        receivePurchaseOrder,
         completeWorkOrder,
         confirmShipment,
-    }), [state, create, update, remove, quotationToOrder, confirmSalesOrder, receivePurchaseOrder, completeWorkOrder, confirmShipment])
+    }), [state, create, update, remove, quotationToOrder, confirmSalesOrder, completeWorkOrder, confirmShipment])
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

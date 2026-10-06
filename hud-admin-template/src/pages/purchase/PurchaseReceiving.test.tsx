@@ -70,6 +70,16 @@ it('cancels via compensation and preserves the original and reversal numbers in 
     await user.keyboard('{Escape}'); await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 })
 
+it('applies the purchase-order deep link from the order screen as a server filter', async () => {
+    state.fetch.mockImplementation(async input => options(new URL(String(input))) ?? Response.json(page([row])))
+    mount('/purchase/receiving?purchaseOrderId=90'); await screen.findByText('RC-LIVE')
+    expect(state.fetch.mock.calls.some(([input]) => {
+        const url = new URL(String(input))
+        return url.pathname.endsWith('/receivings') && url.searchParams.get('purchaseOrderId') === '90'
+    })).toBe(true)
+    expect(screen.getByLabelText('발주 필터')).toHaveValue('90')
+})
+
 it('keeps historical receipts read-only and explains missing inventory links', async () => {
     const historical = { ...row, stockApplied: false, lotNo: null, inventoryTxnNo: null }
     state.fetch.mockImplementation(async input => { const url = new URL(String(input)); return options(url) ?? Response.json(url.pathname.endsWith('/42') ? historical : page([historical])) })

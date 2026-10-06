@@ -119,7 +119,7 @@ export default function PurchaseOrders() {
         { key: 'dueDate', label: '입고예정' },
         { key: 'status', label: '상태', render: r => <StatusBadge tone={statusTone[r.status] ?? 'muted'}>{r.status}</StatusBadge> },
         { key: 'actions', label: '관리', sortable: false, render: r => <div className="flex justify-end gap-1">
-            {['발주', '부분입고'].includes(r.status) && <Link to="/purchase/receiving" title="입고 화면으로 이동"
+            {['발주', '부분입고'].includes(r.status) && <Link to={`/purchase/receiving?purchaseOrderId=${r.id}`} title="입고 화면으로 이동"
                 className="px-2 py-1 rounded text-xs font-medium text-hud-accent-primary hover:bg-hud-accent-primary/10 transition-hud">입고 화면으로 이동</Link>}
             {canModify && r.status === '발주' && <>
                 <RowActions onEdit={() => openEdit(r)} onDelete={() => { remove.reset(); setNotice(''); setDeleting(r) }} />

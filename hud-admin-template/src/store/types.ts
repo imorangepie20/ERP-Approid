@@ -168,20 +168,6 @@ export interface PurchaseOrder {
     receivedQty: number
 }
 
-export type ReceivingStatus = '검수중' | '합격' | '부분합격' | '반품'
-
-export interface Receiving {
-    id: ID
-    purchaseOrder: string
-    vendor: string
-    item: string
-    orderQty: number
-    receivedQty: number
-    defectQty: number
-    date: string
-    status: ReceivingStatus
-}
-
 // ============================================================
 // 재고
 // ============================================================

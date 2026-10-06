@@ -36,7 +36,7 @@ it('lists real orders with remaining quantities from the server page', async () 
     await screen.findByText('PO-LIVE')
     expect(screen.getByText(/잔량 500/)).toBeInTheDocument()
     expect(screen.getByText(/실제 DB 기준/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '입고 화면으로 이동' })).toHaveAttribute('href', '/purchase/receiving')
+    expect(screen.getByRole('link', { name: '입고 화면으로 이동' })).toHaveAttribute('href', '/purchase/receiving?purchaseOrderId=11')
     expect(state.fetch.mock.calls.some(([input]) => String(input).includes('purchase-orders?page=0'))).toBe(true)
 })
 
