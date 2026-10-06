@@ -51,7 +51,7 @@ const QualityDefects = () => {
             data={defects}
             rowKey="id"
             searchPlaceholder="불량번호, 품목, 불량코드 검색..."
-            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />}>불량 등록</Button>}
+            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />} disabled title="준비 중">불량 등록</Button>}
         />
     )
 }

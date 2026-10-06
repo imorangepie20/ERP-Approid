@@ -90,7 +90,7 @@ const ComingSoon = () => {
                                 className="w-full pl-11 pr-4 py-3 bg-hud-bg-secondary border border-hud-border-secondary rounded-lg text-hud-text-primary placeholder-hud-text-muted focus:outline-none focus:border-hud-accent-primary transition-hud"
                             />
                         </div>
-                        <Button variant="primary" glow>
+                        <Button variant="primary" glow disabled title="준비 중">
                             Notify Me
                         </Button>
                     </div>

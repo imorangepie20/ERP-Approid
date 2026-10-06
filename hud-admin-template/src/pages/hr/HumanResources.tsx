@@ -47,7 +47,7 @@ const HumanResources = () => {
             data={employees}
             rowKey="id"
             searchPlaceholder="사번, 성명, 부서 검색..."
-            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />}>직원 등록</Button>}
+            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />} disabled title="준비 중">직원 등록</Button>}
         />
     )
 }

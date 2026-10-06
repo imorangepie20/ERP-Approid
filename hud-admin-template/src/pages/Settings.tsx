@@ -38,7 +38,7 @@ const Settings = () => {
                     <h1 className="text-2xl font-bold text-hud-text-primary">Settings</h1>
                     <p className="text-hud-text-muted mt-1">Manage your account and preferences.</p>
                 </div>
-                <Button variant="primary" glow leftIcon={<Save size={18} />}>
+                <Button variant="primary" glow leftIcon={<Save size={18} />} disabled title="준비 중">
                     Save Changes
                 </Button>
             </div>
@@ -174,7 +174,10 @@ const Settings = () => {
                                         {['#00FFCC', '#6366F1', '#FF1493', '#FFA500', '#10B981', '#EF4444'].map((color) => (
                                             <button
                                                 key={color}
-                                                className={`w-10 h-10 rounded-lg transition-transform hover:scale-110 ${color === '#00FFCC' ? 'ring-2 ring-offset-2 ring-offset-hud-bg-secondary ring-white' : ''}`}
+                                                disabled
+                                                title="준비 중"
+                                                aria-label={`Accent color ${color} (준비 중)`}
+                                                className={`w-10 h-10 rounded-lg transition-transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed ${color === '#00FFCC' ? 'ring-2 ring-offset-2 ring-offset-hud-bg-secondary ring-white' : ''}`}
                                                 style={{ backgroundColor: color }}
                                             />
                                         ))}
@@ -188,7 +191,9 @@ const Settings = () => {
                                         {['Small', 'Medium', 'Large'].map((size) => (
                                             <button
                                                 key={size}
-                                                className={`px-4 py-2 rounded-lg text-sm transition-hud ${size === 'Medium'
+                                                disabled
+                                                title="준비 중"
+                                                className={`px-4 py-2 rounded-lg text-sm transition-hud disabled:opacity-50 disabled:cursor-not-allowed ${size === 'Medium'
                                                         ? 'bg-hud-accent-primary text-hud-bg-primary'
                                                         : 'bg-hud-bg-primary text-hud-text-secondary hover:text-hud-text-primary'
                                                     }`}
@@ -241,7 +246,7 @@ const Settings = () => {
                                                 <p className="text-xs text-hud-text-muted">Add an extra layer of security</p>
                                             </div>
                                         </div>
-                                        <Button variant="outline" size="sm">Enable</Button>
+                                        <Button variant="outline" size="sm" disabled title="준비 중">Enable</Button>
                                     </div>
                                 </div>
                             </div>

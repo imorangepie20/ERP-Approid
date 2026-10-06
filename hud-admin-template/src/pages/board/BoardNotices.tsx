@@ -22,7 +22,7 @@ const notices: NoticeRow[] = [
 const BoardNotices = () => {
     const columns: DataTableColumn<NoticeRow>[] = [
         { key: 'id', label: '번호', render: row => <span className="font-mono text-hud-text-muted">{row.id}</span> },
-        { key: 'title', label: '제목', render: row => <span className="text-hud-text-primary hover:text-hud-accent-primary cursor-pointer">{row.title}</span> },
+        { key: 'title', label: '제목', render: row => <span className="text-hud-text-primary">{row.title}</span> },
         { key: 'author', label: '작성자' },
         { key: 'target', label: '대상' },
         { key: 'views', label: '조회수', render: row => <span className="font-mono">{row.views.toLocaleString()}</span> },
@@ -37,7 +37,7 @@ const BoardNotices = () => {
             data={notices}
             rowKey="id"
             searchPlaceholder="제목, 작성자 검색..."
-            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />}>공지 등록</Button>}
+            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />} disabled title="준비 중">공지 등록</Button>}
         />
     )
 }

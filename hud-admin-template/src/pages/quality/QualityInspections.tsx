@@ -51,7 +51,7 @@ const QualityInspections = () => {
             data={inspections}
             rowKey="id"
             searchPlaceholder="검사번호, 품목, Lot 검색..."
-            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />}>검사 등록</Button>}
+            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />} disabled title="준비 중">검사 등록</Button>}
         />
     )
 }

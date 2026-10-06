@@ -50,7 +50,7 @@ const EquipmentMaintenance = () => {
             data={maintenances}
             rowKey="id"
             searchPlaceholder="점검번호, 설비명 검색..."
-            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />}>점검 등록</Button>}
+            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />} disabled title="준비 중">점검 등록</Button>}
         />
     )
 }

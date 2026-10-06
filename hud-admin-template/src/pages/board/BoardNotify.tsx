@@ -46,7 +46,7 @@ const BoardNotify = () => {
             data={notifications}
             rowKey="id"
             searchPlaceholder="알림ID, 유형, 제목 검색..."
-            toolbar={<Button variant="primary" glow leftIcon={<Send size={18} />}>알림 발송</Button>}
+            toolbar={<Button variant="primary" glow leftIcon={<Send size={18} />} disabled title="준비 중">알림 발송</Button>}
         />
     )
 }

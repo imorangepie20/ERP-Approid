@@ -52,7 +52,7 @@ const Subcontract = () => {
             data={subcontracts}
             rowKey="id"
             searchPlaceholder="외주번호, 외주처, 품목 검색..."
-            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />}>외주 발주</Button>}
+            toolbar={<Button variant="primary" glow leftIcon={<Plus size={18} />} disabled title="준비 중">외주 발주</Button>}
         />
     )
 }
