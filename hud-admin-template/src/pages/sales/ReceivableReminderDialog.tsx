@@ -1,10 +1,14 @@
 import { useReducer, useState } from 'react'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchReceivablePage, fetchReminderPreview, validReminderRecipient, type ReminderChannel, type ReminderPreview } from '../../api/receivables'
+import { fetchMessageDetail, requestMessageReminder, type MessageRow } from '../../api/messages'
+import type { ApiError } from '../../api/http'
 import { useAuth } from '../../auth/AuthContext'
 import { AsyncState } from '../../components/common/AsyncState'
 import Button from '../../components/common/Button'
+import MessageContactForm from './MessageContactForm'
+import MessageDeliveryHistory, { messageStateLabel } from './MessageDeliveryHistory'
 
 const won = (v: number) => `${v.toLocaleString('ko-KR')}원`
 const inputClass = 'w-full rounded border border-hud-border-secondary bg-hud-bg-primary p-2'
@@ -50,10 +54,14 @@ function ReminderReview({ onClose }: { onClose: () => void }) {
             {notice && <p role="alert">{notice}</p>}
             {selected !== null && <AsyncState isLoading={preview.isPending} error={preview.error} onRetry={() => { void preview.refetch() }}>
                 {preview.data && (preview.data.receivable.overdue && preview.data.receivable.remainingAmount > 0
-                    ? <ReminderForm key={JSON.stringify(preview.data)} preview={preview.data} busy={preview.isFetching} verify={verify} />
+                    ? <>
+                        <ReminderForm key={JSON.stringify(preview.data)} receivableId={selected} preview={preview.data} busy={preview.isFetching} verify={verify} />
+                        <MessageContactForm partnerId={preview.data.receivable.customerId} partnerName={preview.data.receivable.customerName} />
+                        <MessageDeliveryHistory receivableId={selected} />
+                    </>
                     : <p role="alert">현재 날짜 연체 미수 대상이 아닙니다. 대상과 잔액을 다시 확인하세요.</p>)}
             </AsyncState>}
-            <div className="flex justify-end gap-2"><Button variant="outline" onClick={onClose}>취소 / 닫기</Button><Button variant="primary" disabled title="TODO-004/047 실제 발송 기반이 구현되지 않았습니다.">발송 (준비 중)</Button></div>
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={onClose}>취소 / 닫기</Button></div>
         </DialogPanel></div>
     </Dialog>
 }
@@ -68,7 +76,9 @@ function reducer(state: Draft, action: Action): Draft {
     if (action.type === 'back') return { ...state, acknowledged: false, confirmed: false, checking: false }
     return { ...state, checking: false }
 }
-function ReminderForm({ preview, busy, verify }: { preview: ReminderPreview; busy: boolean; verify: () => Promise<boolean> }) {
+function ReminderForm({ receivableId, preview, busy, verify }: { receivableId: number; preview: ReminderPreview; busy: boolean; verify: () => Promise<boolean> }) {
+    const { user } = useAuth()
+    const canWrite = !!user?.roles.some(r => ['ADMIN', 'ACCOUNTING'].includes(r))
     const [draft, dispatch] = useReducer(reducer, { channel: 'EMAIL', recipient: preview.contact ?? '', note: '', acknowledged: false, confirmed: false, checking: false })
     const r = preview.receivable
     const valid = validReminderRecipient(draft.channel, draft.recipient) && draft.note.trim().length <= 1000
@@ -88,6 +98,10 @@ function ReminderForm({ preview, busy, verify }: { preview: ReminderPreview; bus
         {draft.confirmed ? <div className="space-y-3">
             <p role="status">검토 완료 · 미발송</p><p>화면 내 확인만 완료했습니다. 발송 요청·저장·이력은 생성하지 않았습니다.</p>
             <p aria-label="확인한 수신자">{draft.channel === 'EMAIL' ? '이메일' : 'SMS/LMS'} · {draft.recipient.trim()}</p>
+            {canWrite && (draft.channel === 'EMAIL' && preview.emailDispatchEnabled === true
+                && preview.messageContact !== null && preview.messageContact.permission === 'ALLOWED'
+                ? <ReminderRequest receivableId={receivableId} contactId={preview.messageContact.id} snapshotHash={preview.snapshotHash} note={draft.note.trim()} />
+                : <p role="note">{!preview.emailDispatchEnabled ? '이메일 발송 설정이 비활성이라 요청할 수 없습니다.' : preview.messageContact === null || preview.messageContact.permission !== 'ALLOWED' ? '허용된 등록 연락처가 있어야 발송을 요청할 수 있습니다.' : '이메일 채널만 발송 요청할 수 있습니다.'}</p>)}
             <Button variant="outline" onClick={() => dispatch({ type: 'back' })}>입력 다시 수정</Button>
         </div> : <form onSubmit={e => { void confirm(e) }} className="space-y-3">
             <label className="block">검토용 채널<select aria-label="검토용 채널" className={inputClass} value={draft.channel} disabled={busy || draft.checking} onChange={e => dispatch({ type: 'channel', value: e.target.value as ReminderChannel })}><option value="EMAIL">이메일 (검토용)</option><option value="SMS">SMS/LMS (검토용)</option></select></label>
@@ -99,4 +113,57 @@ function ReminderForm({ preview, busy, verify }: { preview: ReminderPreview; bus
         </form>}
         <p aria-label="독촉 제목 미리보기">{subject}</p><pre aria-label="독촉 내용 미리보기" className="whitespace-pre-wrap break-words font-sans rounded bg-hud-bg-primary p-3">{content}</pre>
     </section>
+}
+
+const storageKey = (receivableId: number) => `reminder-request:${receivableId}`
+function loadStoredKey(receivableId: number): { requestId: string; fingerprint: string } | null {
+    try {
+        const raw = sessionStorage.getItem(storageKey(receivableId))
+        if (!raw) return null
+        const parsed: unknown = JSON.parse(raw)
+        if (!parsed || typeof parsed !== 'object') return null
+        const { requestId, fingerprint } = parsed as Record<string, unknown>
+        return typeof requestId === 'string' && typeof fingerprint === 'string' ? { requestId, fingerprint } : null
+    } catch { return null }
+}
+function ReminderRequest({ receivableId, contactId, snapshotHash, note }: { receivableId: number; contactId: number; snapshotHash: string; note: string }) {
+    const { core } = useAuth()
+    const queryClient = useQueryClient()
+    const [result, setResult] = useState<{ message: MessageRow; replayed: boolean } | null>(null)
+    const [failure, setFailure] = useState<{ message: string; traceId?: string } | null>(null)
+    const request = useMutation({
+        mutationFn: async () => {
+            const fingerprint = JSON.stringify({ contactId, snapshotHash, note, acknowledged: true })
+            const stored = loadStoredKey(receivableId)
+            const requestId = stored && stored.fingerprint === fingerprint ? stored.requestId : crypto.randomUUID()
+            if (stored && stored.fingerprint === fingerprint) {
+                try {
+                    const existing = await fetchMessageDetail(core, requestId)
+                    return { message: existing, replayed: true as boolean, requestId, fingerprint }
+                } catch (error) {
+                    if ((error as ApiError)?.code !== 'NOT_FOUND' && (error as { status?: number })?.status !== 404) throw error
+                }
+            }
+            const created = await requestMessageReminder(core, receivableId, { requestId, contactId, expectedSnapshotHash: snapshotHash, note, acknowledged: true })
+            return { ...created, requestId, fingerprint }
+        },
+        onSuccess: ({ message, replayed, requestId, fingerprint }) => {
+            try { sessionStorage.setItem(storageKey(receivableId), JSON.stringify({ requestId, fingerprint })) } catch { /* 저장소 실패는 요청 결과와 무관 */ }
+            setResult({ message, replayed }); setFailure(null)
+            void queryClient.invalidateQueries({ queryKey: ['messages', 'history', receivableId] })
+        },
+        onError: (error: unknown) => {
+            const api = error as ApiError
+            setFailure({ message: api?.message ?? '발송 요청에 실패했습니다.', traceId: api?.traceId }); setResult(null)
+        },
+    })
+    return <div className="space-y-2 rounded border border-hud-border-secondary p-3">
+        <Button variant="primary" disabled={request.isPending} onClick={() => request.mutate()}>발송 요청</Button>
+        {result && <>
+            <p role="status">{messageStateLabel(result.message)}{result.replayed ? ' · 중복 요청 확인됨' : ''}</p>
+            <p>수신자: {result.message.recipient}</p>
+            {result.message.state === 'UNKNOWN' && <p role="note">접수 여부가 불명확합니다. 재발송하지 말고 서버 기록을 확인하세요.</p>}
+        </>}
+        {failure && <p role="alert">{failure.message}{failure.traceId ? ` Trace ID: ${failure.traceId}` : ''}</p>}
+    </div>
 }

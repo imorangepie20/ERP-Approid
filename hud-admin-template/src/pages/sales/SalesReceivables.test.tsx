@@ -129,7 +129,7 @@ it('opens the real reminder target modal from the toolbar and cancels without wr
     await user.click(screen.getByRole('button', { name: '독촉 발송 검토' }))
     await screen.findByRole('dialog', { name: '독촉 발송 검토' })
     await screen.findByRole('radio', { name: /RV-LIVE/ })
-    expect(screen.getByRole('button', { name: '발송 (준비 중)' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: '발송 요청' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '취소 / 닫기' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(state.fetch.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true)
