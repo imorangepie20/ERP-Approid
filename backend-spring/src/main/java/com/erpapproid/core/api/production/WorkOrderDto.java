@@ -118,4 +118,65 @@ public class WorkOrderDto {
         private String lotNo;
         private String inventoryTxnNo;
     }
+
+    @Getter
+    @Builder
+    @Schema(name = "WorkOrderMaterialMoveRequest")
+    public static final class MaterialMoveRequest {
+        @NotNull
+        @Positive
+        private Long childItemId;
+        @NotNull
+        @Positive
+        private Long lotId;
+        @NotNull
+        @DecimalMin(value = "0", inclusive = false)
+        @Digits(integer = 14, fraction = 4)
+        private BigDecimal qty;
+    }
+
+    @Getter
+    @Builder
+    @Schema(name = "WorkOrderMaterialRequirement")
+    public static final class MaterialRequirement {
+        private Long bomId;
+        private Long childItemId;
+        private String childItemNo;
+        private String childName;
+        private String unit;
+        private BigDecimal bomQty;
+        private BigDecimal lossRate;
+        private BigDecimal requiredQty;
+        private BigDecimal issuedQty;
+        private BigDecimal returnedQty;
+        private BigDecimal netIssuedQty;
+        private BigDecimal remainingQty;
+    }
+
+    @Getter
+    @Builder
+    @Schema(name = "WorkOrderMaterialListResponse")
+    public static final class MaterialListResponse {
+        private Long workOrderId;
+        private String workOrderNo;
+        private BigDecimal qty;
+        private java.util.List<MaterialRequirement> requirements;
+        private java.util.List<String> notes;
+    }
+
+    @Getter
+    @Builder
+    @Schema(name = "WorkOrderMaterialMoveResult")
+    public static final class MaterialMoveResult {
+        private Long workOrderId;
+        private String workOrderNo;
+        private Long childItemId;
+        private String childItemNo;
+        private Long lotId;
+        private String lotNo;
+        private BigDecimal qty;
+        private String txnNo;
+        private BigDecimal netIssuedQty;
+        private BigDecimal remainingQty;
+    }
 }

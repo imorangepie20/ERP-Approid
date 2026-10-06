@@ -39,4 +39,11 @@ public interface InventoryTransactionRepository
                                             LocalDate to, Pageable pageable);
 
     List<InventoryTransactionEntity> findByRefTypeAndRefNo(String refType, String refNo);
+
+    @Query("""
+            select coalesce(sum(t.qty), 0) from InventoryTransactionEntity t
+            where t.refType = :refType and t.refNo = :refNo
+              and t.item.id = :itemId and t.txnType = :txnType
+            """)
+    BigDecimal sumByRefAndItemAndType(String refType, String refNo, Long itemId, String txnType);
 }

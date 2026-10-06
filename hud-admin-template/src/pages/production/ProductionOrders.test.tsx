@@ -182,3 +182,45 @@ it('initializes linked navigation search and sends server filters, sorting and p
         return p.get('keyword') === 'LIVE' && p.get('status') === '지시' && p.get('itemId') === '7' && p.get('sort') === 'qty,asc' && p.get('page') === '1'
     })).toBe(true))
 })
+
+const materials = { workOrderId: 42, workOrderNo: 'WO-LIVE', qty: 10, requirements: [{ bomId: 5, childItemId: 8,
+    childItemNo: 'M-LIVE', childName: '자재', unit: 'EA', bomQty: 2, lossRate: 25, requiredQty: 25,
+    issuedQty: 10, returnedQty: 4, netIssuedQty: 6, remainingQty: 19 }], notes: ['소요량 = 지시수량 × BOM 수량'] }
+
+it('shows BOM material requirements in the detail dialog', async () => {
+    state.fetch.mockImplementation(async input => {
+        const url = new URL(String(input)); const lookup = options(url); if (lookup) return lookup
+        if (url.pathname.endsWith('/work-orders/42/materials')) return Response.json(materials)
+        return Response.json(url.pathname.endsWith('/42') ? order : page([order]))
+    })
+    mount(); const user = userEvent.setup(); await screen.findByText('WO-LIVE')
+    await user.click(screen.getByRole('button', { name: '상세' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByText('소요 자재')).toBeInTheDocument()
+    expect(await within(dialog).findByText(/소요 25.*순불출 6.*잔량 19/)).toBeInTheDocument()
+    expect(state.fetch.mock.calls.some(([url]) => String(url).endsWith('/work-orders/42/materials'))).toBe(true)
+})
+
+it('issues materials against a lot from the detail dialog then refetches requirements', async () => {
+    let posted: unknown = null
+    state.fetch.mockImplementation(async (input, init) => {
+        const url = new URL(String(input)); const lookup = options(url); if (lookup) return lookup
+        if (url.pathname.endsWith('/work-orders/42/materials')) return Response.json(materials)
+        if (init?.method === 'POST' && url.pathname.endsWith('/material-issues')) {
+            posted = JSON.parse(String(init.body))
+            return Response.json({ workOrderId: 42, workOrderNo: 'WO-LIVE', childItemId: 8, childItemNo: 'M-LIVE',
+                lotId: 21, lotNo: 'LOT-LIVE', qty: 10, txnNo: 'TX-LIVE', netIssuedQty: 16, remainingQty: 9 }, { status: 201 })
+        }
+        return Response.json(url.pathname.endsWith('/42') ? order : page([order]))
+    })
+    mount(); const user = userEvent.setup(); await screen.findByText('WO-LIVE')
+    await user.click(screen.getByRole('button', { name: '상세' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText('소요 자재')
+    await user.selectOptions(within(dialog).getByLabelText('구성품'), '8')
+    await user.type(within(dialog).getByLabelText('Lot ID'), '21')
+    await user.type(within(dialog).getByLabelText('수량'), '10')
+    await user.click(within(dialog).getByRole('button', { name: '불출 확인' }))
+    await screen.findByText(/자재 불출했습니다. M-LIVE · 10.*TX-LIVE/)
+    expect(posted).toMatchObject({ childItemId: 8, lotId: 21, qty: 10 })
+})

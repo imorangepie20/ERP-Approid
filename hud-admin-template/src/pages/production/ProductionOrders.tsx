@@ -3,8 +3,9 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { ApiError } from '../../api/http'
-import { actOnWorkOrder, fetchWorkOrder, fetchWorkOrderPage, saveWorkOrder, workOrderPriorities, workOrderStatuses,
-    type WorkOrderAction, type WorkOrderRow } from '../../api/workOrders'
+import { actOnWorkOrder, fetchWorkOrder, fetchWorkOrderMaterials, fetchWorkOrderPage, issueWorkOrderMaterials,
+    returnWorkOrderMaterials, saveWorkOrder, workOrderPriorities, workOrderStatuses,
+    type MaterialMoveInput, type WorkOrderAction, type WorkOrderRow } from '../../api/workOrders'
 import { useAuth } from '../../auth/AuthContext'
 import { useItemSelection } from '../../hooks/useItemSelection'
 import { dateAfterDays } from '../../hooks/usePartnerSelection'
@@ -47,6 +48,9 @@ export default function ProductionOrders() {
     const [actuals, setActuals] = useState<Record<string, string>>({})
     const [detailId, setDetailId] = useState<number | null>(null)
     const [notice, setNotice] = useState('')
+    const [materialChild, setMaterialChild] = useState('')
+    const [materialLot, setMaterialLot] = useState('')
+    const [materialQty, setMaterialQty] = useState('')
     const query = useQuery({ queryKey: ['work-orders', { keyword, status, itemId, page, size, sortColumn, direction }],
         queryFn: async ({ signal }) => {
             const result = await fetchWorkOrderPage(core, { keyword, status, itemId: itemId ? Number(itemId) : undefined,
@@ -56,6 +60,23 @@ export default function ProductionOrders() {
         } })
     const detail = useQuery({ queryKey: ['work-orders', 'detail', detailId], enabled: detailId !== null,
         queryFn: ({ signal }) => fetchWorkOrder(core, detailId!, signal) })
+    const materials = useQuery({ queryKey: ['work-orders', 'materials', detailId], enabled: detailId !== null,
+        queryFn: ({ signal }) => fetchWorkOrderMaterials(core, detailId!, signal) })
+    const move = useMutation({ mutationFn: (request: { kind: 'issue' | 'return'; input: MaterialMoveInput }) =>
+        request.kind === 'issue' ? issueWorkOrderMaterials(core, detailId!, request.input) : returnWorkOrderMaterials(core, detailId!, request.input),
+        onSuccess: async (result, request) => {
+            await Promise.all([cache.invalidateQueries({ queryKey: ['work-orders'] }), cache.invalidateQueries({ queryKey: ['inventory'] }),
+                cache.invalidateQueries({ queryKey: ['lots'] }), cache.invalidateQueries({ queryKey: ['items'] })])
+            await materials.refetch()
+            setNotice(request.kind === 'issue'
+                ? `자재 불출했습니다. ${result.childItemNo} · ${result.qty} · ${result.txnNo}`
+                : `자재 반납했습니다. ${result.childItemNo} · ${result.qty} · ${result.txnNo}`)
+        },
+        onError: () => { void invalidate() } })
+    const openDetail = (id: number) => {
+        setDetailId(id); move.reset(); setNotice('')
+        setMaterialChild(''); setMaterialLot(''); setMaterialQty('')
+    }
     const invalidate = async () => {
         await Promise.all(['work-orders', 'items', 'inventory', 'lots', 'sales-orders'].map(key => cache.invalidateQueries({ queryKey: [key] })))
     }
@@ -104,7 +125,7 @@ export default function ProductionOrders() {
         { key: 'actions', label: '관리', sortable: false, render: row => {
             const independent = row.salesOrderId === null && row.goodQty === 0 && row.defectQty === 0
             return <div className="flex justify-end items-center gap-1">
-                <Button size="sm" variant="ghost" onClick={() => setDetailId(row.id)}>상세</Button>
+                <Button size="sm" variant="ghost" onClick={() => openDetail(row.id)}>상세</Button>
                 {canWrite && <>
                     <RowActions onEdit={row.status === '지시' && ready ? () => openForm(row) : undefined}
                         onDelete={row.status === '지시' && independent ? () => ask(row, 'delete') : undefined} />
@@ -183,6 +204,33 @@ export default function ProductionOrders() {
                             <tbody>{detail.data.routingSteps.map(step => <tr key={step.routingId}>
                                 <td>{step.seq}</td><td>{step.process}</td><td>{step.workCenter}</td><td>{step.stdTime}</td><td>{step.isSubcontract ? '예' : '아니오'}</td>
                             </tr>)}</tbody></table>}
+                    <h3 className="mt-4 mb-2">소요 자재</h3>
+                    {materials.isPending ? <p>소요 자재를 조회하는 중...</p>
+                        : materials.error ? <div role="alert"><p>소요 자재를 조회하지 못했습니다.</p>
+                            <Button size="sm" variant="ghost" onClick={() => { void materials.refetch() }}>다시 시도</Button></div>
+                        : materials.data.requirements.length === 0 ? <p>BOM 구성품이 없습니다. 불출 없이 완료할 수 있습니다.</p>
+                        : <><table className="w-full text-left text-sm"><thead><tr><th>구성품</th><th>소요·불출·잔량</th><th>BOM 기준</th></tr></thead>
+                            <tbody>{materials.data.requirements.map(r => <tr key={r.bomId}>
+                                <td>{r.childItemNo} · {r.childName} ({r.unit})</td>
+                                <td>소요 {r.requiredQty} · 순불출 {r.netIssuedQty} · 잔량 {r.remainingQty} (불출 {r.issuedQty} · 반납 {r.returnedQty})</td>
+                                <td>개당 {r.bomQty} · 손실 {r.lossRate}%</td>
+                            </tr>)}</tbody></table>
+                            <ul className="list-disc pl-5 mt-2 text-sm text-hud-text-secondary">{materials.data.notes.map(n => <li key={n}>{n}</li>)}</ul>
+                            {canWrite && ['지시', '진행중'].includes(detail.data.status) && <form className="mt-3 flex flex-wrap items-end gap-3" onSubmit={e => e.preventDefault()}>
+                                <label className="text-sm">구성품<select aria-label="구성품" className="bg-hud-bg-primary border border-hud-border-secondary rounded-lg px-3 py-2 text-sm"
+                                    value={materialChild} disabled={move.isPending} onChange={e => { setMaterialChild(e.target.value); move.reset() }}>
+                                    <option value="">선택하세요</option>{materials.data.requirements.map(r => <option key={r.childItemId} value={r.childItemId}>{r.childItemNo} · 잔량 {r.remainingQty}</option>)}
+                                </select></label>
+                                <label className="text-sm">Lot ID<input aria-label="Lot ID" className="bg-hud-bg-primary border border-hud-border-secondary rounded-lg px-3 py-2 text-sm"
+                                    value={materialLot} disabled={move.isPending} onChange={e => { setMaterialLot(e.target.value); move.reset() }} /></label>
+                                <label className="text-sm">수량<input aria-label="수량" className="bg-hud-bg-primary border border-hud-border-secondary rounded-lg px-3 py-2 text-sm"
+                                    value={materialQty} disabled={move.isPending} onChange={e => { setMaterialQty(e.target.value); move.reset() }} /></label>
+                                <Button size="sm" variant="ghost" disabled={move.isPending || !materialChild || !materialLot || !materialQty}
+                                    onClick={() => { if (!move.isPending) move.mutate({ kind: 'issue', input: { childItemId: Number(materialChild), lotId: Number(materialLot), qty: Number(materialQty) } }) }}>불출 확인</Button>
+                                <Button size="sm" variant="ghost" disabled={move.isPending || !materialChild || !materialLot || !materialQty}
+                                    onClick={() => { if (!move.isPending) move.mutate({ kind: 'return', input: { childItemId: Number(materialChild), lotId: Number(materialLot), qty: Number(materialQty) } }) }}>반납 확인</Button>
+                            </form>}
+                            {move.error && <div role="alert" className="mt-2 text-hud-accent-danger">{errorContent(move.error)}</div>}</>}
                 </>}
                 <div className="mt-4 text-right"><Button variant="ghost" onClick={() => setDetailId(null)}>닫기</Button></div>
             </div>

@@ -1200,6 +1200,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/work-orders/{id}/material-issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 원자재 불출: BOM 구성품 Lot 차감 */
+        post: operations["issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/work-orders/{id}/material-returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 원자재 반납: 불출 Lot 복원 */
+        post: operations["returns"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/work-orders/{id}/materials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 작업오더 소요량: BOM 전개·불출/반납 현황 */
+        get: operations["materials"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/work-orders/{id}/progress": {
         parameters: {
             query?: never;
@@ -2743,6 +2794,52 @@ export interface components {
             inventoryTxnNo?: string;
             lotNo?: string;
             workOrder?: components["schemas"]["WorkOrderResponse"];
+        };
+        WorkOrderMaterialListResponse: {
+            notes?: string[];
+            qty?: number;
+            requirements?: components["schemas"]["WorkOrderMaterialRequirement"][];
+            /** Format: int64 */
+            workOrderId?: number;
+            workOrderNo?: string;
+        };
+        WorkOrderMaterialMoveRequest: {
+            /** Format: int64 */
+            childItemId: number;
+            /** Format: int64 */
+            lotId: number;
+            qty: number;
+        };
+        WorkOrderMaterialMoveResult: {
+            /** Format: int64 */
+            childItemId?: number;
+            childItemNo?: string;
+            /** Format: int64 */
+            lotId?: number;
+            lotNo?: string;
+            netIssuedQty?: number;
+            qty?: number;
+            remainingQty?: number;
+            txnNo?: string;
+            /** Format: int64 */
+            workOrderId?: number;
+            workOrderNo?: string;
+        };
+        WorkOrderMaterialRequirement: {
+            /** Format: int64 */
+            bomId?: number;
+            bomQty?: number;
+            /** Format: int64 */
+            childItemId?: number;
+            childItemNo?: string;
+            childName?: string;
+            issuedQty?: number;
+            lossRate?: number;
+            netIssuedQty?: number;
+            remainingQty?: number;
+            requiredQty?: number;
+            returnedQty?: number;
+            unit?: string;
         };
         WorkOrderRequest: {
             assignee?: string;
@@ -5134,6 +5231,80 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["WorkOrderCompleteResult"];
+                };
+            };
+        };
+    };
+    issue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderMaterialMoveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WorkOrderMaterialMoveResult"];
+                };
+            };
+        };
+    };
+    returns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderMaterialMoveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WorkOrderMaterialMoveResult"];
+                };
+            };
+        };
+    };
+    materials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WorkOrderMaterialListResponse"];
                 };
             };
         };

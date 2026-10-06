@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { createHttpClient } from './http'
-import { actOnWorkOrder, fetchWorkOrder, fetchWorkOrderPage } from './workOrders'
+import { actOnWorkOrder, fetchWorkOrder, fetchWorkOrderMaterials, fetchWorkOrderPage, issueWorkOrderMaterials, returnWorkOrderMaterials } from './workOrders'
 
 const order = { id: 42, workOrderNo: 'WO-LIVE', itemId: 7, itemNo: 'P-LIVE', itemName: '제품', qty: 10,
     goodQty: 8, defectQty: 2, progress: 100, startDate: '2026-10-02', dueDate: '2026-12-31', status: '완료',
@@ -36,4 +36,28 @@ it('sends all server list parameters and validates page metadata', async () => {
 it.each([{ lotNo: '' }, { inventoryTxnNo: null }, { workOrder: { ...order, priority: 9 } }])('rejects incomplete production-completion results (%j)', async invalid => {
     const { http } = client({ workOrder: order, lotNo: 'LOT-LIVE', inventoryTxnNo: 'TX-LIVE', ...invalid })
     await expect(actOnWorkOrder(http, 42, 'complete', { goodQty: 8, defectQty: 2 })).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+})
+
+const requirement = { bomId: 5, childItemId: 8, childItemNo: 'M-LIVE', childName: '자재', unit: 'EA',
+    bomQty: 2, lossRate: 25, requiredQty: 25, issuedQty: 10, returnedQty: 4, netIssuedQty: 6, remainingQty: 19 }
+const materials = { workOrderId: 42, workOrderNo: 'WO-LIVE', qty: 10, requirements: [requirement], notes: ['소요량 = 지시수량 × BOM 수량'] }
+
+it('reads material requirements with issued and remaining quantities', async () => {
+    const { http, fetch } = client(materials)
+    const result = await fetchWorkOrderMaterials(http, 42)
+    expect(result.requirements[0]).toMatchObject({ childItemNo: 'M-LIVE', requiredQty: 25, netIssuedQty: 6 })
+    expect(String(fetch.mock.calls[0][0])).toContain('/work-orders/42/materials')
+    await expect(fetchWorkOrderMaterials(http, 0)).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+})
+
+it('issues and returns materials against specific lots', async () => {
+    const move = { workOrderId: 42, workOrderNo: 'WO-LIVE', childItemId: 8, childItemNo: 'M-LIVE',
+        lotId: 21, lotNo: 'LOT-LIVE', qty: 10, txnNo: 'TX-LIVE', netIssuedQty: 10, remainingQty: 15 }
+    const { http, fetch } = client(move)
+    expect((await issueWorkOrderMaterials(http, 42, { childItemId: 8, lotId: 21, qty: 10 })).txnNo).toBe('TX-LIVE')
+    expect(String(fetch.mock.calls[0][0])).toContain('/work-orders/42/material-issues')
+    expect((await returnWorkOrderMaterials(client(move).http, 42, { childItemId: 8, lotId: 21, qty: 4 })).qty).toBe(10)
+    await expect(issueWorkOrderMaterials(http, 0, { childItemId: 8, lotId: 21, qty: 10 })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    await expect(issueWorkOrderMaterials(http, 42, { childItemId: 0, lotId: 21, qty: 10 })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    await expect(issueWorkOrderMaterials(http, 42, { childItemId: 8, lotId: 21, qty: 0 })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
 })

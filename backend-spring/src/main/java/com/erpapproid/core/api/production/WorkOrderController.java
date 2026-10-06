@@ -24,6 +24,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.erpapproid.core.api.production.WorkOrderDto.CompleteRequest;
 import com.erpapproid.core.api.production.WorkOrderDto.CompleteResult;
+import com.erpapproid.core.api.production.WorkOrderDto.MaterialListResponse;
+import com.erpapproid.core.api.production.WorkOrderDto.MaterialMoveRequest;
+import com.erpapproid.core.api.production.WorkOrderDto.MaterialMoveResult;
+import com.erpapproid.core.api.production.WorkOrderDto.MaterialRequirement;
 import com.erpapproid.core.api.production.WorkOrderDto.Request;
 import com.erpapproid.core.api.production.WorkOrderDto.Response;
 import com.erpapproid.core.api.production.WorkOrderDto.UpdateRequest;
@@ -33,6 +37,8 @@ import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
 import com.erpapproid.core.common.seq.DomainNumberGenerator;
 import com.erpapproid.core.common.seq.DomainNumberGenerator.Prefix;
+import com.erpapproid.core.domain.bom.BomEntity;
+import com.erpapproid.core.domain.bom.BomRepository;
 import com.erpapproid.core.domain.audit.AuditService;
 import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.inventory.InventoryTransactionEntity;
@@ -65,6 +71,7 @@ public class WorkOrderController {
     private final DomainNumberGenerator numberGenerator;
     private final AuditService auditService;
     private final com.erpapproid.core.domain.production.RoutingSnapshotService routingSnapshots;
+    private final BomRepository bomRepository;
 
     @Operation(summary = "작업오더 목록")
     @GetMapping
@@ -247,6 +254,163 @@ public class WorkOrderController {
                 .build());
     }
 
+    @Operation(summary = "작업오더 소요량: BOM 전개·불출/반납 현황")
+    @GetMapping("/{id}/materials")
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
+    public ResponseEntity<MaterialListResponse> materials(@PathVariable Long id) {
+        WorkOrderEntity entity = workOrderRepository.findById(id)
+                .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND,
+                        "작업오더를 찾을 수 없습니다: " + id));
+        return ResponseEntity.ok(requirements(entity));
+    }
+
+    @Operation(summary = "원자재 불출: BOM 구성품 Lot 차감")
+    @PostMapping("/{id}/material-issues")
+    @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
+    public ResponseEntity<MaterialMoveResult> issue(@PathVariable Long id,
+                                                   @Valid @RequestBody MaterialMoveRequest request) {
+        WorkOrderEntity entity = workOrderRepository.findForUpdate(id)
+                .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND,
+                        "작업오더를 찾을 수 없습니다: " + id));
+        requireActive(entity);
+        BomEntity bom = bomOf(entity, request.getChildItemId());
+        LotEntity lot = lotRepository.findForUpdate(request.getLotId())
+                .orElseThrow(() -> new DomainException(ErrorCode.LOT_NOT_FOUND,
+                        "Lot을 찾을 수 없습니다: " + request.getLotId()));
+        if (!lot.getItem().getId().equals(request.getChildItemId())) {
+            throw new DomainException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                    "Lot 품목과 구성품이 일치하지 않습니다: " + lot.getLotNo());
+        }
+        if (!Constants.LOT_OK.equals(lot.getStatus())) {
+            throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "정상 Lot만 불출할 수 있습니다: " + lot.getLotNo());
+        }
+        BigDecimal required = requiredQty(entity.getQty(), bom);
+        BigDecimal net = netIssued(entity.getWorkOrderNo(), request.getChildItemId());
+        BigDecimal remaining = required.subtract(net);
+        if (request.getQty().compareTo(remaining) > 0) {
+            throw new DomainException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                    "소요 잔량을 초과한 불출입니다. 잔량: " + remaining.stripTrailingZeros().toPlainString());
+        }
+        ItemEntity item = itemRepository.findForUpdate(request.getChildItemId()).orElseThrow();
+        if (lot.getQty().compareTo(request.getQty()) < 0 || item.getStock().compareTo(request.getQty()) < 0) {
+            throw new DomainException(ErrorCode.INSUFFICIENT_STOCK,
+                    "Lot 잔량 또는 현재고가 부족합니다: " + lot.getLotNo());
+        }
+        BigDecimal stockBefore = item.getStock();
+        BigDecimal lotBefore = lot.getQty();
+        lot.setQty(lotBefore.subtract(request.getQty()));
+        item.setStock(stockBefore.subtract(request.getQty()));
+        lotRepository.save(lot);
+        itemRepository.save(item);
+        InventoryTransactionEntity txn = InventoryTransactionEntity.builder()
+                .txnNo(numberGenerator.next(Prefix.INVENTORY_TXN, 4))
+                .item(item)
+                .lot(lot)
+                .warehouse(lot.getWarehouse())
+                .txnType(Constants.TXN_ISSUE)
+                .qty(request.getQty().negate())
+                .refType("WORK_ORDER")
+                .refNo(entity.getWorkOrderNo())
+                .txnDate(today())
+                .build();
+        InventoryTransactionEntity savedTxn = inventoryTransactionRepository.save(txn);
+        BigDecimal afterNet = net.add(request.getQty());
+        Response before = toResponse(entity);
+        auditService.record(AuditEvent.changed("ISSUE", "WORK_ORDER", entity.getWorkOrderNo(), before, toResponse(entity)));
+        auditService.record(AuditEvent.created("INVENTORY_TRANSACTION", savedTxn.getTxnNo(), transactionSnapshot(savedTxn)));
+        auditService.record(AuditEvent.changed("ISSUE", "ITEM", item.getItemNo(),
+                java.util.Map.of("id", item.getId(), "itemNo", item.getItemNo(), "stock", stockBefore),
+                java.util.Map.of("id", item.getId(), "itemNo", item.getItemNo(), "stock", item.getStock())));
+        auditService.record(AuditEvent.changed("ISSUE", "LOT", lot.getLotNo(),
+                java.util.Map.of("id", lot.getId(), "lotNo", lot.getLotNo(), "qty", lotBefore),
+                lotSnapshot(lot)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(MaterialMoveResult.builder()
+                .workOrderId(entity.getId())
+                .workOrderNo(entity.getWorkOrderNo())
+                .childItemId(item.getId())
+                .childItemNo(item.getItemNo())
+                .lotId(lot.getId())
+                .lotNo(lot.getLotNo())
+                .qty(request.getQty())
+                .txnNo(savedTxn.getTxnNo())
+                .netIssuedQty(afterNet)
+                .remainingQty(required.subtract(afterNet))
+                .build());
+    }
+
+    @Operation(summary = "원자재 반납: 불출 Lot 복원")
+    @PostMapping("/{id}/material-returns")
+    @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
+    public ResponseEntity<MaterialMoveResult> returns(@PathVariable Long id,
+                                                     @Valid @RequestBody MaterialMoveRequest request) {
+        WorkOrderEntity entity = workOrderRepository.findForUpdate(id)
+                .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND,
+                        "작업오더를 찾을 수 없습니다: " + id));
+        requireActive(entity);
+        bomOf(entity, request.getChildItemId());
+        LotEntity lot = lotRepository.findForUpdate(request.getLotId())
+                .orElseThrow(() -> new DomainException(ErrorCode.LOT_NOT_FOUND,
+                        "Lot을 찾을 수 없습니다: " + request.getLotId()));
+        if (!lot.getItem().getId().equals(request.getChildItemId())) {
+            throw new DomainException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                    "Lot 품목과 구성품이 일치하지 않습니다: " + lot.getLotNo());
+        }
+        if (Constants.LOT_DISPOSED.equals(lot.getStatus())) {
+            throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "폐기된 Lot에는 반납할 수 없습니다: " + lot.getLotNo());
+        }
+        BigDecimal net = netIssued(entity.getWorkOrderNo(), request.getChildItemId());
+        if (request.getQty().compareTo(net) > 0) {
+            throw new DomainException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                    "순불출량을 초과한 반납입니다. 순불출: " + net.stripTrailingZeros().toPlainString());
+        }
+        ItemEntity item = itemRepository.findForUpdate(request.getChildItemId()).orElseThrow();
+        BigDecimal stockBefore = item.getStock();
+        BigDecimal lotBefore = lot.getQty();
+        lot.setQty(lotBefore.add(request.getQty()));
+        item.setStock(stockBefore.add(request.getQty()));
+        lotRepository.save(lot);
+        itemRepository.save(item);
+        InventoryTransactionEntity txn = InventoryTransactionEntity.builder()
+                .txnNo(numberGenerator.next(Prefix.INVENTORY_TXN, 4))
+                .item(item)
+                .lot(lot)
+                .warehouse(lot.getWarehouse())
+                .txnType(Constants.TXN_RECEIVE)
+                .qty(request.getQty())
+                .refType("WORK_ORDER")
+                .refNo(entity.getWorkOrderNo())
+                .txnDate(today())
+                .build();
+        InventoryTransactionEntity savedTxn = inventoryTransactionRepository.save(txn);
+        BigDecimal afterNet = net.subtract(request.getQty());
+        Response before = toResponse(entity);
+        auditService.record(AuditEvent.changed("RETURN", "WORK_ORDER", entity.getWorkOrderNo(), before, toResponse(entity)));
+        auditService.record(AuditEvent.created("INVENTORY_TRANSACTION", savedTxn.getTxnNo(), transactionSnapshot(savedTxn)));
+        auditService.record(AuditEvent.changed("RETURN", "ITEM", item.getItemNo(),
+                java.util.Map.of("id", item.getId(), "itemNo", item.getItemNo(), "stock", stockBefore),
+                java.util.Map.of("id", item.getId(), "itemNo", item.getItemNo(), "stock", item.getStock())));
+        auditService.record(AuditEvent.changed("RETURN", "LOT", lot.getLotNo(),
+                java.util.Map.of("id", lot.getId(), "lotNo", lot.getLotNo(), "qty", lotBefore),
+                lotSnapshot(lot)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(MaterialMoveResult.builder()
+                .workOrderId(entity.getId())
+                .workOrderNo(entity.getWorkOrderNo())
+                .childItemId(item.getId())
+                .childItemNo(item.getItemNo())
+                .lotId(lot.getId())
+                .lotNo(lot.getLotNo())
+                .qty(request.getQty())
+                .txnNo(savedTxn.getTxnNo())
+                .netIssuedQty(afterNet)
+                .remainingQty(requirementOf(entity, request.getChildItemId()).subtract(afterNet))
+                .build());
+    }
+
     @Operation(summary = "작업오더 마감 (완료 → 마감)")
     @PostMapping("/{id}/close")
     @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
@@ -399,6 +563,73 @@ public class WorkOrderController {
         if (!Set.of(Constants.WO_OPEN, Constants.WO_PROGRESS).contains(entity.getStatus())) {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION, "지시/진행중 작업오더만 실적 입력·완료할 수 있습니다.");
         }
+    }
+
+    private BomEntity bomOf(WorkOrderEntity entity, Long childItemId) {
+        return bomRepository.findByParentId(entity.getItem().getId()).stream()
+                .filter(b -> b.getChild().getId().equals(childItemId))
+                .findFirst()
+                .orElseThrow(() -> new DomainException(ErrorCode.BOM_NOT_FOUND,
+                        "BOM 구성품이 아닙니다: " + childItemId));
+    }
+
+    private BigDecimal requiredQty(BigDecimal workQty, BomEntity bom) {
+        BigDecimal loss = bom.getLossRate() == null ? BigDecimal.ZERO : bom.getLossRate();
+        return workQty.multiply(bom.getQty())
+                .multiply(BigDecimal.ONE.add(loss.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP)))
+                .setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal netIssued(String workOrderNo, Long childItemId) {
+        BigDecimal issued = inventoryTransactionRepository
+                .sumByRefAndItemAndType("WORK_ORDER", workOrderNo, childItemId, Constants.TXN_ISSUE);
+        BigDecimal returned = inventoryTransactionRepository
+                .sumByRefAndItemAndType("WORK_ORDER", workOrderNo, childItemId, Constants.TXN_RECEIVE);
+        BigDecimal issuedQty = (issued == null ? BigDecimal.ZERO : issued).negate();
+        BigDecimal returnedQty = returned == null ? BigDecimal.ZERO : returned;
+        return issuedQty.subtract(returnedQty);
+    }
+
+    private BigDecimal requirementOf(WorkOrderEntity entity, Long childItemId) {
+        return requiredQty(entity.getQty(), bomOf(entity, childItemId));
+    }
+
+    private MaterialListResponse requirements(WorkOrderEntity entity) {
+        var rows = new ArrayList<MaterialRequirement>();
+        for (BomEntity bom : bomRepository.findByParentId(entity.getItem().getId())) {
+            BigDecimal required = requiredQty(entity.getQty(), bom);
+            BigDecimal issuedSum = inventoryTransactionRepository
+                    .sumByRefAndItemAndType("WORK_ORDER", entity.getWorkOrderNo(), bom.getChild().getId(), Constants.TXN_ISSUE);
+            BigDecimal returnedSum = inventoryTransactionRepository
+                    .sumByRefAndItemAndType("WORK_ORDER", entity.getWorkOrderNo(), bom.getChild().getId(), Constants.TXN_RECEIVE);
+            BigDecimal issued = (issuedSum == null ? BigDecimal.ZERO : issuedSum).negate();
+            BigDecimal returned = returnedSum == null ? BigDecimal.ZERO : returnedSum;
+            BigDecimal net = issued.subtract(returned);
+            rows.add(MaterialRequirement.builder()
+                    .bomId(bom.getId())
+                    .childItemId(bom.getChild().getId())
+                    .childItemNo(bom.getChild().getItemNo())
+                    .childName(bom.getChild().getName())
+                    .unit(bom.getChild().getUnit())
+                    .bomQty(bom.getQty())
+                    .lossRate(bom.getLossRate() == null ? BigDecimal.ZERO : bom.getLossRate())
+                    .requiredQty(required)
+                    .issuedQty(issued)
+                    .returnedQty(returned)
+                    .netIssuedQty(net)
+                    .remainingQty(required.subtract(net))
+                    .build());
+        }
+        return MaterialListResponse.builder()
+                .workOrderId(entity.getId())
+                .workOrderNo(entity.getWorkOrderNo())
+                .qty(entity.getQty())
+                .requirements(java.util.List.copyOf(rows))
+                .notes(java.util.List.of(
+                        "소요량 = 지시수량 × BOM 수량 × (1 + 손실률/100), 소수 4자리 반올림.",
+                        "불출은 정상 Lot에서 소요 잔량까지, 반납은 순불출량까지만 가능합니다. 과거 원천을 변경하지 않습니다.",
+                        "완제품 생산입고와 원자재 출고는 같은 작업오더 번호의 수불로 대조하세요."))
+                .build();
     }
 
     private void requireIndependentAndNoActuals(WorkOrderEntity entity) {

@@ -1,5 +1,6 @@
 import type { components } from './generated/core'
 import type { HttpClient } from './http'
+import { ApiError } from './http'
 import { invalidMasterResponse, normalizeMasterPage } from './masterPage'
 
 export type WorkOrderRow = Omit<Required<components['schemas']['WorkOrderResponse']>, 'salesOrderId' | 'salesOrderNo'> & {
@@ -65,4 +66,101 @@ export async function actOnWorkOrder(client: HttpClient, id: number, action: Wor
     }
     normalize(r.data, r.status, r.traceId)
     return action === 'progress' ? '누적 실적을 저장했습니다.' : action === 'close' ? '작업오더를 마감했습니다.' : '작업오더를 취소했습니다.'
+}
+
+export interface MaterialRequirement {
+    bomId: number
+    childItemId: number
+    childItemNo: string
+    childName: string
+    unit: string
+    bomQty: number
+    lossRate: number
+    requiredQty: number
+    issuedQty: number
+    returnedQty: number
+    netIssuedQty: number
+    remainingQty: number
+}
+export interface MaterialListResponse {
+    workOrderId: number
+    workOrderNo: string
+    qty: number
+    requirements: MaterialRequirement[]
+    notes: string[]
+}
+export interface MaterialMoveInput { childItemId: number; lotId: number; qty: number }
+export interface MaterialMoveResult {
+    workOrderId: number
+    workOrderNo: string
+    childItemId: number
+    childItemNo: string
+    lotId: number
+    lotNo: string
+    qty: number
+    txnNo: string
+    netIssuedQty: number
+    remainingQty: number
+}
+
+function normalizeRequirement(value: unknown, status: number, traceId?: string): MaterialRequirement {
+    if (!value || typeof value !== 'object') return invalidMasterResponse(status, traceId)
+    const r = value as Record<string, unknown>
+    if (![r.bomId, r.childItemId].every(positiveId) || ![r.childItemNo, r.childName, r.unit].every(text)
+        || ![r.bomQty, r.lossRate, r.requiredQty, r.issuedQty, r.returnedQty, r.netIssuedQty, r.remainingQty].every(number)
+        || (r.bomQty as number) <= 0 || (r.lossRate as number) < 0 || (r.requiredQty as number) < 0
+        || (r.issuedQty as number) < 0 || (r.returnedQty as number) < 0 || (r.netIssuedQty as number) < 0
+        || (r.remainingQty as number) < 0) return invalidMasterResponse(status, traceId)
+    return r as unknown as MaterialRequirement
+}
+
+function normalizeMaterials(value: unknown, status: number, traceId?: string): MaterialListResponse {
+    if (!value || typeof value !== 'object') return invalidMasterResponse(status, traceId)
+    const r = value as Record<string, unknown>
+    if (!positiveId(r.workOrderId) || !text(r.workOrderNo) || !number(r.qty) || (r.qty as number) <= 0
+        || !Array.isArray(r.requirements) || !Array.isArray(r.notes) || !r.notes.every(n => typeof n === 'string')) {
+        return invalidMasterResponse(status, traceId)
+    }
+    return { workOrderId: r.workOrderId, workOrderNo: r.workOrderNo, qty: r.qty,
+        requirements: (r.requirements as unknown[]).map(v => normalizeRequirement(v, status, traceId)),
+        notes: r.notes as string[] } as MaterialListResponse
+}
+
+function normalizeMove(value: unknown, status: number, traceId?: string): MaterialMoveResult {
+    if (!value || typeof value !== 'object') return invalidMasterResponse(status, traceId)
+    const r = value as Record<string, unknown>
+    if (!positiveId(r.workOrderId) || !text(r.workOrderNo) || !positiveId(r.childItemId) || !text(r.childItemNo)
+        || !positiveId(r.lotId) || !text(r.lotNo) || !number(r.qty) || (r.qty as number) <= 0
+        || !text(r.txnNo) || !number(r.netIssuedQty) || (r.netIssuedQty as number) < 0
+        || !number(r.remainingQty) || (r.remainingQty as number) < 0) return invalidMasterResponse(status, traceId)
+    return r as unknown as MaterialMoveResult
+}
+
+function moveInput(input: unknown): asserts input is MaterialMoveInput {
+    if (!input || typeof input !== 'object') throw new ApiError({ status: 400, code: 'INVALID_INPUT', message: '불출 입력이 올바르지 않습니다.' })
+    const r = input as Record<string, unknown>
+    if (!positiveId(r.childItemId) || !positiveId(r.lotId) || !number(r.qty) || (r.qty as number) <= 0) {
+        throw new ApiError({ status: 400, code: 'INVALID_INPUT', message: '불출 입력이 올바르지 않습니다.' })
+    }
+}
+
+export async function fetchWorkOrderMaterials(client: HttpClient, id: number, signal?: AbortSignal) {
+    if (!positiveId(id)) throw new ApiError({ status: 400, code: 'INVALID_INPUT', message: '작업오더 ID가 올바르지 않습니다.' })
+    const r = await client.get<unknown>(`work-orders/${id}/materials`, { signal })
+    return normalizeMaterials(r.data, r.status, r.traceId)
+}
+
+async function moveMaterials(client: HttpClient, id: number, action: 'material-issues' | 'material-returns', input: MaterialMoveInput) {
+    if (!positiveId(id)) throw new ApiError({ status: 400, code: 'INVALID_INPUT', message: '작업오더 ID가 올바르지 않습니다.' })
+    moveInput(input)
+    const r = await client.post<unknown>(`work-orders/${id}/${action}`, input)
+    return normalizeMove(r.data, r.status, r.traceId)
+}
+
+export async function issueWorkOrderMaterials(client: HttpClient, id: number, input: MaterialMoveInput) {
+    return moveMaterials(client, id, 'material-issues', input)
+}
+
+export async function returnWorkOrderMaterials(client: HttpClient, id: number, input: MaterialMoveInput) {
+    return moveMaterials(client, id, 'material-returns', input)
 }
