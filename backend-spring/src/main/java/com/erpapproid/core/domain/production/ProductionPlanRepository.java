@@ -9,6 +9,7 @@ import java.util.List;
 
 public interface ProductionPlanRepository extends JpaRepository<ProductionPlanEntity, Long> {
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"item"})
     @Query("""
             select p from ProductionPlanEntity p
             where (:planMonth is null or p.planMonth = :planMonth)
