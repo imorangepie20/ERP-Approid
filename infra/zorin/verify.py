@@ -71,12 +71,12 @@ def security():
 def deployment():
     for service in ('postgres', 'backend-spring', 'frontend'):
         assert inspect(service)['State']['Health']['Status'] == 'healthy', service
-    assert sql('SELECT count(*) FROM flyway_schema_history WHERE success;') == '15'
+    assert sql('SELECT count(*) FROM flyway_schema_history WHERE success;') == '19'
     assert sql('SELECT count(*) FROM flyway_schema_history WHERE NOT success;') == '0'
     counts = sql("SELECT (SELECT count(*) FROM items)||','||(SELECT count(*) FROM lots);")
     assert all(int(value) > 0 for value in counts.split(','))
     assert sql("SELECT count(*) FROM users WHERE username='approid';") == '1'
-    return f'3 healthy application services; Flyway V1-V15 success; item,Lot counts={counts}; administrator count=1'
+    return f'3 healthy application services; Flyway V1-V19 success; item,Lot counts={counts}; administrator count=1'
 
 
 def tunnel():

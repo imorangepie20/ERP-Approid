@@ -335,3 +335,24 @@ lint(오류 0/기존 경고 48), actionlint와 diff 검사 모두 통과했다.
   검증기 보정은 애플리케이션 이미지 변경이 아니며 해당 소스를 별도로 커밋/CI 확인한다.
   초기 릴리스의 실패 이력·첫 재검증 결과는 보존한다. 실제 생산 데이터 인증, 외부 자동 백업,
   전면 CVE 검사, 호스트 재부팅/앱 롤백 훈련은 이번 성공으로 완료 처리하지 않는다.
+
+## 이메일 마일스톤 Zorin 재배포 — 2026-10-06
+
+- PASS: `fc134cc`(EMAIL-01~08·TODO-004 완료)를 main에 커밋/푸시했고 원격 main SHA가 일치한다.
+  [실행 37403462610](https://github.com/imorangepie20/ERP-Approid/actions/runs/37403462610)의
+  Frontend, Backend, Chromium transactions, Phase 1 required가 모두 success다.
+- PASS: `demo-20261006-fc134cc` 이미지 아카이브 SHA256이 로컬/서버에서 일치한다.
+  backend `cb6c8ed89bc39a0d035087a099f6874b839d03d273d2f5044ed34eaa99b395cb`,
+  frontend `e6411c9e7db204b8965f055ae0293ec99d5842f4f3d3a05d77cfa2d07b268ea3`.
+  백엔드는 현 소스 `--no-cache` 재빌드(jar 포함), 프런트는 공개 HTTPS URL 번들이다.
+- PASS: 이전 release.env·DB 백업(`erp_demo-20261006-113706.dump`,
+  SHA256 `a6f188839d90cf7f5b96982ecd80a80152c1719764a5a4e8b4ade84b3fd015ec`)을 보존한 뒤
+  ERP backend/frontend만 교체했고 PostgreSQL 컨테이너·볼륨을 유지했다. `down -v`, 시드 재실행 없음.
+- PASS: 전체7개 PASS/종료0: 호스트, prod/비밀 권한, 3 healthy 앱/V1–V19, 터널,
+  HTTPS/번들/401/CSP/HSTS, 인증/404/동일 출처200·비허용403/429, DB 복원·비ERP 62개 보존.
+  원본/복원 item/Lot/migration `8/8/19`, admin1이다. 원본 DB는 변경하지 않았고 임시 복원 DB만 제거했다.
+  서버 보고서는 `/home/approid/erp-approid/artifacts/demo-20261006-fc134cc/verification.json`이다.
+- 배포 검증 1차는 PASS5/FAIL2였다. Flyway 기대값 V15 고정과 베이스라인 형식 불일치가 원인이었다.
+  검증기·운영 헬퍼의 guard를 V19로 갱신하고(`verify.py`·`manage.py`), 베이스라인을 검증기 형식으로 재생성한 뒤
+  재검증했다. 실패 이력·첫 검증 보고서는 보존한다. 운영 SMTP 활성화·실제 배달·SMS 발송·외부 백업·
+  전면 CVE 검사는 이번 성공으로 완료 처리하지 않는다.

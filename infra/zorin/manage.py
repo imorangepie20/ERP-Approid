@@ -55,8 +55,8 @@ def bootstrap_admin():
     identity = json.loads((ROOT / 'secrets/initial-admin.json').read_text())
     if sql("SELECT username FROM users ORDER BY id;") != 'admin':
         raise RuntimeError('Refusing to alter an existing/non-seed user database')
-    if sql("SELECT count(*) FROM flyway_schema_history WHERE success;") != '15':
-        raise RuntimeError('Expected complete V1-V15 migrations')
+    if sql("SELECT count(*) FROM flyway_schema_history WHERE success;") != '19':
+        raise RuntimeError('Expected complete V1-V19 migrations')
     # Generated token_urlsafe text contains no SQL metacharacters. Do not accept user-supplied SQL.
     password = identity['password']
     if not all(char.isalnum() or char in '-_' for char in password):

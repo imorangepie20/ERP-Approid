@@ -66,6 +66,8 @@ EMAIL 채널·허용된 등록 연락처·최신 snapshotHash·수신 확인·�
   `MessageDeliveryHistory` 3개: 실패/UNKNOWN 문구·재시도·SALES 읽기전용.
 - `ReceivableReminderDialog.test.tsx` 9개: 기존 검토 6개 + 실제 요청/중단 복원/서버 거절 3개.
 - `SalesReceivables.test.tsx` 8개: 툴바→모달·취소 시 쓰기 없음을 유지한다.
-- 이번 기능은 로컬 구현이며 main `8aaaaff`까지 커밋·푸시·CI 전체 성공했다. 운영 배포/운영 데이터 검증은 하지 않았다.
+- 이번 기능은 main `8aaaaff`까지 커밋·푸시·CI 전체 성공했고 릴리스 `demo-20261006-fc134cc`로 데모에 배포했다.
+  운영 SMTP 활성화·실제 배달·SMS 발송은 검증하지 않았으며 [이메일 발송 구현 기록](receivables-email-delivery.md)의
+  미검증 항목으로 관리한다.
   운영 SMTP 활성화·실제 배달·SMS 발송은 검증하지 않았으며 [이메일 발송 구현 기록](receivables-email-delivery.md)의
   미검증 항목으로 관리한다.

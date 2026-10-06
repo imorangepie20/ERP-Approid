@@ -72,7 +72,8 @@ Backend, from `backend-spring/`:
   mock-transport only with no production SMTP use. This is not an operational reminder-delivery certification.
   See `docs/receivables-reminders.md`, `docs/receivables-email-delivery.md` and
   `docs/superpowers/plans/2026-10-04-receivable-email-delivery-plan.md`.
-  These local receivables changes are not deployed yet.
+  Release `demo-20261006-fc134cc` (main `fc134cc`) is deployed to the demo site with Flyway V19;
+  operational email activation and real delivery remain separate follow-ups.
 - Quotations support draft editing/sending and unexpired sent-quotation conversion. Sales confirmation creates
   a persistent work order. Simple cancellation is waiting-only; confirmed-order compensation is follow-up work.
 - New sales documents snapshot customer payment/lead-time terms; V12 reconstructs existing terms from current
