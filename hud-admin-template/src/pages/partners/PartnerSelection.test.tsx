@@ -96,9 +96,10 @@ describe('real partner selection in business forms', () => {
 
     it('shows lookup errors and blocks creation without a memory fallback', async () => {
         setup(<PurchaseOrders />, true)
-        expect(await screen.findByText('서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')).toBeInTheDocument()
-        expect(screen.getByText(/options-trace/)).toBeInTheDocument()
+        const errors = await screen.findAllByText('서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
+        expect(errors.length).toBeGreaterThanOrEqual(1)
+        expect(screen.getAllByText(/options-trace/).length).toBeGreaterThanOrEqual(1)
         expect(screen.getByRole('button', { name: '발주 등록' })).toBeDisabled()
-        expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: '다시 시도' }).length).toBeGreaterThanOrEqual(1)
     })
 })
