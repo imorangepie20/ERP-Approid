@@ -242,6 +242,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/inventory/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 실사 조정: 실측 수량으로 현재고·수불 대사 */
+        post: operations["adjust"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/inventory/low-stock": {
         parameters: {
             query?: never;
@@ -1351,6 +1368,27 @@ export interface components {
             qty?: number;
             status?: string;
             workOrderNo?: string;
+        };
+        InventoryAdjustRequest: {
+            countedQty: number;
+            /** Format: int64 */
+            itemId: number;
+            reason: string;
+            warehouse: string;
+        };
+        InventoryAdjustResponse: {
+            adjustedQty?: number;
+            countedQty?: number;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            ledgerBalance?: number;
+            previousStock?: number;
+            /** Format: date */
+            txnDate?: string;
+            txnNo?: string;
+            txnType?: string;
         };
         InventoryAnalysisResponse: {
             /** Format: int32 */
@@ -3140,6 +3178,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["InternalWorkOrderRow"][];
+                };
+            };
+        };
+    };
+    adjust: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryAdjustRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InventoryAdjustResponse"];
                 };
             };
         };

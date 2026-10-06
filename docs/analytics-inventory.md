@@ -2,7 +2,8 @@
 
 ANL-03의 현재고·수불 정합성 및 Lot 상태/제조·입고일 경과 조회다.
 `/analytics/inventory`와 기존 `/inventory/stock`은 같은 실제 API 화면을 사용한다.
-재고 조정·Lot 쓰기·원가·평균재고·사업장 서비스는 추가하지 않는다.
+분석 조회 자체는 읽기 전용이며 Lot 쓰기·원가·평균재고·사업장 서비스는 추가하지 않는다.
+재고 조정은 TODO-012의 별도 `POST /api/core/inventory/adjustments`(실사 수불·감사)로 처리한다.
 
 ## API와 필터
 

@@ -56,4 +56,38 @@ public class InventoryDto {
         private String refNo;
         private LocalDate txnDate;
     }
+
+    @Getter
+    @Builder
+    @Schema(name = "InventoryAdjustRequest")
+    public static final class AdjustRequest {
+        @jakarta.validation.constraints.NotNull
+        @jakarta.validation.constraints.Positive
+        private Long itemId;
+        @jakarta.validation.constraints.NotNull
+        @jakarta.validation.constraints.DecimalMin(value = "0")
+        private BigDecimal countedQty;
+        @jakarta.validation.constraints.NotBlank
+        @jakarta.validation.constraints.Size(max = 32)
+        private String warehouse;
+        @jakarta.validation.constraints.NotBlank
+        @jakarta.validation.constraints.Size(max = 200)
+        private String reason;
+    }
+
+    @Getter
+    @Builder
+    @Schema(name = "InventoryAdjustResponse")
+    public static final class AdjustResponse {
+        private Long itemId;
+        private String itemNo;
+        private String itemName;
+        private BigDecimal previousStock;
+        private BigDecimal ledgerBalance;
+        private BigDecimal countedQty;
+        private BigDecimal adjustedQty;
+        private String txnNo;
+        private String txnType;
+        private LocalDate txnDate;
+    }
 }

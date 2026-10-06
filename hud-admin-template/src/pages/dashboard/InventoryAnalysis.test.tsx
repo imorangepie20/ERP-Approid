@@ -79,3 +79,27 @@ it('requests the next real page then disables the last page without changing sum
     expect(screen.getByRole('button', { name: '다음' })).toBeDisabled(); expect(screen.getByRole('button', { name: '이전' })).toBeEnabled()
     expect(state.fetch.mock.calls.some(([u]) => new URL(String(u)).searchParams.get('page') === '1')).toBe(true)
 })
+it('adjusts stock to a counted quantity with a reason then refetches the analysis', async () => {
+    mount(); const user = userEvent.setup()
+    await screen.findByText('M-LIVE')
+    let posted: unknown = null
+    state.fetch.mockImplementation(async (input, init) => {
+        const url = new URL(String(input))
+        if (init?.method === 'POST' && url.pathname.endsWith('/inventory/adjustments')) {
+            posted = JSON.parse(String(init.body))
+            return Response.json({ itemId: 7, itemNo: 'M-LIVE', itemName: '실제 자재', previousStock: 30,
+                ledgerBalance: 28, countedQty: 32, adjustedQty: 4, txnNo: 'IVT-LIVE', txnType: '실사', txnDate: '2026-10-06' }, { status: 201 })
+        }
+        return options(input) ?? Response.json(inventoryAnalysisFixture())
+    })
+    await user.click(screen.getByRole('button', { name: '실사 조정 M-LIVE' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(/현재고 30 kg · 수불 합계 28 kg/)).toBeInTheDocument()
+    await user.clear(within(dialog).getByLabelText('실측 수량 *'))
+    await user.type(within(dialog).getByLabelText('실측 수량 *'), '32')
+    await user.type(within(dialog).getByLabelText('실사 창고 *'), '자재창고')
+    await user.type(within(dialog).getByLabelText('조정 사유 *'), '월말 실사')
+    await user.click(within(dialog).getByRole('button', { name: '조정 확인' }))
+    await screen.findByText(/실사 조정했습니다. M-LIVE · 실측 32 kg · 차이 \+4 kg/)
+    expect(posted).toMatchObject({ itemId: 7, countedQty: 32, warehouse: '자재창고', reason: '월말 실사' })
+})
