@@ -23,7 +23,7 @@ import com.erpapproid.core.api.messaging.EmailDeliveryProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.erpapproid.core.support.IntegrationTestSupport;
 
-@TestPropertySource(properties={"erp.messaging.email.enabled=true", "erp.messaging.email.scheduling-enabled=false"})
+@TestPropertySource(properties={"erp.messaging.email.enabled=true", "erp.messaging.email.scheduling-enabled=false", "erp.messaging.email.host=test.invalid", "erp.messaging.email.username=test", "erp.messaging.email.password=test", "erp.messaging.email.from=test@example.invalid", "erp.messaging.email.envelope-from=test@example.invalid"})
 class ReceivableReminderRequestIntegrationTest extends IntegrationTestSupport {
     @Autowired JdbcTemplate jdbc;
     @Autowired EmailDeliveryProperties properties;

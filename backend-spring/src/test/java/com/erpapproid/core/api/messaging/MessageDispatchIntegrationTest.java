@@ -34,7 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.erpapproid.core.domain.messaging.DeliveryOutcome;
 import com.erpapproid.core.support.IntegrationTestSupport;
 
-@TestPropertySource(properties={"erp.messaging.email.enabled=true", "erp.messaging.email.scheduling-enabled=false"})
+@TestPropertySource(properties={"erp.messaging.email.enabled=true", "erp.messaging.email.scheduling-enabled=false", "erp.messaging.email.host=test.invalid", "erp.messaging.email.username=test", "erp.messaging.email.password=test", "erp.messaging.email.from=test@example.invalid", "erp.messaging.email.envelope-from=test@example.invalid"})
 class MessageDispatchIntegrationTest extends IntegrationTestSupport {
     private static final Instant NOW=Instant.parse("2026-10-04T14:00:00Z");
     private static final ZoneId SEOUL=ZoneId.of("Asia/Seoul");
