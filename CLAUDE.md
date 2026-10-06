@@ -57,16 +57,21 @@ Backend, from `backend-spring/`:
   inventing historical payments; response-loss retries retain the same key in browser session storage. Journals, reversals,
   cross-device external-payment reconciliation and reminder delivery remain follow-up. See `docs/receivables-list.md`
   and `docs/receivables-collections.md`. The reminder dialog reads real overdue targets/current contact and rechecks
-  balances/contact before review confirmation; confirmation is explicitly unsent and does not save/enqueue a message.
-  Generic partner contact does not establish a channel, consent, or delivery authority. Actual delivery remains TODO-004/047.
+  balances/contact before review confirmation; confirmation alone stays unsent and unsaved. After confirmation,
+  ADMIN/ACCOUNTING can request actual EMAIL delivery against the registered ALLOWED contact, current snapshot hash
+  and dispatch flag, with per-receivable UUID/key resumption in session storage and real history/retry display
+  (SALES read-only). Generic partner contact does not establish a channel, consent, or delivery authority.
+  SMS remains a review-only channel choice; supplier/policy work remains TODO-047.
   The local EMAIL-03 backend now persists reviewed EMAIL requests and sensitive audit atomically, with immutable
   snapshots, original UUID/actor/trace, idempotent replay and real request history. MESSAGE audit entity_no uses the
   lossless 32-hex UUID form to respect the existing column; API/queue/snapshot retain the canonical UUID.
   Delivery stays disabled by default. The local EMAIL-04 worker uses skip-locked single-row claims, retained actor/trace,
   current business/role preflight, separate short transactions and token-matched results. Mock-transport tests verify
-  that collections can commit during transport. No production SMTP adapter is installed; retries/lease recovery and
-  the review UI connection remain EMAIL-05~07. This is not an operational reminder-delivery certification.
-  See `docs/receivables-reminders.md` and `docs/superpowers/plans/2026-10-04-receivable-email-delivery-plan.md`.
+  that collections can commit during transport. EMAIL-05 added the SMTP adapter with safe configuration,
+  EMAIL-06 retry/recovery/UNKNOWN handling, and EMAIL-07 the actual request/history UI. All verification is local
+  mock-transport only with no production SMTP use. This is not an operational reminder-delivery certification.
+  See `docs/receivables-reminders.md`, `docs/receivables-email-delivery.md` and
+  `docs/superpowers/plans/2026-10-04-receivable-email-delivery-plan.md`.
   These local receivables changes are not deployed yet.
 - Quotations support draft editing/sending and unexpired sent-quotation conversion. Sales confirmation creates
   a persistent work order. Simple cancellation is waiting-only; confirmed-order compensation is follow-up work.

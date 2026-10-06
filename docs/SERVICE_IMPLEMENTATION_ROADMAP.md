@@ -792,9 +792,10 @@ ANL-03 생산 진척 분석이며 이번 운영 대시보드(`/`)와 구분한�
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 미구현 |
+| 현재 상태 | 독촉 이메일 구현 완료 — 실제 요청·발송·이력·재시도 연결, SMS/LMS 공급사·공통 템플릿은 후속 |
 | 기능 | 이메일, SMS/LMS, 납기·연체·장애 알림 템플릿과 발송 이력 |
 | 완료 조건 | 수신동의/차단, 재시도, 중복방지, 공급사 장애 격리 구현 |
+| 이메일 근거 | [이메일 발송 구현 기록](receivables-email-delivery.md), TODO-004 완료 2026-10-06 |
 
 ## 11. 서비스 의존성 요약
 
@@ -901,7 +902,7 @@ ANL-03 생산 진척 분석이며 이번 운영 대시보드(`/`)와 구분한�
 - [x] **TODO-001 / FIN-01 / [조회 검증 완료] 미납관리 실데이터 목록** — 실제 `/receivables`·전체 문서 원금 요약 API, 고객/저장상태/한국 날짜 연체 필터, 리터럴 검색·서버 정렬·페이지·오류/재시도·권한을 연결했다. 관련 백엔드 15개, 프런트 25개 및 타입/변경 파일 lint 검증을 통과했다. 이번 변경은 로컬이며 배포된 `156f2a6`에는 미포함; 수납 확장은 TODO-002, 남은 독촉 모달/실제 발송은 TODO-003~004로 관리한다. 근거: [화면](../hud-admin-template/src/pages/sales/SalesReceivables.tsx), [API](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableController.java), [계약·검증 경로](receivables-list.md). 완료 2026-10-04 / 위 소스 / 백엔드15·프런트25·타입/lint PASS.
 - [x] **TODO-002 / FIN-01 / [수납 검증 완료] 전액·부분수납과 수납 이력** — 실제 금액/수납일/처리자/처리 후 잔액 이력과 화면을 연결했다. 문서 잠금·요청 UUID로 중복/초과/동시 수납을 차단하고 필수 감사 실패는 전체 롤백한다. V16~18은 기존 완료액만 이월하며 가짜 과거 이력을 만들지 않는다. 본문 없는 collect는 400이며 통신 오류 재시도는 같은 키를 유지한다. 회계 전표·취소/환불·외부 입금 대사는 후속이고 로컬 미배포다. 근거: [수납 서비스](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableCollectionService.java), [수납 화면](../hud-admin-template/src/pages/sales/ReceivableCollectionDialog.tsx), [계약·운영 경계·검증](receivables-collections.md). 완료 2026-10-04 / 위 소스 / 백엔드22·프런트37·실제 OpenAPI 생성 일치·타입/lint·문서 링크/diff PASS.
 - [x] **TODO-003 / FIN-01·INT-02 / [검토 모달 검증 완료] ‘독촉 발송’ 모달** — 실제 날짜 연체 미수의 검색/페이지/대상 선택, 현재 잔액·거래처 연락처, 검토용 채널·수신자·추가 안내·확인 체크와 취소를 연결했다. 확인 직전 최신 정보를 재조회해 변경/완료/오류를 차단하고 ‘검토 완료·미발송’으로만 표시한다. 미등록 주소·수신동의·채널을 추정하지 않으며 실제 발송/저장/요청 이력은 TODO-004/047 후속이다. 로컬 미배포. 근거: [화면](../hud-admin-template/src/pages/sales/ReceivableReminderDialog.tsx), [읽기 API](../backend-spring/src/main/java/com/erpapproid/core/api/sales/ReceivableController.java), [계약·검증](receivables-reminders.md). 완료 2026-10-04 / 위 소스 / 백엔드13·프런트41·실제 OpenAPI 생성 일치·타입/lint·문서 링크/diff PASS.
-- [ ] **TODO-004 / FIN-01·INT-02 / [미구현] 실제 독촉 발송·결과 이력** — `TODO-003` 및 메시지 기반 `TODO-047` 이후 이메일/SMS 채널을 확정하고 요청·발송·실패·재시도·중복방지·감사를 저장한다. 근거: [INT-02](#int-02-메시지-발송-서비스).
+- [x] **TODO-004 / FIN-01·INT-02 / [발송 검증 완료] 실제 독촉 이메일 요청·발송·결과 이력** — 등록·허용 EMAIL 연락처(버전 잠금·확인 근거)와 최신 snapshotHash 확인 후 요청을 QUEUED 저장하고 worker·SMTP adapter·자동/수동 재시도·UNKNOWN 차단·이력/재시도 화면을 연결했다. 모의 transport 검증만 했으며 실제 SMTP 제출·최종 배달·운영 활성화는 별도다. SMS 실제 발송과 공통 공급사 기반은 TODO-047 후속이다. 근거: [이메일 발송 구현 기록](receivables-email-delivery.md), [독촉 계약](receivables-reminders.md), [INT-02](#int-02-메시지-발송-서비스). 완료 2026-10-06 / main `8aaaaff` / CI 전체 성공(백엔드·프런트·E2E·Flyway V19·OpenAPI drift) · 백엔드 전체 GREEN(46클래스 281개·메시지·독촉 58개 포함) · 프런트 365개·tsc·lint·build PASS.
 - [ ] **TODO-005 / PUR-01 / [부분] 발주 CRUD 화면 API 전환** — DataContext 저장을 실제 `/purchase-orders`로 교체하고 발주처·품목 ID, 금액/납기, 수정·취소 제한, 부분입고 잔량·권한/감사를 연결한다. 근거: [현재 메모리 발주](../hud-admin-template/src/pages/purchase/PurchaseOrders.tsx), [PUR-01](#pur-01-발주-서비스).
 - [ ] **TODO-006 / PUR-01·PUR-02 / [부분] 발주 화면의 입고 액션 통합** — 메모리 `receivePurchaseOrder` 경로를 제거하고 실제 입고 화면/API로 연결해 두 화면의 발주잔량·재고가 일치하도록 한다. 근거: [현재 입고 모달 경로](../hud-admin-template/src/pages/purchase/PurchaseOrders.tsx), [실제 입고 화면](../hud-admin-template/src/pages/purchase/PurchaseReceiving.tsx).
 - [ ] **TODO-007 / PRD-01 / [부분] 생산계획 조회·‘계획 등록’·확정/마감** — 예제 목록과 무반응 등록 버튼을 실제 생산계획 API에 연결하고 상태 전이·권한·감사를 검증한다. 근거: [현재 화면](../hud-admin-template/src/pages/production/ProductionPlan.tsx), [PRD-01](#prd-01-생산계획-서비스).
@@ -959,7 +960,7 @@ ANL-03 생산 진척 분석이며 이번 운영 대시보드(`/`)와 구분한�
 - [ ] **TODO-044 / PRT-01 / [미구현] 현장 작업자 포털** — 모바일/태블릿 작업지시·실적·바코드/QR 및 오프라인/재전송 정책을 구현한다. 근거: [PRT-01](#prt-01-현장-작업자-포털).
 - [ ] **TODO-045 / PRT-02 / [미구현] 거래처 포털** — 고객/공급사별 문서 조회·다운로드·문의 이력 및 거래처 데이터 격리를 구현한다. 근거: [PRT-02](#prt-02-거래처-포털).
 - [ ] **TODO-046 / INT-01 / [미구현] 은행·외부 회계 연동** — 입출금 대사·내보내기·재처리 키·실패 큐·응답 감사를 구현한다. 세금계산서는 `TODO-034`로 별도 관리한다. 근거: [INT-01](#int-01-세무은행-연동-서비스).
-- [ ] **TODO-047 / INT-02 / [미구현] 공통 메시지 발송 기반** — 이메일/SMS/LMS 공급사·비밀 관리·템플릿·수신동의/차단·재시도·중복방지·발송 이력을 구현한다. 독촉은 `TODO-004`, 견적 실제 이메일/PDF 전송도 이 기반에 연결한다. 근거: [INT-02](#int-02-메시지-발송-서비스), [견적 발송의 현재 한계](#sal-01-견적-서비스).
+- [ ] **TODO-047 / INT-02 / [부분] 공통 메시지 발송 기반** — 독촉 이메일(TODO-004)은 본 기반에 연결했다. SMS/LMS 공급사·비밀 관리·템플릿·수신동의/차단과 견적 실제 이메일/PDF 전송 연결이 남았다. 근거: [INT-02](#int-02-메시지-발송-서비스), [견적 발송의 현재 한계](#sal-01-견적-서비스), [이메일 발송 구현 기록](receivables-email-delivery.md).
 - [ ] **TODO-048 / ANL-04 / [결정·보류] FastAPI 분석 분리** — Spring 우선 결정을 유지한다. 독립 서비스의 이점이 확인되고 사용자 승인 시에만 읽기 전용 계정·배포/관측·health/OpenAPI·계약 테스트를 구현한다. 현재 Spring 분석이 미구현이라는 뜻이 아니다. 근거: [ANL-04 보류 결정](#anl-04-분석-전용-fastapi-서비스).
 
 ### G. 현재 변경·데모 배포 이후 검증/운영
