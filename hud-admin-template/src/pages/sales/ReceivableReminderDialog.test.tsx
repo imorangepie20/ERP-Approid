@@ -10,7 +10,8 @@ const state = vi.hoisted(() => ({ fetch: vi.fn<typeof globalThis.fetch>(), roles
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ user: { id: 1, roles: state.roles }, core: createHttpClient({ baseUrl: 'https://core.test/api/core', fetch: state.fetch }) }) }))
 const row = () => ({ id: 7, receivableNo: 'RV-LIVE', customerId: 9, customerName: '실제 고객', salesOrderId: null, salesOrderNo: null,
     amount: 100, collectedAmount: 30, openingCollectedAmount: 0, remainingAmount: 70, dueDate: '2026-10-01', overdueDays: 3, status: '미수', overdue: true, referenceDate: '2026-10-04' })
-const preview = () => ({ receivable: row(), contactName: '마스터 담당자', contact: 'recipient@example.test' as string | null })
+const preview = () => ({ receivable: row(), contactName: '마스터 담당자', contact: 'recipient@example.test' as string | null,
+    emailSubject: 'Payment reminder', emailBody: 'Body', emailDispatchEnabled: false, snapshotHash: 'b'.repeat(64), messageContact: null })
 const page = () => ({ content: [row()], number: 0, size: 10, totalElements: 1, totalPages: 1 })
 const respond = (input: RequestInfo | URL) => Response.json(new URL(String(input)).pathname.endsWith('/reminder-preview') ? preview() : page())
 function mount() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ReceivableReminderDialog onClose={state.close} /></QueryClientProvider>) }

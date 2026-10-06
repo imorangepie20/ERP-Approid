@@ -319,7 +319,7 @@ export interface paths {
             cookie?: never;
         };
         /** 품목 상세 */
-        get: operations["get_6"];
+        get: operations["get_7"];
         put?: never;
         post?: never;
         /** 품목 삭제 */
@@ -355,7 +355,7 @@ export interface paths {
             cookie?: never;
         };
         /** Lot 및 연결 수불·입고·작업오더·출하 원천 (수불 페이지) */
-        get: operations["detail_1"];
+        get: operations["detail_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -432,6 +432,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/messages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["detail_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/partners": {
         parameters: {
             query?: never;
@@ -458,7 +474,7 @@ export interface paths {
             cookie?: never;
         };
         /** 거래처 상세 */
-        get: operations["get_5"];
+        get: operations["get_6"];
         put?: never;
         post?: never;
         /** 거래처 삭제 */
@@ -467,6 +483,22 @@ export interface paths {
         head?: never;
         /** 거래처 수정 */
         patch: operations["update_7"];
+        trace?: never;
+    };
+    "/api/core/partners/{id}/message-contacts/receivable-reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get"];
+        put: operations["put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/core/production-plans": {
@@ -564,7 +596,7 @@ export interface paths {
             cookie?: never;
         };
         /** 발주 상세 */
-        get: operations["get_4"];
+        get: operations["get_5"];
         put?: never;
         post?: never;
         /** 발주 삭제 (발주만) */
@@ -618,7 +650,7 @@ export interface paths {
             cookie?: never;
         };
         /** 견적 상세 */
-        get: operations["get_3"];
+        get: operations["get_4"];
         put?: never;
         post?: never;
         /** 견적 삭제 (작성중만) */
@@ -720,6 +752,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/receivables/{id}/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["reminderHistory"];
+        put?: never;
+        post: operations["requestReminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/receivables/summary": {
         parameters: {
             query?: never;
@@ -763,7 +811,7 @@ export interface paths {
             cookie?: never;
         };
         /** 입고 상세 */
-        get: operations["get_7"];
+        get: operations["get_8"];
         put?: never;
         post?: never;
         /** 입고 이력 삭제 금지 (취소 보상 API 사용) */
@@ -852,7 +900,7 @@ export interface paths {
             cookie?: never;
         };
         /** 수주 상세 */
-        get: operations["get_2"];
+        get: operations["get_3"];
         put?: never;
         post?: never;
         /** 수주 삭제 (대기만) */
@@ -939,7 +987,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_1"];
+        get: operations["get_2"];
         put?: never;
         post?: never;
         delete: operations["delete_1"];
@@ -1040,7 +1088,7 @@ export interface paths {
             cookie?: never;
         };
         /** 작업오더 상세 */
-        get: operations["get"];
+        get: operations["get_1"];
         put?: never;
         post?: never;
         /** 작업오더 삭제 (지시만) */
@@ -1518,6 +1566,93 @@ export interface components {
             unit?: string;
             warehouse?: string;
         };
+        MessageAttemptResponse: {
+            /** Format: int32 */
+            attemptNumber?: number;
+            errorCode?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** @enum {string} */
+            outcome?: "ACCEPTED" | "DEFINITELY_NOT_ACCEPTED_TRANSIENT" | "DEFINITELY_NOT_ACCEPTED_PERMANENT" | "UNKNOWN";
+            /** Format: date-time */
+            startedAt?: string;
+        };
+        MessageContactRequest: {
+            acknowledged?: boolean;
+            confirmationNote?: string;
+            email: string;
+            /** Format: int32 */
+            expectedVersion?: number;
+            /** @enum {string} */
+            permission: "PENDING" | "ALLOWED" | "BLOCKED";
+        };
+        MessageContactResponse: {
+            confirmationNote?: string;
+            /** Format: date-time */
+            confirmedAt?: string;
+            /** Format: int64 */
+            confirmedBy?: number;
+            email?: string;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            partnerId?: number;
+            /** @enum {string} */
+            permission?: "PENDING" | "ALLOWED" | "BLOCKED";
+            /** Format: int32 */
+            version?: number;
+        };
+        MessageContactState: {
+            contact?: components["schemas"]["MessageContactResponse"];
+        };
+        MessageRequestResult: {
+            message?: components["schemas"]["MessageResponse"];
+            replayed?: boolean;
+        };
+        MessageResponse: {
+            /** Format: date-time */
+            acceptedAt?: string;
+            /** Format: int32 */
+            attemptCount?: number;
+            attempts?: components["schemas"]["MessageAttemptResponse"][];
+            body?: string;
+            errorCode?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: uuid */
+            id?: string;
+            /** Format: date-time */
+            nextAttemptAt?: string;
+            /** Format: int64 */
+            receivableId?: number;
+            recipient?: string;
+            /** Format: int64 */
+            remainingAmount?: number;
+            /** Format: date-time */
+            requestedAt?: string;
+            /** @enum {string} */
+            state?: "QUEUED" | "CLAIMED" | "DISPATCHING" | "RETRY_WAIT" | "SMTP_ACCEPTED" | "FAILED" | "STALE" | "UNKNOWN";
+            subject?: string;
+        };
+        MessageSummary: {
+            /** Format: date-time */
+            acceptedAt?: string;
+            /** Format: int32 */
+            attemptCount?: number;
+            errorCode?: string;
+            /** Format: uuid */
+            id?: string;
+            /** Format: int64 */
+            receivableId?: number;
+            recipient?: string;
+            /** Format: int64 */
+            remainingAmount?: number;
+            /** Format: date-time */
+            requestedAt?: string;
+            /** @enum {string} */
+            state?: "QUEUED" | "CLAIMED" | "DISPATCHING" | "RETRY_WAIT" | "SMTP_ACCEPTED" | "FAILED" | "STALE" | "UNKNOWN";
+            subject?: string;
+        };
         MrpResponse: {
             /** Format: int32 */
             activeWorkOrders?: number;
@@ -1665,6 +1800,24 @@ export interface components {
         };
         PageLotTraceRow: {
             content?: components["schemas"]["LotTraceRow"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageMessageSummary: {
+            content?: components["schemas"]["MessageSummary"][];
             empty?: boolean;
             first?: boolean;
             last?: boolean;
@@ -2130,7 +2283,12 @@ export interface components {
         ReceivableReminderPreview: {
             contact?: string;
             contactName?: string;
+            emailBody?: string;
+            emailDispatchEnabled?: boolean;
+            emailSubject?: string;
+            messageContact?: components["schemas"]["MessageContactResponse"];
             receivable?: components["schemas"]["ReceivableResponse"];
+            snapshotHash?: string;
         };
         ReceivableResponse: {
             /** Format: int64 */
@@ -2215,6 +2373,15 @@ export interface components {
             /** Format: int64 */
             vendorId?: number;
             vendorName?: string;
+        };
+        ReminderRequest: {
+            acknowledged: boolean;
+            /** Format: int64 */
+            contactId: number;
+            expectedSnapshotHash: string;
+            note: string;
+            /** Format: uuid */
+            requestId: string;
         };
         RoutingRequest: {
             isSubcontract?: boolean;
@@ -3026,7 +3193,7 @@ export interface operations {
             };
         };
     };
-    get_6: {
+    get_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -3122,7 +3289,7 @@ export interface operations {
             };
         };
     };
-    detail_1: {
+    detail_2: {
         parameters: {
             query?: {
                 page?: number;
@@ -3237,6 +3404,28 @@ export interface operations {
             };
         };
     };
+    detail_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MessageResponse"];
+                };
+            };
+        };
+    };
     list_8: {
         parameters: {
             query?: {
@@ -3287,7 +3476,7 @@ export interface operations {
             };
         };
     };
-    get_5: {
+    get_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -3351,6 +3540,54 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["PartnerResponse"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MessageContactState"];
+                };
+            };
+        };
+    };
+    put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageContactRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MessageContactResponse"];
                 };
             };
         };
@@ -3523,7 +3760,7 @@ export interface operations {
             };
         };
     };
-    get_4: {
+    get_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -3664,7 +3901,7 @@ export interface operations {
             };
         };
     };
-    get_3: {
+    get_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -3855,6 +4092,57 @@ export interface operations {
             };
         };
     };
+    reminderHistory: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageMessageSummary"];
+                };
+            };
+        };
+    };
+    requestReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MessageRequestResult"];
+                };
+            };
+        };
+    };
     summary: {
         parameters: {
             query?: never;
@@ -3928,7 +4216,7 @@ export interface operations {
             };
         };
     };
-    get_7: {
+    get_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -4139,7 +4427,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -4326,7 +4614,7 @@ export interface operations {
             };
         };
     };
-    get_1: {
+    get_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -4534,7 +4822,7 @@ export interface operations {
             };
         };
     };
-    get: {
+    get_1: {
         parameters: {
             query?: never;
             header?: never;

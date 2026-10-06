@@ -85,14 +85,28 @@ it('reads paged real history and rejects a history amount greater than the recor
 })
 
 it('reads real nullable contact preview with JWT/abort and rejects malformed or mismatched data', async () => {
-    const d = { receivable: row(), contactName: null, contact: null }
+    const d = {
+        receivable: row(), contactName: null, contact: null, emailSubject: 'Payment reminder', emailBody: 'Body',
+        emailDispatchEnabled: false, snapshotHash: 'a'.repeat(64), messageContact: null,
+    }
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json(d)), signal = new AbortController().signal
     const core = createHttpClient({ baseUrl: 'https://core.test/api/core', fetch, getAccessToken: () => 'jwt' })
     expect((await fetchReminderPreview(core, 7, signal)).contact).toBeNull()
     const [url, init] = fetch.mock.calls[0]
     expect(String(url)).toContain('/receivables/7/reminder-preview'); expect(init?.signal).toBe(signal)
     expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer jwt')
-    for (const bad of [{ ...d, contact: 123 }, { ...d, contactName: undefined }, { ...d, receivable: { ...row(), id: 8 } }]) {
+    const registered = {
+        ...d,
+        messageContact: { id: 3, partnerId: 9, email: 'billing@example.test', permission: 'ALLOWED', version: 1 },
+    }
+    expect((await (async () => {
+        fetch.mockResolvedValue(Response.json(registered))
+        return fetchReminderPreview(core, 7)
+    })()).messageContact?.email).toBe('billing@example.test')
+    for (const bad of [{ ...d, contact: 123 }, { ...d, contactName: undefined }, { ...d, receivable: { ...row(), id: 8 } },
+        { ...d, snapshotHash: 'xyz' }, { ...d, emailDispatchEnabled: 'yes' }, { ...d, emailSubject: '  ' },
+        { ...d, messageContact: { id: 0, partnerId: 9, email: 'billing@example.test', permission: 'ALLOWED', version: 1 } },
+        { ...d, messageContact: { id: 3, partnerId: 9, email: 'not-an-address', permission: 'ALLOWED', version: 1 } }]) {
         fetch.mockResolvedValue(Response.json(bad, { headers: { 'X-Trace-Id': 'trace-preview' } }))
         await expect(fetchReminderPreview(core, 7)).rejects.toMatchObject({ code: 'INVALID_RESPONSE', traceId: 'trace-preview' })
     }

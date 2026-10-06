@@ -15,9 +15,10 @@ export type ReceivableDetail = Omit<Required<components['schemas']['ReceivableDe
 export type CollectionResult = Omit<Required<components['schemas']['ReceivableCollectionResult']>, 'receivable' | 'collection'> & {
     receivable: ReceivableRow; collection: CollectionRow
 }
-export type ReminderPreview = Omit<Required<components['schemas']['ReceivableReminderPreview']>, 'receivable' | 'contactName' | 'contact'> & {
-    receivable: ReceivableRow; contactName: string | null; contact: string | null
+export type ReminderPreview = Omit<Required<components['schemas']['ReceivableReminderPreview']>, 'receivable' | 'contactName' | 'contact' | 'messageContact'> & {
+    receivable: ReceivableRow; contactName: string | null; contact: string | null; messageContact: ReminderContact | null
 }
+export type ReminderContact = Required<components['schemas']['MessageContactResponse']>
 export type ReminderChannel = 'EMAIL' | 'SMS'
 export function validReminderRecipient(channel: ReminderChannel, value: string): boolean {
     const recipient = value.trim()
@@ -93,7 +94,22 @@ export async function collectReceivable(client: HttpClient, id: number, input: C
 export async function fetchReminderPreview(client: HttpClient, id: number, signal?: AbortSignal): Promise<ReminderPreview> {
     const r = await client.get<unknown>(`receivables/${id}/reminder-preview`, { signal }), d = r.data
     if (!object(d) || ![d.contactName, d.contact].every(v => v === null || typeof v === 'string')) return invalidMasterResponse(r.status, r.traceId)
+    if (!text(d.emailSubject) || !text(d.emailBody) || typeof d.emailDispatchEnabled !== 'boolean' || !hash(d.snapshotHash)) return invalidMasterResponse(r.status, r.traceId)
     const receivable = row(d.receivable, r.status, r.traceId)
     if (receivable.id !== id) return invalidMasterResponse(r.status, r.traceId)
-    return { receivable, contactName: d.contactName as string | null, contact: d.contact as string | null }
+    return {
+        receivable, contactName: d.contactName as string | null, contact: d.contact as string | null,
+        emailSubject: (d.emailSubject as string).trim(), emailBody: d.emailBody as string,
+        emailDispatchEnabled: d.emailDispatchEnabled as boolean, snapshotHash: d.snapshotHash as string,
+        messageContact: contact(d.messageContact, r.status, r.traceId),
+    }
+}
+const hash = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v)
+const contactPermissions = ['PENDING', 'ALLOWED', 'BLOCKED'] as const
+function contact(v: unknown, status: number, trace?: string): ReminderContact | null {
+    if (v === null) return null
+    if (!object(v) || ![v.id, v.partnerId].every(id) || !integer(v.version)
+        || typeof v.email !== 'string' || !validReminderRecipient('EMAIL', v.email)
+        || !contactPermissions.includes(v.permission as typeof contactPermissions[number])) return invalidMasterResponse(status, trace)
+    return v as ReminderContact
 }
