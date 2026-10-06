@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { createHttpClient } from './http'
 import {
     closeProductionPlan, confirmProductionPlan, createProductionPlan,
-    fetchProductionPlanPage, updateProductionPlan,
+    fetchProductionPlanPage, fetchProductionPlanSuggestion, updateProductionPlan,
 } from './productionPlans'
 
 const row = (overrides = {}) => ({ id: 7, planNo: 'PL-2611-001', itemId: 9, itemNo: 'FG-001',
@@ -67,4 +67,28 @@ it('confirms a draft plan and closes a confirmed plan', async () => {
     expect(String(fetch.mock.calls[1][0])).toContain('/production-plans/7/close')
     await expect(confirmProductionPlan(core, 0)).rejects.toMatchObject({ code: 'INVALID_INPUT' })
     await expect(closeProductionPlan(core, 0)).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+})
+
+const suggestion = (overrides = {}) => ({ itemId: 9, itemNo: 'FG-001', itemName: '프레임 가조립품',
+    planMonth: '2026-11', dueCutoff: '2026-11-30', orderBacklogQty: 120, currentStock: 60, safetyStock: 20,
+    suggestedPlanQty: 80, suggestedGapQty: 80, openOrderCount: 2,
+    orders: [{ orderId: 31, salesOrderNo: 'SO-001', dueDate: '2026-11-10', orderQty: 100, shippedQty: 0, remainingQty: 100 },
+        { orderId: 32, salesOrderNo: 'SO-002', dueDate: '2026-11-20', orderQty: 50, shippedQty: 30, remainingQty: 20 }],
+    notes: ['대상은 납기가 계획월 말일 이전인 확정/생산중 수주입니다.'], ...overrides })
+
+it('reads a quantity suggestion with per-order evidence', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json(suggestion()))
+    const core = createHttpClient({ baseUrl: 'https://core.test/api/core', fetch, getAccessToken: () => 'jwt' })
+    const result = await fetchProductionPlanSuggestion(core, { itemId: 9, planMonth: '2026-11' })
+    expect(result.suggestedPlanQty).toBe(80)
+    expect(result.orders).toHaveLength(2)
+    const url = String(fetch.mock.calls[0][0])
+    expect(url).toContain('production-plans/suggest?')
+    expect(url).toContain('itemId=9')
+    expect(url).toContain('planMonth=2026-11')
+    await expect(fetchProductionPlanSuggestion(core, { itemId: 0, planMonth: '2026-11' })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    await expect(fetchProductionPlanSuggestion(core, { itemId: 9, planMonth: '2026/11' })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    fetch.mockResolvedValue(Response.json({ ...suggestion(), orders: [{ ...suggestion().orders[0], remainingQty: -1 }] },
+        { headers: { 'X-Trace-Id': 'trace-suggest' } }))
+    await expect(fetchProductionPlanSuggestion(core, { itemId: 9, planMonth: '2026-11' })).rejects.toMatchObject({ code: 'INVALID_RESPONSE', traceId: 'trace-suggest' })
 })

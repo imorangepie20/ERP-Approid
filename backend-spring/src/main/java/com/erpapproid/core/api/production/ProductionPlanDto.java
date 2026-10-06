@@ -32,6 +32,9 @@ public class ProductionPlanDto {
         private BigDecimal orderQty;
         private BigDecimal stockQty;
         private BigDecimal gapQty;
+        @jakarta.validation.constraints.Size(max = 1000)
+        @Schema(description = "수량 산출 근거 메모. 감사 기록에만 남고 계획 수치에는 영향을 주지 않습니다.")
+        private String basisNote;
     }
 
     @Getter
@@ -49,5 +52,36 @@ public class ProductionPlanDto {
         private BigDecimal stockQty;
         private BigDecimal gapQty;
         private String status;
+    }
+
+    @Getter
+    @Builder
+    @Schema(name = "ProductionPlanSuggestionOrder")
+    public static final class SuggestedOrder {
+        private Long orderId;
+        private String salesOrderNo;
+        private java.time.LocalDate dueDate;
+        private BigDecimal orderQty;
+        private BigDecimal shippedQty;
+        private BigDecimal remainingQty;
+    }
+
+    @Getter
+    @Builder
+    @Schema(name = "ProductionPlanSuggestion")
+    public static final class Suggestion {
+        private Long itemId;
+        private String itemNo;
+        private String itemName;
+        private String planMonth;
+        private java.time.LocalDate dueCutoff;
+        private BigDecimal orderBacklogQty;
+        private BigDecimal currentStock;
+        private BigDecimal safetyStock;
+        private BigDecimal suggestedPlanQty;
+        private BigDecimal suggestedGapQty;
+        private int openOrderCount;
+        private java.util.List<SuggestedOrder> orders;
+        private java.util.List<String> notes;
     }
 }

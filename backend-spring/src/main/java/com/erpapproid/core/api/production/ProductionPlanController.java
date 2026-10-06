@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.erpapproid.core.api.production.ProductionPlanDto.Request;
 import com.erpapproid.core.api.production.ProductionPlanDto.Response;
+import com.erpapproid.core.api.production.ProductionPlanDto.SuggestedOrder;
+import com.erpapproid.core.api.production.ProductionPlanDto.Suggestion;
 import com.erpapproid.core.common.domain.Constants;
 import com.erpapproid.core.common.exception.DomainException;
 import com.erpapproid.core.common.exception.ErrorCode;
@@ -29,6 +31,8 @@ import com.erpapproid.core.domain.item.ItemEntity;
 import com.erpapproid.core.domain.item.ItemRepository;
 import com.erpapproid.core.domain.production.ProductionPlanEntity;
 import com.erpapproid.core.domain.production.ProductionPlanRepository;
+import com.erpapproid.core.domain.sales.SalesOrderRepository;
+import com.erpapproid.core.domain.sales.ShipmentRepository;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,6 +47,8 @@ public class ProductionPlanController {
 
     private final ProductionPlanRepository planRepository;
     private final ItemRepository itemRepository;
+    private final SalesOrderRepository salesOrderRepository;
+    private final ShipmentRepository shipmentRepository;
     private final AuditService auditService;
 
     @Operation(summary = "생산계획 목록")
@@ -54,6 +60,65 @@ public class ProductionPlanController {
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(
                 planRepository.search(planMonth, status, pageable).map(this::toResponse));
+    }
+
+    @Operation(summary = "생산계획 수량 산출 제안: 수주잔량·현재고 근거")
+    @GetMapping("/suggest")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Suggestion> suggest(
+            @RequestParam Long itemId,
+            @RequestParam String planMonth) {
+        if (itemId == null || itemId <= 0 || planMonth == null
+                || !planMonth.matches("\\d{4}-(0[1-9]|1[0-2])")) {
+            throw new DomainException(ErrorCode.INVALID_INPUT,
+                    "품목 ID와 계획월(YYYY-MM)이 필요합니다.");
+        }
+        ItemEntity item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
+                        "품목을 찾을 수 없습니다: " + itemId));
+        java.time.LocalDate cutoff = java.time.YearMonth.parse(planMonth).atEndOfMonth();
+        var openOrders = salesOrderRepository.findByItem_IdAndStatusInAndDueDateLessThanEqualOrderByDueDateAscIdAsc(
+                itemId, java.util.List.of(Constants.CONFIRMED, Constants.IN_PRODUCTION), cutoff);
+        if (openOrders.size() > 10000) {
+            throw new DomainException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                    "산출 대상 수주 규모 한도를 초과했습니다. 일부 데이터만으로 계산하지 않습니다.");
+        }
+        var rows = new java.util.ArrayList<SuggestedOrder>();
+        BigDecimal backlog = BigDecimal.ZERO;
+        for (var order : openOrders) {
+            BigDecimal shipped = shipmentRepository.confirmedQty(order.getId());
+            BigDecimal remaining = order.getQty().subtract(shipped).max(BigDecimal.ZERO);
+            backlog = backlog.add(remaining);
+            rows.add(SuggestedOrder.builder()
+                    .orderId(order.getId())
+                    .salesOrderNo(order.getSalesOrderNo())
+                    .dueDate(order.getDueDate())
+                    .orderQty(order.getQty())
+                    .shippedQty(shipped)
+                    .remainingQty(remaining)
+                    .build());
+        }
+        BigDecimal stock = item.getStock() == null ? BigDecimal.ZERO : item.getStock();
+        BigDecimal safety = item.getSafetyStock() == null ? BigDecimal.ZERO : item.getSafetyStock();
+        BigDecimal suggested = backlog.add(safety).subtract(stock).max(BigDecimal.ZERO);
+        return ResponseEntity.ok(Suggestion.builder()
+                .itemId(item.getId())
+                .itemNo(item.getItemNo())
+                .itemName(item.getName())
+                .planMonth(planMonth)
+                .dueCutoff(cutoff)
+                .orderBacklogQty(backlog)
+                .currentStock(stock)
+                .safetyStock(safety)
+                .suggestedPlanQty(suggested)
+                .suggestedGapQty(suggested)
+                .openOrderCount(rows.size())
+                .orders(java.util.List.copyOf(rows))
+                .notes(java.util.List.of(
+                        "대상은 납기가 계획월 말일(" + cutoff + ") 이전인 확정/생산중 수주이며 출하완료·매출반영 출하량을 차감합니다. 대기·취소·출하완료 수주와 이후 납기 수주는 제외합니다.",
+                        "제안식: max(수주잔량 " + backlog + " + 안전재고 " + safety + " - 현재고 " + stock + ", 0). 생산필요량은 순생산필요량과 동일하게 두어 이중 차감을 피합니다.",
+                        "제안은 예약이 아니므로 계획 등록 전 재조회하세요. 산출 근거는 등록 시 basisNote로 감사 기록에 남길 수 있습니다."))
+                .build());
     }
 
     @Operation(summary = "생산계획 생성")
@@ -79,8 +144,11 @@ public class ProductionPlanController {
                 .status(Constants.PLAN_DRAFT)
                 .build();
         ProductionPlanEntity saved = planRepository.save(entity);
+        Response response = toResponse(saved);
+        Object after = request.getBasisNote() == null || request.getBasisNote().isBlank() ? response
+                : java.util.Map.of("plan", response, "basisNote", request.getBasisNote().strip());
         auditService.record(AuditEvent.created(
-                "PRODUCTION_PLAN", saved.getPlanNo(), toResponse(saved)));
+                "PRODUCTION_PLAN", saved.getPlanNo(), after));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 

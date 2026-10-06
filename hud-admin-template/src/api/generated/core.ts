@@ -586,6 +586,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/production-plans/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 생산계획 수량 산출 제안: 수주잔량·현재고 근거 */
+        get: operations["suggest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/purchase-orders": {
         parameters: {
             query?: never;
@@ -2087,6 +2104,8 @@ export interface components {
             paymentTerms?: number;
         };
         ProductionPlanRequest: {
+            /** @description 수량 산출 근거 메모. 감사 기록에만 남고 계획 수치에는 영향을 주지 않습니다. */
+            basisNote?: string;
             gapQty?: number;
             /** Format: int64 */
             itemId: number;
@@ -2110,6 +2129,34 @@ export interface components {
             planQty?: number;
             status?: string;
             stockQty?: number;
+        };
+        ProductionPlanSuggestion: {
+            currentStock?: number;
+            /** Format: date */
+            dueCutoff?: string;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemNo?: string;
+            notes?: string[];
+            /** Format: int32 */
+            openOrderCount?: number;
+            orderBacklogQty?: number;
+            orders?: components["schemas"]["ProductionPlanSuggestionOrder"][];
+            planMonth?: string;
+            safetyStock?: number;
+            suggestedGapQty?: number;
+            suggestedPlanQty?: number;
+        };
+        ProductionPlanSuggestionOrder: {
+            /** Format: date */
+            dueDate?: string;
+            /** Format: int64 */
+            orderId?: number;
+            orderQty?: number;
+            remainingQty?: number;
+            salesOrderNo?: string;
+            shippedQty?: number;
         };
         ProductionProgressResponse: {
             /** Format: date-time */
@@ -3752,6 +3799,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ProductionPlanResponse"];
+                };
+            };
+        };
+    };
+    suggest: {
+        parameters: {
+            query: {
+                itemId: number;
+                planMonth: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProductionPlanSuggestion"];
                 };
             };
         };

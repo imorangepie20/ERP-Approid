@@ -40,10 +40,12 @@ function planInput(value: unknown): asserts value is ProductionPlanInput {
         || typeof value.planQty !== 'number' || !Number.isFinite(value.planQty) || value.planQty <= 0
         || (value.orderQty !== undefined && !qty(value.orderQty))
         || (value.stockQty !== undefined && !qty(value.stockQty))
-        || (value.gapQty !== undefined && !qty(value.gapQty))) invalidInput('생산계획 입력이 올바르지 않습니다.')
+        || (value.gapQty !== undefined && !qty(value.gapQty))
+        || (value.basisNote !== undefined && !(typeof value.basisNote === 'string' && value.basisNote.length <= 1000))) invalidInput('생산계획 입력이 올바르지 않습니다.')
 }
 
 export async function fetchProductionPlanPage(client: HttpClient, params: ProductionPlanListParams, signal?: AbortSignal): Promise<MasterPage<ProductionPlanRow>> {
+
     if (!object(params) || !(params.planMonth === undefined || month(params.planMonth))
         || !(params.status === undefined || params.status === '' || productionPlanStatuses.includes(params.status as typeof productionPlanStatuses[number]))
         || !pageNum(params.page) || !pageNum(params.size) || params.size < 1
@@ -78,6 +80,38 @@ async function transition(client: HttpClient, planId: number, action: 'confirm' 
 
 export async function confirmProductionPlan(client: HttpClient, planId: number): Promise<ProductionPlanRow> {
     return transition(client, planId, 'confirm', '확정')
+}
+
+export interface ProductionPlanSuggestionParams { itemId: number; planMonth: string }
+export type ProductionPlanSuggestionOrder = Required<components['schemas']['ProductionPlanSuggestionOrder']>
+export interface ProductionPlanSuggestion extends Omit<Required<components['schemas']['ProductionPlanSuggestion']>, 'orders'> {
+    orders: ProductionPlanSuggestionOrder[]
+}
+
+const date = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+
+export function productionPlanSuggestion(value: unknown, status: number, trace?: string): ProductionPlanSuggestion {
+    const order = (o: unknown): o is ProductionPlanSuggestionOrder => object(o) && id(o.orderId)
+        && text(o.salesOrderNo) && date(o.dueDate) && [o.orderQty, o.shippedQty, o.remainingQty].every(qty)
+        && (o.shippedQty as number) >= 0 && (o.remainingQty as number) >= 0
+        && (o.remainingQty as number) <= (o.orderQty as number)
+    if (!object(value) || !id(value.itemId) || ![value.itemNo, value.itemName, value.planMonth].every(text)
+        || !month(value.planMonth) || !date(value.dueCutoff)
+        || ![value.orderBacklogQty, value.currentStock, value.safetyStock, value.suggestedPlanQty, value.suggestedGapQty].every(qty)
+        || typeof value.openOrderCount !== 'number' || !Number.isSafeInteger(value.openOrderCount) || value.openOrderCount < 0
+        || !Array.isArray(value.orders) || !value.orders.every(order)
+        || value.orders.length !== value.openOrderCount
+        || !Array.isArray(value.notes) || !value.notes.every(n => typeof n === 'string')) {
+        return invalidMasterResponse(status, trace)
+    }
+    return value as unknown as ProductionPlanSuggestion
+}
+
+export async function fetchProductionPlanSuggestion(client: HttpClient, params: ProductionPlanSuggestionParams, signal?: AbortSignal): Promise<ProductionPlanSuggestion> {
+    if (!object(params) || !id(params.itemId) || !month(params.planMonth)) invalidInput('산출 조회 입력이 올바르지 않습니다.')
+    const query = new URLSearchParams({ itemId: String(params.itemId), planMonth: params.planMonth })
+    const r = await client.get<unknown>(`production-plans/suggest?${query}`, { signal })
+    return productionPlanSuggestion(r.data, r.status, r.traceId)
 }
 
 export async function closeProductionPlan(client: HttpClient, planId: number): Promise<ProductionPlanRow> {

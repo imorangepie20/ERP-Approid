@@ -4,7 +4,8 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { Plus } from 'lucide-react'
 import { ApiError } from '../../api/http'
 import { closeProductionPlan, confirmProductionPlan, createProductionPlan, fetchProductionPlanPage,
-    productionPlanStatuses, updateProductionPlan, type ProductionPlanRow } from '../../api/productionPlans'
+    fetchProductionPlanSuggestion, productionPlanStatuses, updateProductionPlan,
+    type ProductionPlanRow, type ProductionPlanSuggestion } from '../../api/productionPlans'
 import { useAuth } from '../../auth/AuthContext'
 import { useItemSelection } from '../../hooks/useItemSelection'
 import Button from '../../components/common/Button'
@@ -38,6 +39,8 @@ export default function ProductionPlan() {
     const [values, setValues] = useState<Record<string, string>>({})
     const [confirming, setConfirming] = useState<ProductionPlanRow | null>(null)
     const [closing, setClosing] = useState<ProductionPlanRow | null>(null)
+    const [suggestData, setSuggestData] = useState<ProductionPlanSuggestion | null>(null)
+    const [basisNote, setBasisNote] = useState('')
     const [notice, setNotice] = useState('')
     const list = useQuery({ queryKey: ['production-plans', { planMonth, status, page, size, sort, direction }],
         queryFn: async ({ signal }) => {
@@ -57,8 +60,22 @@ export default function ProductionPlan() {
         if (values.orderQty !== '' && values.orderQty !== undefined) input.orderQty = Number(values.orderQty)
         if (values.stockQty !== '' && values.stockQty !== undefined) input.stockQty = Number(values.stockQty)
         if (values.gapQty !== '' && values.gapQty !== undefined) input.gapQty = Number(values.gapQty)
+        if (!editing && basisNote) input.basisNote = basisNote
         return input as Parameters<typeof createProductionPlan>[1]
     }
+    const basisText = (s: ProductionPlanSuggestion) => {
+        const orders = s.orders.map(o => `${o.salesOrderNo}(${o.remainingQty.toLocaleString()})`).join(', ')
+        return `산출(${s.planMonth}): 수주잔량 ${s.orderBacklogQty.toLocaleString()} + 안전재고 ${s.safetyStock.toLocaleString()} - 현재고 ${s.currentStock.toLocaleString()} = ${s.suggestedPlanQty.toLocaleString()} · 대상 확정/생산중 ${s.openOrderCount}건(납기 ${s.dueCutoff} 이전)${orders ? `: ${orders}` : ''}`.slice(0, 1000)
+    }
+    const suggest = useMutation({
+        mutationFn: () => fetchProductionPlanSuggestion(core, { itemId: Number(values.itemId), planMonth: values.planMonth.trim() }),
+        onSuccess: s => {
+            setSuggestData(s)
+            setBasisNote(basisText(s))
+            setValues(v => ({ ...v, planQty: String(s.suggestedPlanQty), orderQty: String(s.orderBacklogQty),
+                stockQty: String(s.currentStock), gapQty: String(s.suggestedGapQty) }))
+        },
+    })
     const save = useMutation({
         mutationFn: () => editing ? updateProductionPlan(core, editing.id, buildInput()) : createProductionPlan(core, buildInput()),
         onSuccess: async row => { await invalidate(); setFormOpen(false); setEditing(null); setNotice(editing ? `계획을 수정했습니다. ${row.planNo}` : `계획을 등록했습니다. ${row.planNo}`) },
@@ -75,12 +92,12 @@ export default function ProductionPlan() {
         onError: () => { void invalidate() },
     })
     const openCreate = () => {
-        save.reset(); setNotice(''); setEditing(null)
+        save.reset(); suggest.reset(); setNotice(''); setEditing(null); setSuggestData(null); setBasisNote('')
         setValues({ planNo: newPlanNo(), itemId: '', planMonth: currentMonth(), planQty: '1', orderQty: '', stockQty: '', gapQty: '' })
         setFormOpen(true)
     }
     const openEdit = (row: ProductionPlanRow) => {
-        save.reset(); setNotice(''); setEditing(row)
+        save.reset(); suggest.reset(); setNotice(''); setEditing(row); setSuggestData(null); setBasisNote('')
         setValues({ planNo: row.planNo, itemId: String(row.itemId), planMonth: row.planMonth,
             planQty: String(row.planQty), orderQty: String(row.orderQty), stockQty: String(row.stockQty), gapQty: String(row.gapQty) })
         setFormOpen(true)
@@ -136,8 +153,23 @@ export default function ProductionPlan() {
             asyncState={{ isLoading: list.isPending, error: list.error, onRetry: () => { void list.refetch() }, emptyMessage: '검색 결과가 없습니다.' }} />
         <FormModal isOpen={formOpen} onClose={() => { if (!save.isPending) { setFormOpen(false); setEditing(null) } }}
             title={editing ? '생산계획 수정' : '생산계획 등록'} subtitle={editing ? '계획 상태의 문서만 수정할 수 있습니다.' : '품목·계획월·계획수량을 입력하세요. 같은 품목·월의 계획은 중복될 수 없습니다.'}
-            fields={fields} values={values} onChange={(key, value) => { setValues(v => ({ ...v, [key]: value })); save.reset() }}
-            onSubmit={() => { if (!save.isPending) save.mutate() }} submitLabel={editing ? '저장' : '등록'} isSubmitting={save.isPending} error={save.error ? errorContent(save.error) : undefined} />
+            fields={fields} values={values} onChange={(key, value) => { setValues(v => ({ ...v, [key]: value })); save.reset();
+                if (!editing && (key === 'itemId' || key === 'planMonth')) { suggest.reset(); setSuggestData(null); setBasisNote('') } }}
+            onSubmit={() => { if (!save.isPending) save.mutate() }} submitLabel={editing ? '저장' : '등록'} isSubmitting={save.isPending} error={save.error ? errorContent(save.error) : undefined}>
+            {!editing && <div className="sm:col-span-2 rounded-lg border border-hud-border-secondary bg-hud-bg-primary px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-hud-text-secondary">수주잔량·현재고로 계획수량을 산출해 입력합니다. 근거는 등록 시 감사 기록에 남습니다.</div>
+                    <Button size="sm" variant="ghost" type="button" disabled={suggest.isPending || !values.itemId || !values.planMonth}
+                        onClick={() => suggest.mutate()}>{suggest.isPending ? '산출 중...' : '수량 산출'}</Button>
+                </div>
+                {suggest.error && <div role="alert" className="mt-2 text-sm text-hud-accent-danger">{errorContent(suggest.error)}</div>}
+                {suggestData && <div className="mt-2 text-sm text-hud-text-primary">
+                    <p>수주잔량 {suggestData.orderBacklogQty.toLocaleString()} + 안전재고 {suggestData.safetyStock.toLocaleString()} - 현재고 {suggestData.currentStock.toLocaleString()} = {suggestData.suggestedPlanQty.toLocaleString()}</p>
+                    <p className="mt-1 text-hud-text-secondary">대상 확정/생산중 {suggestData.openOrderCount}건(납기 {suggestData.dueCutoff} 이전){suggestData.orders.length > 0 && `: ${suggestData.orders.map(o => `${o.salesOrderNo}(${o.remainingQty.toLocaleString()})`).join(', ')}`}</p>
+                    {suggestData.notes.map(n => <p key={n} className="mt-1 text-hud-text-muted">{n}</p>)}
+                </div>}
+            </div>}
+        </FormModal>
         <Dialog open={confirming !== null} onClose={() => { if (!confirm.isPending) setConfirming(null) }} className="relative z-[110]">
             <div className="fixed inset-0 bg-black/60" aria-hidden="true" /><div className="fixed inset-0 flex items-center justify-center p-4">
                 <DialogPanel className="w-full max-w-md rounded-lg bg-hud-bg-secondary border border-hud-border-secondary p-6">

@@ -38,4 +38,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrderEntity, Lo
     long countByStatus(String status);
 
     boolean existsByCustomer_Id(Long customerId);
+
+    java.util.List<SalesOrderEntity> findByItem_IdAndStatusInAndDueDateLessThanEqualOrderByDueDateAscIdAsc(
+            Long itemId, java.util.Collection<String> statuses, java.time.LocalDate cutoff);
 }

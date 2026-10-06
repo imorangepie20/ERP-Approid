@@ -367,7 +367,7 @@ smoke를 통과했고, 실행 중인 견적/수주 API의 필터·정렬·페이
 
 | 항목 | 내용 |
 | --- | --- |
-| 현재 상태 | 백엔드 있음, UI 하드코딩 |
+| 현재 상태 | 백엔드 있음, UI 실제 API 연결(TODO-007), 수량 산출 제안·근거 감사(TODO-008) |
 | 기능 | 월/주 생산계획, 수주/재고 기반 계획량, 확정·마감 |
 | API | `/api/core/production-plans` |
 | 데이터 | `production_plans`, `items`, `sales_orders` |
@@ -906,7 +906,7 @@ ANL-03 생산 진척 분석이며 이번 운영 대시보드(`/`)와 구분한�
 - [x] **TODO-005 / PUR-01 / [화면 전환 검증 완료] 발주 CRUD 화면 API 전환** — `purchase/orders`의 DataContext 저장을 실제 `/purchase-orders`로 교체했다. 발주처·품목 마스터 ID 선택, 금액/납기 입력, 발주 상태 수정·삭제 제한, 부분입고 잔량 표시, 역할별 쓰기 제한(MATERIAL 수정·삭제, MATERIAL/ADMIN 등록·취소)과 Trace ID 오류를 연결했다. 입고 실행은 TODO-006의 실제 입고 화면으로 이동한다. 근거: [화면](../hud-admin-template/src/pages/purchase/PurchaseOrders.tsx), [API](../hud-admin-template/src/api/purchaseOrders.ts), [PUR-01](#pur-01-발주-서비스). 완료 2026-10-06 / 위 소스 / 프런트 375개·tsc·lint·build PASS · 백엔드 발주·입고·MRP 계약 테스트 PASS.
 - [x] **TODO-006 / PUR-01·PUR-02 / [입고 통합 검증 완료] 발주 화면의 입고 액션 통합** — 메모리 `receivePurchaseOrder` 경로·`receivings` 시드·`Receiving` 타입을 제거하고 발주 행의 입고를 실제 입고 화면 딥링크(`?purchaseOrderId=`)로 연결했다. 입고 화면은 링크 파라미터를 서버 필터로 적용하며 두 화면의 발주 잔량은 같은 `/purchase-orders` 응답에서 계산한다. 근거: [발주 화면](../hud-admin-template/src/pages/purchase/PurchaseOrders.tsx), [입고 화면](../hud-admin-template/src/pages/purchase/PurchaseReceiving.tsx). 완료 2026-10-06 / 위 소스 / 프런트 377개·tsc·lint·build PASS.
 - [x] **TODO-007 / PRD-01 / [화면 전환 검증 완료] 생산계획 조회·‘계획 등록’·확정/종결** — 하드코딩 예제 목록과 무반응 등록 버튼을 실제 `/production-plans`로 교체했다. 계획월·상태 필터·서버 페이지·품목 마스터 선택, 계획 상태 수정, 계획→확정→종결 전이(불가 전이는 409), 역할 쓰기 제한(PRODUCTION/ADMIN)과 Trace ID 오류를 연결했다. 목록 조회 `LazyInitializationException`(500) 실버그를 `EntityGraph(item)`으로 수정했다. 수량 자동 산출은 TODO-008 후속이다. 근거: [화면](../hud-admin-template/src/pages/production/ProductionPlan.tsx), [API](../hud-admin-template/src/api/productionPlans.ts), [PRD-01](#prd-01-생산계획-서비스). 완료 2026-10-06 / 위 소스 / 백엔드 생산계획 4개·생산 패키지 GREEN · 프런트 385개·tsc·lint·build PASS.
-- [ ] **TODO-008 / PRD-01 / [부분] 생산계획 수량 산출** — 수주잔량·현재고를 실제 조회해 월/주 계획량을 산출하고 산출 근거를 남긴다. 근거: [PRD-01 완료 조건](#prd-01-생산계획-서비스).
+- [x] **TODO-008 / PRD-01 / [산출 검증 완료] 생산계획 수량 산출** — `GET /production-plans/suggest`로 납기가 계획월 말일 이전인 확정/생산중 수주의 미출하 잔량(출하완료·매출반영 차감)과 현재고·안전재고를 조회해 `max(잔량+안전-재고, 0)`을 제안하고 주문별 근거·산식을 함께 반환한다. 등록 화면의 ‘수량 산출’이 수량을 채우고 근거(`basisNote`)는 생성 감사 기록에 남긴다(스키마 변경·마이그레이션 없음). 근거: [산출 API](../backend-spring/src/main/java/com/erpapproid/core/api/production/ProductionPlanController.java), [산출 화면](../hud-admin-template/src/pages/production/ProductionPlan.tsx). 완료 2026-10-06 / 위 소스 / 백엔드 산출 3개·생산 패키지 GREEN · 프런트 산출 API 1개·페이지 1개 추가.
 - [ ] **TODO-009 / UI / [미구현] 미구현 버튼 표시 정리** — 검사/불량/점검/직원/외주/공지/알림 등록 및 Settings 저장처럼 동작 없는 버튼을 구현 전에는 비활성·‘준비 중’ 안내로 구분한다. 메뉴 숨김 여부는 제품 결정 후 적용한다. 근거: [검사](../hud-admin-template/src/pages/quality/QualityInspections.tsx), [불량](../hud-admin-template/src/pages/quality/QualityDefects.tsx), [점검](../hud-admin-template/src/pages/equipment/EquipmentMaintenance.tsx), [직원](../hud-admin-template/src/pages/hr/HumanResources.tsx), [외주](../hud-admin-template/src/pages/subcontract/Subcontract.tsx), [공지](../hud-admin-template/src/pages/board/BoardNotices.tsx), [알림](../hud-admin-template/src/pages/board/BoardNotify.tsx), [설정](../hud-admin-template/src/pages/Settings.tsx).
 
 ### B. 기존 거래 기능의 남은 정합성·상태 처리

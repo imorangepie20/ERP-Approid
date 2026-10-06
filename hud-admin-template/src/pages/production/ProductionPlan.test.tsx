@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
@@ -54,6 +54,7 @@ it('creates a plan with master item IDs then refetches the list', async () => {
 })
 
 it('confirms a draft plan through a confirmation dialog', async () => {
+
     mockReads([plan()]); mount()
     const user = userEvent.setup()
     await screen.findByText('PL-2611-001')
@@ -69,4 +70,42 @@ it('confirms a draft plan through a confirmation dialog', async () => {
     })
     await user.click(screen.getByRole('button', { name: '확정 확인' }))
     await screen.findByText(/계획을 확정했습니다. PL-2611-001/)
+})
+
+const suggestion = () => ({ itemId: 9, itemNo: 'FG-LIVE', itemName: '실제 제품', planMonth: '2026-11',
+    dueCutoff: '2026-11-30', orderBacklogQty: 120, currentStock: 60, safetyStock: 20,
+    suggestedPlanQty: 80, suggestedGapQty: 80, openOrderCount: 2,
+    orders: [{ orderId: 31, salesOrderNo: 'SO-LIVE-1', dueDate: '2026-11-10', orderQty: 100, shippedQty: 0, remainingQty: 100 },
+        { orderId: 32, salesOrderNo: 'SO-LIVE-2', dueDate: '2026-11-20', orderQty: 50, shippedQty: 30, remainingQty: 20 }],
+    notes: ['대상은 납기가 계획월 말일 이전인 확정/생산중 수주입니다.'] })
+
+it('suggests quantities from backlog evidence and records the basis on create', async () => {
+    mockReads([]); mount()
+    const user = userEvent.setup()
+    let posted: unknown = null
+    state.fetch.mockImplementation(async (input, init) => {
+        const url = new URL(String(input))
+        if (url.pathname.endsWith('/production-plans/suggest')) return Response.json(suggestion())
+        if (init?.method === 'POST' && url.pathname.endsWith('/production-plans')) {
+            posted = JSON.parse(String(init.body))
+            return Response.json(plan(), { status: 201 })
+        }
+        if (url.pathname.endsWith('/production-plans')) return Response.json(page([]))
+        if (url.pathname.endsWith('/items')) return Response.json(itemPage())
+        throw new Error(`unexpected ${url.pathname}`)
+    })
+    await waitFor(() => expect(screen.getByRole('button', { name: '계획 등록' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: '계획 등록' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.selectOptions(dialog.getByLabelText('품목 *'), '9')
+    await user.click(dialog.getByRole('button', { name: '수량 산출' }))
+    await dialog.findByText(/수주잔량 120 \+ 안전재고/)
+    expect(dialog.getByLabelText('계획수량 *')).toHaveValue(80)
+    expect(dialog.getByLabelText('수주수량')).toHaveValue(120)
+    expect(dialog.getByLabelText('현재고')).toHaveValue(60)
+    expect(dialog.getByLabelText('생산필요량')).toHaveValue(80)
+    await user.click(dialog.getByRole('button', { name: '등록' }))
+    await screen.findByText(/계획을 등록했습니다. PL-2611-001/)
+    expect(posted).toMatchObject({ planQty: 80, orderQty: 120, stockQty: 60, gapQty: 80 })
+    expect(String((posted as Record<string, unknown>).basisNote)).toContain('수주잔량 120')
 })
