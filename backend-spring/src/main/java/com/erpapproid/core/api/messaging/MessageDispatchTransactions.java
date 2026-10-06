@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.audit.AuditService;
+import com.erpapproid.core.domain.messaging.DeliveryOutcome;
 import com.erpapproid.core.domain.messaging.MessageChannel;
 import com.erpapproid.core.domain.messaging.MessagePermission;
 import com.erpapproid.core.domain.messaging.MessagePurpose;
@@ -55,8 +57,37 @@ public class MessageDispatchTransactions {
         if(!properties.isEnabled())return Optional.empty();
         var claimed=claims.claimNext(clock.instant());
         claimed.ifPresent(c->audit.recordAsActor(AuditEvent.sensitiveChange("CLAIM","MESSAGE",auditNo(c.messageId()),
-                Map.of("state",MessageState.QUEUED),Map.of("state",MessageState.CLAIMED)),c.actorId(),c.traceId()));
+                Map.of("state",c.fromState()),Map.of("state",MessageState.CLAIMED)),c.actorId(),c.traceId()));
         return claimed;
+    }
+
+    @Transactional(propagation=Propagation.REQUIRES_NEW)
+    public int recoverStale() {
+        Instant now=clock.instant();
+        int recovered=0;
+        var requeued=jdbc.query("""
+                UPDATE outbound_messages SET state='QUEUED',claim_token=NULL,claim_until=NULL,version=version+1
+                WHERE state='CLAIMED' AND claim_until IS NOT NULL AND claim_until <= ?
+                RETURNING id,actor_id,trace_id
+                """,(rs,row)->new MessageClaimRepository.Claim(rs.getObject("id",UUID.class),null,now,
+                        0L,0L,rs.getLong("actor_id"),rs.getString("trace_id"),MessageState.CLAIMED),
+                Timestamp.from(now));
+        for(var c:requeued) {
+            record(c.messageId(),c.actorId(),c.traceId(),"DISPATCH_RECOVERED",MessageState.QUEUED,"CLAIM_EXPIRED");
+            recovered++;
+        }
+        var lost=jdbc.query("""
+                UPDATE outbound_messages SET state='UNKNOWN',claim_until=NULL,version=version+1
+                WHERE state='DISPATCHING' AND claim_until IS NOT NULL AND claim_until <= ?
+                RETURNING id,actor_id,trace_id
+                """,(rs,row)->new MessageClaimRepository.Claim(rs.getObject("id",UUID.class),null,now,
+                        0L,0L,rs.getLong("actor_id"),rs.getString("trace_id"),MessageState.DISPATCHING),
+                Timestamp.from(now));
+        for(var c:lost) {
+            record(c.messageId(),c.actorId(),c.traceId(),"DISPATCH_RECOVERED",MessageState.UNKNOWN,"DISPATCH_EXPIRED");
+            recovered++;
+        }
+        return recovered;
     }
 
     @Transactional(propagation=Propagation.REQUIRES_NEW)
@@ -106,14 +137,35 @@ public class MessageDispatchTransactions {
     @Transactional(propagation=Propagation.REQUIRES_NEW)
     public boolean finalizeSubmission(MessageClaimRepository.Claim claim, EmailSubmissionResult result) {
         var m=messages.findForUpdate(claim.messageId()).orElse(null);
-        if(m==null || m.getState()!=MessageState.DISPATCHING || !claim.token().equals(m.getClaimToken()))return false;
+        if(m==null || !claim.token().equals(m.getClaimToken()))return false;
+        if(m.getState()==MessageState.UNKNOWN) {
+            if(result.outcome()!=DeliveryOutcome.ACCEPTED)return false;
+            var updated=jdbc.update("""
+                    UPDATE message_delivery_attempts SET finished_at=?,outcome=?,error_code=?
+                    WHERE message_id=? AND claim_token=? AND attempt_number=? AND finished_at IS NULL
+                    """,Timestamp.from(clock.instant()),result.outcome().name(),(String)null,m.getId(),claim.token(),m.getAttemptCount());
+            if(updated!=1)return false;
+            jdbc.update("""
+                    UPDATE outbound_messages SET state='SMTP_ACCEPTED',error_code=NULL,accepted_at=?,accepted_on=?,
+                        claim_until=NULL,next_attempt_at=NULL,version=version+1 WHERE id=?
+                    """,Timestamp.from(clock.instant()),LocalDate.ofInstant(clock.instant(),SEOUL),m.getId());
+            record(m,"DISPATCH_RESULT",MessageState.SMTP_ACCEPTED,null);
+            return true;
+        }
+        if(m.getState()!=MessageState.DISPATCHING)return false;
         Instant now=clock.instant();
-        MessageState target=switch(result.outcome()) {
-            case ACCEPTED -> MessageState.SMTP_ACCEPTED;
-            case UNKNOWN -> MessageState.UNKNOWN;
-            // Retry policy/recovery belong to EMAIL-06. No automatic requeue here.
-            case DEFINITELY_NOT_ACCEPTED_TRANSIENT, DEFINITELY_NOT_ACCEPTED_PERMANENT -> MessageState.FAILED;
-        };
+        MessageState target;
+        Instant nextAttempt=null;
+        if(result.outcome()==DeliveryOutcome.ACCEPTED) {
+            target=MessageState.SMTP_ACCEPTED;
+        } else if(result.outcome()==DeliveryOutcome.UNKNOWN) {
+            target=MessageState.UNKNOWN;
+        } else if(result.outcome()==DeliveryOutcome.DEFINITELY_NOT_ACCEPTED_TRANSIENT && m.getAttemptCount()<3) {
+            target=MessageState.RETRY_WAIT;
+            nextAttempt=now.plusSeconds(m.getAttemptCount()<=1?30:120);
+        } else {
+            target=MessageState.FAILED;
+        }
         String code=result.failure()==null?null:result.failure().name();
         int updated=jdbc.update("""
                 UPDATE message_delivery_attempts SET finished_at=?,outcome=?,error_code=?
@@ -122,9 +174,10 @@ public class MessageDispatchTransactions {
         if(updated!=1)throw new IllegalStateException("Matching unfinished attempt is required");
         jdbc.update("""
                 UPDATE outbound_messages SET state=?,error_code=?,accepted_at=?,accepted_on=?,
-                    claim_until=NULL,next_attempt_at=NULL,version=version+1 WHERE id=?
+                    claim_until=NULL,next_attempt_at=?,version=version+1 WHERE id=?
                 """,target.name(),code,target==MessageState.SMTP_ACCEPTED?Timestamp.from(now):null,
-                target==MessageState.SMTP_ACCEPTED?LocalDate.ofInstant(now,SEOUL):null,m.getId());
+                target==MessageState.SMTP_ACCEPTED?LocalDate.ofInstant(now,SEOUL):null,
+                nextAttempt==null?null:Timestamp.from(nextAttempt),m.getId());
         record(m,"DISPATCH_RESULT",target,code);
         return true;
     }
@@ -140,6 +193,13 @@ public class MessageDispatchTransactions {
         after.put("id",m.getId());after.put("state",target);after.put("errorCode",code);
         audit.recordAsActor(AuditEvent.sensitiveChange(action,"MESSAGE",auditNo(m.getId()),
                 Map.of("id",m.getId(),"state",m.getState()),after),m.getActorId(),m.getTraceId());
+    }
+
+    private void record(java.util.UUID id,long actorId,String traceId,String action,MessageState target,String code) {
+        var after=new java.util.LinkedHashMap<String,Object>();
+        after.put("id",id);after.put("state",target);after.put("errorCode",code);
+        audit.recordAsActor(AuditEvent.sensitiveChange(action,"MESSAGE",auditNo(id),
+                Map.of("id",id),after),actorId,traceId);
     }
 
     private static String auditNo(java.util.UUID id) { return id.toString().replace("-",""); }

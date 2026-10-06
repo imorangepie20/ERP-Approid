@@ -17,23 +17,26 @@ public class MessageClaimRepository {
     private final JdbcTemplate jdbc;
 
     public record Claim(UUID messageId, UUID token, Instant until, long receivableId,
-            long partnerId, long actorId, String traceId) {}
+            long partnerId, long actorId, String traceId, com.erpapproid.core.domain.messaging.MessageState fromState) {}
 
     @Transactional(propagation=Propagation.MANDATORY)
     public Optional<Claim> claimNext(Instant now) {
         UUID token=UUID.randomUUID();
         Instant until=now.plusSeconds(LEASE_SECONDS);
         var candidates=jdbc.query("""
-                SELECT id,receivable_id,partner_id,actor_id,trace_id
+                SELECT id,receivable_id,partner_id,actor_id,trace_id,state
                 FROM outbound_messages WHERE state='QUEUED'
+                    OR (state='RETRY_WAIT' AND next_attempt_at IS NOT NULL AND next_attempt_at <= ?)
                 ORDER BY requested_at,id LIMIT 1 FOR UPDATE SKIP LOCKED
                 """,(rs,row)->new Claim(rs.getObject("id",UUID.class),token,until,
-                        rs.getLong("receivable_id"),rs.getLong("partner_id"),rs.getLong("actor_id"),rs.getString("trace_id")));
+                        rs.getLong("receivable_id"),rs.getLong("partner_id"),rs.getLong("actor_id"),rs.getString("trace_id"),
+                        com.erpapproid.core.domain.messaging.MessageState.valueOf(rs.getString("state"))),
+                Timestamp.from(now));
         if(candidates.isEmpty())return Optional.empty();
         var claim=candidates.getFirst();
         int updated=jdbc.update("""
-                UPDATE outbound_messages SET state='CLAIMED',claim_token=?,claim_until=?,version=version+1
-                WHERE id=? AND state='QUEUED'
+                UPDATE outbound_messages SET state='CLAIMED',claim_token=?,claim_until=?,next_attempt_at=NULL,version=version+1
+                WHERE id=? AND (state='QUEUED' OR state='RETRY_WAIT')
                 """,token,Timestamp.from(until),claim.messageId());
         if(updated!=1)throw new IllegalStateException("Claim state changed under lock");
         return Optional.of(claim);

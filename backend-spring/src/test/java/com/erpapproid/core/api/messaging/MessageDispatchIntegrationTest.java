@@ -175,7 +175,7 @@ class MessageDispatchIntegrationTest extends IntegrationTestSupport {
 
     @Test void wrong_tokens_and_expired_leases_cannot_start_transmission() {
         var f=queue();var claim=worker.claimOne().orElseThrow();
-        var wrong=new MessageClaimRepository.Claim(claim.messageId(),UUID.randomUUID(),claim.until(),claim.receivableId(),claim.partnerId(),claim.actorId(),claim.traceId());
+        var wrong=new MessageClaimRepository.Claim(claim.messageId(),UUID.randomUUID(),claim.until(),claim.receivableId(),claim.partnerId(),claim.actorId(),claim.traceId(),claim.fromState());
         assertThat(worker.preflight(wrong)).isEmpty();
         now=NOW.plusSeconds(120);
         assertThat(worker.preflight(claim)).isEmpty();
@@ -212,7 +212,7 @@ class MessageDispatchIntegrationTest extends IntegrationTestSupport {
 
     @Test void result_finalization_requires_the_matching_token_and_is_single_use() {
         var f=queue();var claim=worker.claimOne().orElseThrow();worker.preflight(claim).orElseThrow();
-        var wrong=new MessageClaimRepository.Claim(claim.messageId(),UUID.randomUUID(),claim.until(),claim.receivableId(),claim.partnerId(),claim.actorId(),claim.traceId());
+        var wrong=new MessageClaimRepository.Claim(claim.messageId(),UUID.randomUUID(),claim.until(),claim.receivableId(),claim.partnerId(),claim.actorId(),claim.traceId(),claim.fromState());
         assertThat(worker.finalizeSubmission(wrong,EmailSubmissionResult.accepted())).isFalse();
         assertThat(state(f.message())).isEqualTo("DISPATCHING");
         assertThat(worker.finalizeSubmission(claim,EmailSubmissionResult.accepted())).isTrue();

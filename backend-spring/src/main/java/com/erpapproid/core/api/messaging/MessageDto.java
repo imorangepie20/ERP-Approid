@@ -30,6 +30,8 @@ public final class MessageDto {
             Long remainingAmount, Instant requestedAt, Integer attemptCount, Instant acceptedAt, String errorCode) {}
     @Schema(name="MessageRequestResult")
     public record Result(Response message, boolean replayed) {}
+    @Schema(name="MessageRetryRequest")
+    public record RetryRequest(@NotNull UUID retryRequestId) {}
     public static Summary summary(OutboundMessageEntity m) {
         return new Summary(m.getId(),m.getReceivable().getId(),m.getState(),m.getRecipient(),m.getSubject(),
                 m.getRemainingAmount(),m.getRequestedAt(),m.getAttemptCount(),m.getAcceptedAt(),m.getErrorCode());

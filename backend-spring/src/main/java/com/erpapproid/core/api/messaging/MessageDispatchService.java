@@ -18,6 +18,7 @@ public class MessageDispatchService {
 
     public int poll() {
         requireNoTransaction();
+        transactions.recoverStale();
         int handled=0;
         while(handled<POLL_LIMIT && dispatchOne())handled++;
         return handled;
