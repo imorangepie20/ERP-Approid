@@ -24,6 +24,9 @@ import com.erpapproid.core.domain.inventory.InventoryTransactionEntity;
 import com.erpapproid.core.domain.inventory.InventoryTransactionRepository;
 import com.erpapproid.core.domain.inventory.LotEntity;
 import com.erpapproid.core.domain.inventory.LotRepository;
+import com.erpapproid.core.domain.item.ItemEntity;
+import com.erpapproid.core.domain.item.ItemRepository;
+import com.erpapproid.core.domain.sales.ShipmentRepository;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,6 +40,8 @@ public class LotController {
 
     private final LotRepository lotRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
+    private final ItemRepository itemRepository;
+    private final ShipmentRepository shipmentRepository;
     private final DomainNumberGenerator numberGenerator;
     private final AuditService auditService;
 
@@ -107,9 +112,20 @@ public class LotController {
             throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
                     "이미 폐기된 Lot입니다: " + entity.getLotNo());
         }
+        if (shipmentRepository.existsByLot_IdAndStatusNot(entity.getId(), Constants.CANCELLED)) {
+            throw new DomainException(ErrorCode.IN_USE,
+                    "출하가 연결된 Lot은 폐기할 수 없습니다. 출하 취소 후 폐기하세요: " + entity.getLotNo());
+        }
         Response before = toResponse(entity);
+        java.math.BigDecimal disposedQty = entity.getQty();
+        ItemEntity item = itemRepository.findForUpdate(entity.getItem().getId())
+                .orElseThrow(() -> new DomainException(ErrorCode.ITEM_NOT_FOUND,
+                        "품목을 찾을 수 없습니다: " + entity.getItem().getId()));
         entity.setStatus(Constants.LOT_DISPOSED);
+        entity.setQty(java.math.BigDecimal.ZERO);
+        item.setStock(item.getStock().subtract(disposedQty));
         LotEntity saved = lotRepository.save(entity);
+        itemRepository.save(item);
 
         InventoryTransactionEntity txn = InventoryTransactionEntity.builder()
                 .txnNo(numberGenerator.next(Prefix.INVENTORY_TXN, 4))
@@ -117,7 +133,7 @@ public class LotController {
                 .lot(saved)
                 .warehouse(entity.getWarehouse())
                 .txnType(Constants.TXN_ISSUE)
-                .qty(entity.getQty().negate())
+                .qty(disposedQty.negate())
                 .refType("LOT")
                 .refNo(saved.getLotNo())
                 .txnDate(LocalDate.now())

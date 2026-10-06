@@ -7,14 +7,14 @@ import axe from 'axe-core'
 import { createHttpClient } from '../../api/http'
 import { lotTraceDetail, lotTracePage } from '../../test/lotTraceFixture'
 import InventoryLots from './InventoryLots'
-const state = vi.hoisted(() => ({ fetch: vi.fn<typeof globalThis.fetch>() }))
-vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ user: { roles: ['MATERIAL'] }, core: createHttpClient({ baseUrl: 'https://core.test/api/core', fetch: state.fetch }) }) }))
+const state = vi.hoisted(() => ({ fetch: vi.fn<typeof globalThis.fetch>(), roles: ['MATERIAL'] }))
+vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ user: { roles: state.roles }, core: createHttpClient({ baseUrl: 'https://core.test/api/core', fetch: state.fetch }) }) }))
 function options(input: RequestInfo | URL) {
     if (!new URL(String(input)).pathname.endsWith('/items')) return undefined
     return Response.json({ content: [{ id: 9, itemNo: 'M-LIVE', name: '실제 자재', itemType: '자재', unit: 'kg', price: 100, stock: 5, safetyStock: 0, leadTimeDays: 0 }], number: 0, size: 100, totalElements: 1, totalPages: 1 })
 }
 function mount(entry = '/inventory/lots?itemId=9') { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[entry]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><InventoryLots /></MemoryRouter></QueryClientProvider>) }
-beforeEach(() => { state.fetch.mockReset(); state.fetch.mockImplementation(async input => options(input) ?? Response.json(new URL(String(input)).pathname.endsWith('/7') ? lotTraceDetail() : lotTracePage())) })
+beforeEach(() => { state.fetch.mockReset(); state.roles = ['MATERIAL']; state.fetch.mockImplementation(async input => options(input) ?? Response.json(new URL(String(input)).pathname.endsWith('/7') ? lotTraceDetail() : lotTracePage())) })
 it('replaces the prototype with units and opens accessible real linked detail without write actions', async () => {
     mount(); const user = userEvent.setup(); await screen.findByRole('button', { name: 'LOT-LIVE' })
     expect(screen.getByRole('cell', { name: '5 kg' })).toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Lot 등록' })).not.toBeInTheDocument()
@@ -58,4 +58,27 @@ it('pages movements and shows unknown sources rather than guessing document link
     await userEvent.click(screen.getByRole('button', { name: '다음 수불' })); await screen.findByText('원천 연결 미확인')
     expect(screen.queryByRole('link', { name: 'RECEIVING · RC-LIVE' })).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: '다음 수불' })).toBeDisabled()
     expect(state.fetch.mock.calls.some(([input]) => String(input).includes('/lot-traces/7?page=1'))).toBe(true)
+})
+it('disposes a lot through a confirmation dialog for quality roles then refetches the list', async () => {
+    state.roles = ['QUALITY']; mount(); const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'LOT-LIVE' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(await within(dialog).findByRole('button', { name: 'Lot 폐기' }))
+    state.fetch.mockImplementation(async (input, init) => {
+        const url = new URL(String(input))
+        if (init?.method === 'POST' && url.pathname.endsWith('/lots/7/dispose')) {
+            return Response.json({ id: 7, lotNo: 'LOT-LIVE', itemId: 9, itemNo: 'M-LIVE', itemName: '실제 자재',
+                warehouse: '기록창고', qty: 0, producedAt: '2026-10-01', expiry: null, status: '폐기', expiringSoon: false })
+        }
+        return options(input) ?? Response.json(url.pathname.endsWith('/7') ? { ...lotTraceDetail(), lot: { ...lotTraceDetail().lot, status: '폐기', qty: 0 } } : lotTracePage())
+    })
+    await user.click(screen.getByRole('button', { name: '폐기 확인' }))
+    await screen.findByText(/Lot을 폐기했습니다. LOT-LIVE/)
+    expect(state.fetch.mock.calls.some(([input, init]) => String(input).includes('/lots/7/dispose') && init?.method === 'POST')).toBe(true)
+})
+it('hides the dispose action from non-quality roles', async () => {
+    mount(); const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'LOT-LIVE' }))
+    await screen.findByRole('dialog')
+    expect(screen.queryByRole('button', { name: 'Lot 폐기' })).not.toBeInTheDocument()
 })
