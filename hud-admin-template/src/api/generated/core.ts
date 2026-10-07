@@ -970,7 +970,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 수주 취소 (대기만, 확정 후 보상 처리는 후속 생산 업무) */
+        /** 수주 취소: 대기 단순 취소·확정 작업 전 보상 취소 */
         post: operations["cancel_2"];
         delete?: never;
         options?: never;
@@ -1158,7 +1158,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 독립 작업오더 취소 (실적 없는 지시만) */
+        /** 작업오더 취소: 실적 없는 독립 지시·완료 보상 취소 */
         post: operations["cancel"];
         delete?: never;
         options?: never;
