@@ -30,6 +30,8 @@ public interface ShipmentRepository extends JpaRepository<ShipmentEntity, Long>,
 
     boolean existsByLot_IdAndStatusNot(Long lotId, String status);
 
+    boolean existsBySalesOrder_IdAndStatusNot(Long salesOrderId, String status);
+
     Optional<ShipmentEntity> findByShipmentNo(String shipmentNo);
 
     @Query("""

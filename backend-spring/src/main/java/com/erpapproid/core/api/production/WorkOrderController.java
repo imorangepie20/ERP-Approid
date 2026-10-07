@@ -55,6 +55,7 @@ import com.erpapproid.core.domain.production.WorkOrderEntity;
 import com.erpapproid.core.domain.production.WorkOrderRepository;
 import com.erpapproid.core.domain.sales.SalesOrderEntity;
 import com.erpapproid.core.domain.sales.SalesOrderRepository;
+import com.erpapproid.core.domain.sales.ShipmentRepository;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -74,6 +75,7 @@ public class WorkOrderController {
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final DomainNumberGenerator numberGenerator;
     private final AuditService auditService;
+    private final ShipmentRepository shipmentRepository;
     private final com.erpapproid.core.domain.production.RoutingSnapshotService routingSnapshots;
     private final BomRepository bomRepository;
 
@@ -629,21 +631,80 @@ public class WorkOrderController {
                 .build();
     }
 
-    @Operation(summary = "독립 작업오더 취소 (실적 없는 지시만)")
+    @Operation(summary = "작업오더 취소: 실적 없는 독립 지시·완료 보상 취소")
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> cancel(@PathVariable Long id) {
         WorkOrderEntity entity = workOrderRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND, "작업오더를 찾을 수 없습니다: " + id));
-        if (!Constants.WO_OPEN.equals(entity.getStatus())) {
-            throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION, "실적 없는 지시 상태의 독립 오더만 취소할 수 있습니다.");
+        if (Constants.WO_OPEN.equals(entity.getStatus())) {
+            requireIndependentAndNoActuals(entity);
+            Response openBefore = toResponse(entity);
+            entity.setStatus(Constants.WO_CANCEL);
+            auditService.record(AuditEvent.changed("CANCEL", "WORK_ORDER", entity.getWorkOrderNo(), openBefore, toResponse(entity)));
+            return ResponseEntity.ok(toResponse(entity));
         }
-        requireIndependentAndNoActuals(entity);
+        if (Constants.WO_DONE.equals(entity.getStatus())) {
+            return cancelCompleted(entity);
+        }
+        throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION, "실적 없는 지시 상태의 독립 오더나 완료 오더만 취소할 수 있습니다.");
+    }
+
+    private ResponseEntity<Response> cancelCompleted(WorkOrderEntity entity) {
+        var completionTxns = inventoryTransactionRepository.findByRefTypeAndRefNo("WORK_ORDER", entity.getWorkOrderNo()).stream()
+                .filter(t -> Constants.TXN_PRODUCTION_RECEIVE.equals(t.getTxnType()))
+                .toList();
+        if (completionTxns.size() != 1 || completionTxns.get(0).getLot() == null) {
+            throw new DomainException(ErrorCode.IN_USE,
+                    "완료 입고 이력이 확인되지 않아 보상 취소할 수 없습니다: " + entity.getWorkOrderNo());
+        }
+        InventoryTransactionEntity completion = completionTxns.get(0);
+        LotEntity lot = lotRepository.findForUpdate(completion.getLot().getId()).orElseThrow();
+        if (!Constants.LOT_OK.equals(lot.getStatus()) || lot.getQty().compareTo(entity.getGoodQty()) != 0) {
+            throw new DomainException(ErrorCode.IN_USE,
+                    "출하·폐기로 소진된 Lot은 보상 취소할 수 없습니다: " + lot.getLotNo());
+        }
+        if (shipmentRepository.existsByLot_IdAndStatusNot(lot.getId(), Constants.CANCELLED)) {
+            throw new DomainException(ErrorCode.IN_USE,
+                    "출하가 연결된 Lot은 보상 취소할 수 없습니다. 출하 취소 후 다시 시도하세요: " + lot.getLotNo());
+        }
+        ItemEntity item = itemRepository.findForUpdate(entity.getItem().getId()).orElseThrow();
+        if (item.getStock().compareTo(entity.getGoodQty()) < 0) {
+            throw new DomainException(ErrorCode.INSUFFICIENT_STOCK,
+                    "현재고가 보상 수량보다 적어 취소할 수 없습니다: " + item.getItemNo());
+        }
         Response before = toResponse(entity);
+        BigDecimal stockBefore = item.getStock();
+        BigDecimal lotBefore = lot.getQty();
+        item.setStock(stockBefore.subtract(entity.getGoodQty()));
+        lot.setQty(BigDecimal.ZERO);
+        lot.setStatus(Constants.LOT_DISPOSED);
+        itemRepository.save(item);
+        lotRepository.save(lot);
+        InventoryTransactionEntity txn = InventoryTransactionEntity.builder()
+                .txnNo(numberGenerator.next(Prefix.INVENTORY_TXN, 4))
+                .item(item)
+                .lot(lot)
+                .warehouse(lot.getWarehouse())
+                .txnType(Constants.TXN_ISSUE)
+                .qty(entity.getGoodQty().negate())
+                .refType("WORK_ORDER")
+                .refNo(entity.getWorkOrderNo())
+                .txnDate(today())
+                .build();
+        InventoryTransactionEntity savedTxn = inventoryTransactionRepository.save(txn);
         entity.setStatus(Constants.WO_CANCEL);
-        auditService.record(AuditEvent.changed("CANCEL", "WORK_ORDER", entity.getWorkOrderNo(), before, toResponse(entity)));
-        return ResponseEntity.ok(toResponse(entity));
+        WorkOrderEntity saved = workOrderRepository.save(entity);
+        auditService.record(AuditEvent.changed("CANCEL", "WORK_ORDER", saved.getWorkOrderNo(), before, toResponse(saved)));
+        auditService.record(AuditEvent.created("INVENTORY_TRANSACTION", savedTxn.getTxnNo(), transactionSnapshot(savedTxn)));
+        auditService.record(AuditEvent.changed("CANCEL", "ITEM", item.getItemNo(),
+                java.util.Map.of("id", item.getId(), "itemNo", item.getItemNo(), "stock", stockBefore),
+                java.util.Map.of("id", item.getId(), "itemNo", item.getItemNo(), "stock", item.getStock())));
+        auditService.record(AuditEvent.changed("CANCEL", "LOT", lot.getLotNo(),
+                java.util.Map.of("id", lot.getId(), "lotNo", lot.getLotNo(), "qty", lotBefore),
+                lotSnapshot(lot)));
+        return ResponseEntity.ok(toResponse(saved));
     }
 
     private String opStatusOf(RoutingStepSnapshot s) {

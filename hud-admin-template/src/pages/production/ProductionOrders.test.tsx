@@ -225,6 +225,28 @@ it('issues materials against a lot from the detail dialog then refetches require
     expect(posted).toMatchObject({ childItemId: 8, lotId: 21, qty: 10 })
 })
 
+it('compensates a completed order reversing its lot receipt through a confirmation dialog', async () => {
+    const done = { ...order, status: '완료', goodQty: 8, defectQty: 2, progress: 100 }
+    let row = done
+    state.fetch.mockImplementation(async (input, init) => {
+        const url = new URL(String(input)); const lookup = options(url); if (lookup) return lookup
+        if (url.pathname.endsWith('/work-orders/42/operations')) return Response.json({ workOrderId: 42, workOrderNo: 'WO-LIVE',
+            qty: 10, goodQty: 8, defectQty: 2, status: '완료', steps: [], sumGoodQty: 0, sumDefectQty: 0, matched: true, notes: [] })
+        if (url.pathname.endsWith('/work-orders/42/materials')) return Response.json({ workOrderId: 42, workOrderNo: 'WO-LIVE',
+            qty: 10, requirements: [], notes: [] })
+        if (init?.method === 'POST' && url.pathname.endsWith('/work-orders/42/cancel')) {
+            row = { ...done, status: '취소' }; return Response.json(row)
+        }
+        return Response.json(url.pathname.endsWith('/42') ? done : page([row]))
+    })
+    mount(); const user = userEvent.setup(); await screen.findByText('WO-LIVE')
+    expect(screen.queryByRole('button', { name: '생산완료' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '보상취소' }))
+    expect(await screen.findByText(/완제품 입고를 역보상하며 Lot을 폐기합니다/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '보상취소 확인' }))
+    await screen.findByText('작업오더를 취소했습니다.')
+})
+
 const operations = { workOrderId: 42, workOrderNo: 'WO-LIVE', qty: 10, goodQty: 4, defectQty: 1,
     status: '진행중', steps: [{ seq: 1, routingNo: 'RT-SNAPSHOT', process: '보관 공정', workCenter: 'WC-A',
         stdTime: 0.2, subcontract: true, opStatus: '대기', startedAt: null, completedAt: null,

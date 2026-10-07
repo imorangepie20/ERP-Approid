@@ -152,6 +152,7 @@ export default function ProductionOrders() {
                     </>}
                     {row.status === '완료' && <Button size="sm" variant="ghost" onClick={() => ask(row, 'close')}>마감</Button>}
                     {row.status === '지시' && independent && <Button size="sm" variant="ghost" onClick={() => ask(row, 'cancel')}>취소</Button>}
+                    {row.status === '완료' && <Button size="sm" variant="ghost" onClick={() => ask(row, 'cancel')}>보상취소</Button>}
                 </>}
             </div>
         } },
@@ -200,11 +201,14 @@ export default function ProductionOrders() {
         {target && !actualForm && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4">
             <div role="alertdialog" aria-modal="true" aria-label={`작업오더 ${labels[target.action]}`}
                 className="w-full max-w-md rounded-lg bg-hud-bg-secondary border border-hud-border-secondary p-6">
-                <h2 className="text-lg">작업오더 {labels[target.action]}</h2><p className="my-4">{target.row.workOrderNo} · {labels[target.action]}하시겠습니까?</p>
+                <h2 className="text-lg">작업오더 {target.action === 'cancel' && target.row.status === '완료' ? '보상취소' : labels[target.action]}</h2>
+                <p className="my-4">{target.row.workOrderNo} · {target.action === 'cancel' && target.row.status === '완료' ? '보상취소' : labels[target.action]}하시겠습니까?</p>
+                {target.action === 'cancel' && target.row.status === '완료'
+                    && <p className="mb-4 text-sm">완제품 입고를 역보상하며 Lot을 폐기합니다. 불출된 원자재는 복원하지 않으며 출하·소진된 Lot은 차단됩니다.</p>}
                 {action.error && <div role="alert" className="text-hud-accent-danger">{errorContent(action.error)}</div>}
                 <div className="flex justify-end gap-3 mt-4"><Button variant="ghost" disabled={action.isPending} onClick={() => setTarget(null)}>닫기</Button>
                     <Button variant={target.action === 'close' ? 'primary' : 'danger'} disabled={action.isPending}
-                        onClick={() => { if (!action.isPending) action.mutate(target) }}>{labels[target.action]} 확인</Button></div>
+                        onClick={() => { if (!action.isPending) action.mutate(target) }}>{target.action === 'cancel' && target.row.status === '완료' ? '보상취소' : labels[target.action]} 확인</Button></div>
             </div>
         </div>}
         {detailId !== null && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">

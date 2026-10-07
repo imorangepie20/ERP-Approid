@@ -35,6 +35,7 @@ import com.erpapproid.core.domain.audit.AuditService;
 import com.erpapproid.core.domain.audit.AuditEvent;
 import com.erpapproid.core.domain.item.ItemEntity;
 import com.erpapproid.core.domain.item.ItemRepository;
+import com.erpapproid.core.domain.inventory.InventoryTransactionRepository;
 import com.erpapproid.core.domain.partner.PartnerEntity;
 import com.erpapproid.core.domain.partner.PartnerRepository;
 import com.erpapproid.core.domain.production.WorkOrderEntity;
@@ -43,6 +44,7 @@ import com.erpapproid.core.domain.sales.QuotationEntity;
 import com.erpapproid.core.domain.sales.QuotationRepository;
 import com.erpapproid.core.domain.sales.SalesOrderEntity;
 import com.erpapproid.core.domain.sales.SalesOrderRepository;
+import com.erpapproid.core.domain.sales.ShipmentRepository;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -60,6 +62,8 @@ public class SalesOrderController {
     private final PartnerRepository partnerRepository;
     private final ItemRepository itemRepository;
     private final WorkOrderRepository workOrderRepository;
+    private final ShipmentRepository shipmentRepository;
+    private final InventoryTransactionRepository inventoryTransactionRepository;
     private final DomainNumberGenerator numberGenerator;
     private final AuditService auditService;
     private final com.erpapproid.core.domain.production.RoutingSnapshotService routingSnapshots;
@@ -215,7 +219,7 @@ public class SalesOrderController {
         return ResponseEntity.ok(toResponse(saved));
     }
 
-    @Operation(summary = "수주 취소 (대기만, 확정 후 보상 처리는 후속 생산 업무)")
+    @Operation(summary = "수주 취소: 대기 단순 취소·확정 작업 전 보상 취소")
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('SALES', 'ADMIN')")
     @Transactional
@@ -223,11 +227,52 @@ public class SalesOrderController {
         SalesOrderEntity entity = salesOrderRepository.findForUpdate(id)
                 .orElseThrow(() -> new DomainException(ErrorCode.SALES_ORDER_NOT_FOUND,
                         "수주를 찾을 수 없습니다: " + id));
-        if (!Constants.WAITING.equals(entity.getStatus()) || !workOrderRepository.findBySalesOrderId(id).isEmpty()) {
-            throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
-                    "작업오더가 없는 대기 상태의 수주만 취소할 수 있습니다: " + entity.getSalesOrderNo());
+        if (Constants.WAITING.equals(entity.getStatus())) {
+            if (!workOrderRepository.findBySalesOrderId(id).isEmpty()) {
+                throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
+                        "작업오더가 없는 대기 상태의 수주만 취소할 수 있습니다: " + entity.getSalesOrderNo());
+            }
+            return cancelWaiting(entity);
+        }
+        if (Constants.CONFIRMED.equals(entity.getStatus())) {
+            return cancelConfirmed(entity);
+        }
+        throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
+                "대기 또는 작업 전 확정 상태의 수주만 취소할 수 있습니다: " + entity.getSalesOrderNo());
+    }
+
+    private ResponseEntity<Response> cancelWaiting(SalesOrderEntity entity) {
+        Response before = toResponse(entity);
+        entity.setStatus(Constants.CANCELLED);
+        SalesOrderEntity saved = salesOrderRepository.save(entity);
+        auditService.record(AuditEvent.sensitiveChange(
+                "CANCEL", "SALES_ORDER", saved.getSalesOrderNo(), before, toResponse(saved)));
+        return ResponseEntity.ok(toResponse(saved));
+    }
+
+    private ResponseEntity<Response> cancelConfirmed(SalesOrderEntity entity) {
+        if (shipmentRepository.existsBySalesOrder_IdAndStatusNot(entity.getId(), Constants.CANCELLED)) {
+            throw new DomainException(ErrorCode.IN_USE,
+                    "출하가 존재하는 수주는 취소할 수 없습니다. 출하 취소 후 다시 시도하세요: " + entity.getSalesOrderNo());
+        }
+        var orders = workOrderRepository.findBySalesOrderId(entity.getId());
+        for (WorkOrderEntity order : orders) {
+            if (!Constants.WO_OPEN.equals(order.getStatus())
+                    || order.getGoodQty().signum() != 0 || order.getDefectQty().signum() != 0
+                    || order.getRoutingSteps().stream().anyMatch(s -> !"대기".equals(s.opStatus() == null ? "대기" : s.opStatus()))
+                    || !inventoryTransactionRepository.findByRefTypeAndRefNo("WORK_ORDER", order.getWorkOrderNo()).isEmpty()) {
+                throw new DomainException(ErrorCode.IN_USE,
+                        "작업이 진척된 수주는 취소할 수 없습니다. 작업오더: " + order.getWorkOrderNo());
+            }
         }
         Response before = toResponse(entity);
+        for (WorkOrderEntity order : orders) {
+            java.util.Map<String, Object> orderBefore = workOrderSnapshot(order);
+            order.setStatus(Constants.WO_CANCEL);
+            WorkOrderEntity savedOrder = workOrderRepository.save(order);
+            auditService.record(AuditEvent.changed("CANCEL", "WORK_ORDER",
+                    savedOrder.getWorkOrderNo(), orderBefore, workOrderSnapshot(savedOrder)));
+        }
         entity.setStatus(Constants.CANCELLED);
         SalesOrderEntity saved = salesOrderRepository.save(entity);
         auditService.record(AuditEvent.sensitiveChange(

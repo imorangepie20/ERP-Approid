@@ -91,20 +91,40 @@ it('sends a draft and converts only the sent quotation via server actions', asyn
     expect(screen.queryByRole('button', { name: '수주 전환' })).not.toBeInTheDocument()
 })
 
-it('confirms an order and displays the generated work order without allowing later simple cancellation', async () => {
+it('confirms an order and displays the generated work order with compensation cancellation for untouched orders', async () => {
     let row = order
     state.fetch.mockImplementation(async (input, init) => {
-        const lookup = options(new URL(String(input))); if (lookup) return lookup
-        if (init?.method === 'POST') { row = { ...order, status: '확정', workOrderNos: ['WO-LIVE'] }; return Response.json({ salesOrder: row, workOrderNo: 'WO-LIVE', workOrderId: 81 }) }
+        const url = new URL(String(input)); const lookup = options(url); if (lookup) return lookup
+        if (init?.method === 'POST') {
+            if (url.pathname.endsWith('/cancel')) { row = { ...order, status: '취소', workOrderNos: ['WO-LIVE'] }; return Response.json(row) }
+            row = { ...order, status: '확정', workOrderNos: ['WO-LIVE'] }; return Response.json({ salesOrder: row, workOrderNo: 'WO-LIVE', workOrderId: 81 })
+        }
         return Response.json(page([row]))
     })
     mount(true); const user = userEvent.setup(); await screen.findByText('SO-LIVE')
     await user.click(screen.getByRole('button', { name: '수주 확정' })); await user.click(screen.getByRole('button', { name: '수주 확정 확인' }))
     await screen.findByText('작업오더를 생성했습니다: WO-LIVE'); await screen.findByText('WO-LIVE')
     expect(screen.getByRole('link', { name: '작업오더 보기' })).toHaveAttribute('href', '/production/orders?keyword=WO-LIVE')
-    expect(screen.queryByRole('button', { name: '수주 취소' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '수주 취소' })).toBeInTheDocument()
     expect(screen.queryByTitle('수정')).not.toBeInTheDocument()
     expect(state.fetch.mock.calls.some(([url]) => String(url).includes('/sales-orders/42/confirm'))).toBe(true)
+    await user.click(screen.getByRole('button', { name: '수주 취소' }))
+    expect(await screen.findByText(/작업 전 확정 건만 취소되며/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '수주 취소 확인' }))
+    await screen.findByText('수주를 취소했습니다.')
+})
+
+it('blocks cancellation of progressed orders with the server reason', async () => {
+    const confirmed = { ...order, status: '확정', workOrderNos: ['WO-LIVE'] }
+    state.fetch.mockImplementation(async (input, init) => {
+        const url = new URL(String(input)); const lookup = options(url); if (lookup) return lookup
+        if (init?.method === 'POST') return Response.json({ code: 'IN_USE', message: '작업이 진척된 수주는 취소할 수 없습니다.', traceId: 'sales-blocked' }, { status: 409 })
+        return Response.json(page([confirmed]))
+    })
+    mount(true); const user = userEvent.setup(); await screen.findByText('SO-LIVE')
+    await user.click(screen.getByRole('button', { name: '수주 취소' })); await user.click(screen.getByRole('button', { name: '수주 취소 확인' }))
+    await screen.findByText('작업이 진척된 수주는 취소할 수 없습니다.')
+    expect(screen.getByText('Trace ID: sales-blocked')).toBeInTheDocument()
 })
 
 it('creates and partially updates direct orders then cancels them through the API', async () => {

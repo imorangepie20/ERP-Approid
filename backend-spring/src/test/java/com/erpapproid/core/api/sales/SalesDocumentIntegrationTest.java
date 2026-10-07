@@ -75,7 +75,8 @@ class SalesDocumentIntegrationTest extends IntegrationTestSupport {
             assertThat(get(S + "/" + sid, token).getBody().path("workOrderNos").get(0))
                     .isEqualTo(confirmed.getBody().path("workOrderNo"));
             error(post(S + "/" + sid + "/confirm", token, body()), 409, "INVALID_STATE_TRANSITION");
-            error(post(S + "/" + sid + "/cancel", token, body()), 409, "INVALID_STATE_TRANSITION");
+            post("/api/core/work-orders/" + wid + "/progress", token, body("goodQty", 1, "defectQty", 0));
+            error(post(S + "/" + sid + "/cancel", token, body()), 409, "IN_USE");
             error(patch(S, sid, token, body("qty", 3), "sales-s-locked"), 409, "INVALID_STATE_TRANSITION");
             assertAudit("sales-send", "QUOTATION", true, true);
             assertThat(audits.findAllByTraceIdOrderByOccurredAtAsc("sales-convert")).hasSize(2);

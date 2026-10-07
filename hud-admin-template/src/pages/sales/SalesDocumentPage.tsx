@@ -111,7 +111,7 @@ export default function SalesDocumentPage({ resource }: { resource: SalesResourc
             const editable = row.status === (quotation ? '작성중' : '대기')
             const requestButtons: SalesAction[] = quotation
                 ? row.status === '작성중' ? ['send'] : row.status === '발송완료' ? ['convert'] : []
-                : row.status === '대기' ? ['confirm', 'cancel'] : []
+                : row.status === '대기' ? ['confirm', 'cancel'] : row.status === '확정' ? ['cancel'] : []
             return <div className="flex justify-end items-center gap-1">
                 <RowActions onEdit={editable && ready ? () => openForm(row) : undefined}
                     onDelete={editable && (quotation || !(row as SalesOrderRow).quotationId) ? () => ask(row, 'delete') : undefined} />
@@ -159,7 +159,9 @@ export default function SalesDocumentPage({ resource }: { resource: SalesResourc
                 <h2 className="text-lg">{actionLabels[target.action]}</h2>
                 <p className="my-4">{code(target.row)} · {actionLabels[target.action]}하시겠습니까?</p>
                 {target.action === 'send' && <p className="mb-4 text-sm">발송완료 상태로 저장합니다. 이메일 전송은 포함하지 않습니다.</p>}
-                {target.action === 'confirm' && <p className="mb-4 text-sm">작업오더가 생성되며 이후 수정·단순 취소할 수 없습니다.</p>}
+                {target.action === 'confirm' && <p className="mb-4 text-sm">작업오더가 생성됩니다. 작업 전 확정 건은 보상 취소할 수 있습니다.</p>}
+                {target.action === 'cancel' && !quotation && (target.row as SalesOrderRow).status === '확정'
+                    && <p className="mb-4 text-sm">작업 전 확정 건만 취소되며 연결 작업오더도 함께 취소됩니다. 진척·출하가 있으면 차단됩니다.</p>}
                 {action.error && <div role="alert" className="text-hud-accent-danger">{errorContent(action.error)}</div>}
                 <div className="flex justify-end gap-3 mt-4">
                     <Button variant="ghost" disabled={action.isPending} onClick={() => setTarget(null)}>닫기</Button>
