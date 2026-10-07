@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { createHttpClient } from './http'
-import { actOnWorkOrder, fetchWorkOrder, fetchWorkOrderMaterials, fetchWorkOrderPage, issueWorkOrderMaterials, returnWorkOrderMaterials } from './workOrders'
+import { actOnWorkOrder, completeWorkOrderOperation, fetchWorkOrder, fetchWorkOrderMaterials, fetchWorkOrderOperations,
+    fetchWorkOrderPage, issueWorkOrderMaterials, returnWorkOrderMaterials, startWorkOrderOperation } from './workOrders'
 
 const order = { id: 42, workOrderNo: 'WO-LIVE', itemId: 7, itemNo: 'P-LIVE', itemName: '제품', qty: 10,
     goodQty: 8, defectQty: 2, progress: 100, startDate: '2026-10-02', dueDate: '2026-12-31', status: '완료',
@@ -60,4 +61,27 @@ it('issues and returns materials against specific lots', async () => {
     await expect(issueWorkOrderMaterials(http, 0, { childItemId: 8, lotId: 21, qty: 10 })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
     await expect(issueWorkOrderMaterials(http, 42, { childItemId: 0, lotId: 21, qty: 10 })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
     await expect(issueWorkOrderMaterials(http, 42, { childItemId: 8, lotId: 21, qty: 0 })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+})
+
+const operation = { seq: 10, routingNo: 'RT-001', process: '절단', workCenter: 'WC-CUT', stdTime: 0.5,
+    subcontract: false, opStatus: '완료', startedAt: '2026-10-06', completedAt: '2026-10-06', actualGoodQty: 6, actualDefectQty: 4 }
+const operations = { workOrderId: 42, workOrderNo: 'WO-LIVE', qty: 10, goodQty: 6, defectQty: 4,
+    status: '진행중', steps: [operation], sumGoodQty: 6, sumDefectQty: 4, matched: true, notes: ['착수는 보관 순서대로'] }
+
+it('reads operation actuals with header reconciliation', async () => {
+    const { http, fetch } = client(operations)
+    const result = await fetchWorkOrderOperations(http, 42)
+    expect(result.matched).toBe(true)
+    expect(result.steps[0]).toMatchObject({ seq: 10, opStatus: '완료' })
+    expect(String(fetch.mock.calls[0][0])).toContain('/work-orders/42/operations')
+    await expect(fetchWorkOrderOperations(http, 0)).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+})
+
+it('starts and completes operations with actual quantities', async () => {
+    const { http, fetch } = client(operation)
+    expect((await startWorkOrderOperation(http, 42, 10)).opStatus).toBe('완료')
+    expect(String(fetch.mock.calls[0][0])).toContain('/work-orders/42/operations/10/start')
+    expect((await completeWorkOrderOperation(client(operation).http, 42, 10, { goodQty: 6, defectQty: 4 })).actualGoodQty).toBe(6)
+    await expect(startWorkOrderOperation(http, 0, 10)).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    await expect(completeWorkOrderOperation(http, 42, 10, { goodQty: -1, defectQty: 0 })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
 })

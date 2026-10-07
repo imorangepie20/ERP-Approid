@@ -3,8 +3,9 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { ApiError } from '../../api/http'
-import { actOnWorkOrder, fetchWorkOrder, fetchWorkOrderMaterials, fetchWorkOrderPage, issueWorkOrderMaterials,
-    returnWorkOrderMaterials, saveWorkOrder, workOrderPriorities, workOrderStatuses,
+import { actOnWorkOrder, completeWorkOrderOperation, fetchWorkOrder, fetchWorkOrderMaterials, fetchWorkOrderOperations,
+    fetchWorkOrderPage, issueWorkOrderMaterials, returnWorkOrderMaterials, saveWorkOrder, startWorkOrderOperation,
+    workOrderPriorities, workOrderStatuses,
     type MaterialMoveInput, type WorkOrderAction, type WorkOrderRow } from '../../api/workOrders'
 import { useAuth } from '../../auth/AuthContext'
 import { useItemSelection } from '../../hooks/useItemSelection'
@@ -51,6 +52,9 @@ export default function ProductionOrders() {
     const [materialChild, setMaterialChild] = useState('')
     const [materialLot, setMaterialLot] = useState('')
     const [materialQty, setMaterialQty] = useState('')
+    const [opTarget, setOpTarget] = useState<number | null>(null)
+    const [opGood, setOpGood] = useState('')
+    const [opDefect, setOpDefect] = useState('')
     const query = useQuery({ queryKey: ['work-orders', { keyword, status, itemId, page, size, sortColumn, direction }],
         queryFn: async ({ signal }) => {
             const result = await fetchWorkOrderPage(core, { keyword, status, itemId: itemId ? Number(itemId) : undefined,
@@ -76,7 +80,20 @@ export default function ProductionOrders() {
     const openDetail = (id: number) => {
         setDetailId(id); move.reset(); setNotice('')
         setMaterialChild(''); setMaterialLot(''); setMaterialQty('')
+        setOpTarget(null); setOpGood(''); setOpDefect('')
     }
+    const operations = useQuery({ queryKey: ['work-orders', 'operations', detailId], enabled: detailId !== null,
+        queryFn: ({ signal }) => fetchWorkOrderOperations(core, detailId!, signal) })
+    const opAction = useMutation({ mutationFn: (request: { seq: number; kind: 'start' | 'complete' }) =>
+        request.kind === 'start' ? startWorkOrderOperation(core, detailId!, request.seq)
+            : completeWorkOrderOperation(core, detailId!, request.seq, { goodQty: Number(opGood), defectQty: Number(opDefect) }),
+        onSuccess: async (step, request) => {
+            await Promise.all([cache.invalidateQueries({ queryKey: ['work-orders'] }), operations.refetch()])
+            setOpTarget(null)
+            setNotice(request.kind === 'start' ? `공정을 착수했습니다. ${step.seq}`
+                : `공정을 완료했습니다. ${step.seq} · 양품 ${step.actualGoodQty} · 불량 ${step.actualDefectQty}`)
+        },
+        onError: () => { void invalidate() } })
     const invalidate = async () => {
         await Promise.all(['work-orders', 'items', 'inventory', 'lots', 'sales-orders'].map(key => cache.invalidateQueries({ queryKey: [key] })))
     }
@@ -204,6 +221,38 @@ export default function ProductionOrders() {
                             <tbody>{detail.data.routingSteps.map(step => <tr key={step.routingId}>
                                 <td>{step.seq}</td><td>{step.process}</td><td>{step.workCenter}</td><td>{step.stdTime}</td><td>{step.isSubcontract ? '예' : '아니오'}</td>
                             </tr>)}</tbody></table>}
+                    <h3 className="mt-4 mb-2">공정 실적</h3>
+                    {operations.isPending ? <p>공정 실적을 조회하는 중...</p>
+                        : operations.error ? <div role="alert"><p>공정 실적을 조회하지 못했습니다.</p>
+                            <Button size="sm" variant="ghost" onClick={() => { void operations.refetch() }}>다시 시도</Button></div>
+                        : operations.data.steps.length === 0 ? <p>보관된 공정이 없어 공정 실적 없이 완료할 수 있습니다.</p>
+                        : <><table className="w-full text-left text-sm"><thead><tr><th>순서·공정</th><th>상태·일자</th><th>실적</th><th>관리</th></tr></thead>
+                            <tbody>{operations.data.steps.map(step => <tr key={step.seq}>
+                                <td>{step.seq} · {step.process} ({step.workCenter})</td>
+                                <td>{step.opStatus}{step.startedAt && ` · 착수 ${step.startedAt}`}{step.completedAt && ` · 완료 ${step.completedAt}`}</td>
+                                <td>{step.actualGoodQty == null ? '미기록' : `양품 ${step.actualGoodQty} · 불량 ${step.actualDefectQty}`}</td>
+                                <td>{canWrite && ['지시', '진행중'].includes(detail.data.status) && <>
+                                    {step.opStatus === '대기' && <Button size="sm" variant="ghost" disabled={opAction.isPending}
+                                        onClick={() => { opAction.reset(); setNotice(''); setOpTarget(null); opAction.mutate({ seq: step.seq, kind: 'start' }) }}>착수</Button>}
+                                    {(step.opStatus === '진행중' || (step.opStatus === '완료' && opTarget === step.seq)) && <>
+                                        <label className="text-sm">공정 양품<input aria-label="공정 양품"
+                                            className="bg-hud-bg-primary border border-hud-border-secondary rounded-lg px-3 py-2 text-sm"
+                                            value={opTarget === step.seq || step.opStatus === '진행중' ? opGood : ''}
+                                            disabled={opAction.isPending} onChange={e => { setOpTarget(step.seq); setOpGood(e.target.value); opAction.reset() }} /></label>
+                                        <label className="text-sm">공정 불량<input aria-label="공정 불량"
+                                            className="bg-hud-bg-primary border border-hud-border-secondary rounded-lg px-3 py-2 text-sm"
+                                            value={opTarget === step.seq || step.opStatus === '진행중' ? opDefect : ''}
+                                            disabled={opAction.isPending} onChange={e => { setOpTarget(step.seq); setOpDefect(e.target.value); opAction.reset() }} /></label>
+                                        <Button size="sm" variant="ghost" disabled={opAction.isPending || !opGood || !opDefect}
+                                            onClick={() => { if (!opAction.isPending) opAction.mutate({ seq: step.seq, kind: 'complete' }) }}>완료 확인</Button>
+                                    </>}
+                                    {step.opStatus === '완료' && opTarget !== step.seq && <Button size="sm" variant="ghost" disabled={opAction.isPending}
+                                        onClick={() => { opAction.reset(); setNotice(''); setOpTarget(step.seq); setOpGood(String(step.actualGoodQty ?? '')); setOpDefect(String(step.actualDefectQty ?? '')) }}>다시 기록</Button>}
+                                </>}</td>
+                            </tr>)}</tbody></table>
+                            <p className="mt-2 text-sm">{`공정 합계 양품 ${operations.data.sumGoodQty} · 불량 ${operations.data.sumDefectQty} · 헤더 양품 ${operations.data.goodQty} · 불량 ${operations.data.defectQty} · ${operations.data.matched ? '일치' : '불일치'}`}</p>
+                            <ul className="list-disc pl-5 mt-2 text-sm text-hud-text-secondary">{operations.data.notes.map(n => <li key={n}>{n}</li>)}</ul>
+                            {opAction.error && <div role="alert" className="mt-2 text-hud-accent-danger">{errorContent(opAction.error)}</div>}</>}
                     <h3 className="mt-4 mb-2">소요 자재</h3>
                     {materials.isPending ? <p>소요 자재를 조회하는 중...</p>
                         : materials.error ? <div role="alert"><p>소요 자재를 조회하지 못했습니다.</p>

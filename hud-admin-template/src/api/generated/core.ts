@@ -1251,6 +1251,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/work-orders/{id}/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 공정별 실적 조회: 보관 스냅샷·합계·대사 */
+        get: operations["operations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/work-orders/{id}/operations/{seq}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 공정 완료: 양품·불량 실적 기록 */
+        post: operations["completeOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/work-orders/{id}/operations/{seq}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 공정 착수: 이전 공정 완료 순서로 진행중 전환 */
+        post: operations["startOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/work-orders/{id}/progress": {
         parameters: {
             query?: never;
@@ -2841,6 +2892,40 @@ export interface components {
             returnedQty?: number;
             unit?: string;
         };
+        WorkOrderOperationActualsRequest: {
+            defectQty: number;
+            goodQty: number;
+        };
+        WorkOrderOperationsResponse: {
+            defectQty?: number;
+            goodQty?: number;
+            matched?: boolean;
+            notes?: string[];
+            qty?: number;
+            status?: string;
+            steps?: components["schemas"]["WorkOrderOperationStep"][];
+            sumDefectQty?: number;
+            sumGoodQty?: number;
+            /** Format: int64 */
+            workOrderId?: number;
+            workOrderNo?: string;
+        };
+        WorkOrderOperationStep: {
+            actualDefectQty?: number;
+            actualGoodQty?: number;
+            /** Format: date */
+            completedAt?: string;
+            opStatus?: string;
+            process?: string;
+            routingNo?: string;
+            /** Format: int32 */
+            seq?: number;
+            /** Format: date */
+            startedAt?: string;
+            stdTime?: number;
+            subcontract?: boolean;
+            workCenter?: string;
+        };
         WorkOrderRequest: {
             assignee?: string;
             /** Format: date */
@@ -2889,15 +2974,31 @@ export interface components {
             subcontractTimeHours?: number;
             workOrderNo?: string;
         };
-        /** @description 작업오더 생성 시점의 공정 정보 */
+        /** @description 작업오더 생성 시점의 공정 정보와 공정별 실적 */
         WorkOrderRoutingStep: {
+            /** @description 공정 불량 실적. 헤더 불량과 대사한다. */
+            actualDefectQty?: number;
+            /** @description 공정 양품 실적. 헤더 양품과 대사한다. */
+            actualGoodQty?: number;
+            /**
+             * Format: date
+             * @description 공정 완료일. 실적 입력으로만 기록된다.
+             */
+            completedAt?: string;
             isSubcontract?: boolean;
+            /** @description 공정 상태: 대기/진행중/완료. 마스터 데이터가 아니며 실적 입력으로만 변경된다. */
+            opStatus?: string;
             process?: string;
             /** Format: int64 */
             routingId?: number;
             routingNo?: string;
             /** Format: int32 */
             seq?: number;
+            /**
+             * Format: date
+             * @description 공정 착수일. 실적 입력으로만 기록된다.
+             */
+            startedAt?: string;
             stdTime?: number;
             workCenter?: string;
         };
@@ -5305,6 +5406,78 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["WorkOrderMaterialListResponse"];
+                };
+            };
+        };
+    };
+    operations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WorkOrderOperationsResponse"];
+                };
+            };
+        };
+    };
+    completeOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderOperationActualsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WorkOrderOperationStep"];
+                };
+            };
+        };
+    };
+    startOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["WorkOrderOperationStep"];
                 };
             };
         };

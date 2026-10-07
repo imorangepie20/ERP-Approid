@@ -121,6 +121,54 @@ public class WorkOrderDto {
 
     @Getter
     @Builder
+    @Schema(name = "WorkOrderOperationActualsRequest")
+    public static final class OperationActualsRequest {
+        @NotNull
+        @DecimalMin(value = "0")
+        @Digits(integer = 14, fraction = 4)
+        private BigDecimal goodQty;
+        @NotNull
+        @DecimalMin(value = "0")
+        @Digits(integer = 14, fraction = 4)
+        private BigDecimal defectQty;
+    }
+
+    @Getter
+    @Builder
+    @Schema(name = "WorkOrderOperationStep")
+    public static final class OperationStep {
+        private Integer seq;
+        private String routingNo;
+        private String process;
+        private String workCenter;
+        private BigDecimal stdTime;
+        private Boolean subcontract;
+        private String opStatus;
+        private LocalDate startedAt;
+        private LocalDate completedAt;
+        private BigDecimal actualGoodQty;
+        private BigDecimal actualDefectQty;
+    }
+
+    @Getter
+    @Builder
+    @Schema(name = "WorkOrderOperationsResponse")
+    public static final class OperationsResponse {
+        private Long workOrderId;
+        private String workOrderNo;
+        private BigDecimal qty;
+        private BigDecimal goodQty;
+        private BigDecimal defectQty;
+        private String status;
+        private java.util.List<OperationStep> steps;
+        private BigDecimal sumGoodQty;
+        private BigDecimal sumDefectQty;
+        private boolean matched;
+        private java.util.List<String> notes;
+    }
+
+    @Getter
+    @Builder
     @Schema(name = "WorkOrderMaterialMoveRequest")
     public static final class MaterialMoveRequest {
         @NotNull

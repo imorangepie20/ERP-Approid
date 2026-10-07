@@ -164,3 +164,83 @@ export async function issueWorkOrderMaterials(client: HttpClient, id: number, in
 export async function returnWorkOrderMaterials(client: HttpClient, id: number, input: MaterialMoveInput) {
     return moveMaterials(client, id, 'material-returns', input)
 }
+
+export interface OperationStep {
+    seq: number
+    routingNo: string
+    process: string
+    workCenter: string
+    stdTime: number
+    subcontract: boolean
+    opStatus: string
+    startedAt: string | null
+    completedAt: string | null
+    actualGoodQty: number | null
+    actualDefectQty: number | null
+}
+export interface OperationsResponse {
+    workOrderId: number
+    workOrderNo: string
+    qty: number
+    goodQty: number
+    defectQty: number
+    status: string
+    steps: OperationStep[]
+    sumGoodQty: number
+    sumDefectQty: number
+    matched: boolean
+    notes: string[]
+}
+export interface OperationActualsInput { goodQty: number; defectQty: number }
+
+const opStatuses = ['대기', '진행중', '완료']
+
+function normalizeOperationStep(value: unknown, status: number, traceId?: string): OperationStep {
+    if (!value || typeof value !== 'object') return invalidMasterResponse(status, traceId)
+    const r = value as Record<string, unknown>
+    if (!positiveId(r.seq) || ![r.routingNo, r.process, r.workCenter].every(text)
+        || !number(r.stdTime) || typeof r.subcontract !== 'boolean' || !opStatuses.includes(r.opStatus as string)
+        || !(r.startedAt === null || date(r.startedAt)) || !(r.completedAt === null || date(r.completedAt))
+        || !(r.actualGoodQty === null || (number(r.actualGoodQty) && (r.actualGoodQty as number) >= 0))
+        || !(r.actualDefectQty === null || (number(r.actualDefectQty) && (r.actualDefectQty as number) >= 0))) {
+        return invalidMasterResponse(status, traceId)
+    }
+    return r as unknown as OperationStep
+}
+
+function normalizeOperations(value: unknown, status: number, traceId?: string): OperationsResponse {
+    if (!value || typeof value !== 'object') return invalidMasterResponse(status, traceId)
+    const r = value as Record<string, unknown>
+    if (!positiveId(r.workOrderId) || !text(r.workOrderNo) || ![r.qty, r.goodQty, r.defectQty].every(number)
+        || (r.qty as number) <= 0 || !text(r.status) || !Array.isArray(r.steps)
+        || ![r.sumGoodQty, r.sumDefectQty].every(number) || typeof r.matched !== 'boolean'
+        || !Array.isArray(r.notes) || !(r.notes as unknown[]).every(n => typeof n === 'string')) {
+        return invalidMasterResponse(status, traceId)
+    }
+    return { workOrderId: r.workOrderId, workOrderNo: r.workOrderNo, qty: r.qty, goodQty: r.goodQty,
+        defectQty: r.defectQty, status: r.status,
+        steps: (r.steps as unknown[]).map(v => normalizeOperationStep(v, status, traceId)),
+        sumGoodQty: r.sumGoodQty, sumDefectQty: r.sumDefectQty, matched: r.matched, notes: r.notes } as OperationsResponse
+}
+
+export async function fetchWorkOrderOperations(client: HttpClient, id: number, signal?: AbortSignal) {
+    if (!positiveId(id)) throw new ApiError({ status: 400, code: 'INVALID_INPUT', message: '작업오더 ID가 올바르지 않습니다.' })
+    const r = await client.get<unknown>(`work-orders/${id}/operations`, { signal })
+    return normalizeOperations(r.data, r.status, r.traceId)
+}
+
+export async function startWorkOrderOperation(client: HttpClient, id: number, seq: number) {
+    if (!positiveId(id) || !positiveId(seq)) throw new ApiError({ status: 400, code: 'INVALID_INPUT', message: '공정 식별자가 올바르지 않습니다.' })
+    const r = await client.post<unknown>(`work-orders/${id}/operations/${seq}/start`, {})
+    return normalizeOperationStep(r.data, r.status, r.traceId)
+}
+
+export async function completeWorkOrderOperation(client: HttpClient, id: number, seq: number, input: OperationActualsInput) {
+    if (!positiveId(id) || !positiveId(seq)) throw new ApiError({ status: 400, code: 'INVALID_INPUT', message: '공정 식별자가 올바르지 않습니다.' })
+    const qty = (input ?? {}) as unknown as Record<string, unknown>
+    if (!number(qty.goodQty) || (qty.goodQty as number) < 0 || !number(qty.defectQty) || (qty.defectQty as number) < 0) {
+        throw new ApiError({ status: 400, code: 'INVALID_INPUT', message: '공정 실적 입력이 올바르지 않습니다.' })
+    }
+    const r = await client.post<unknown>(`work-orders/${id}/operations/${seq}/complete`, input)
+    return normalizeOperationStep(r.data, r.status, r.traceId)
+}

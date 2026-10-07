@@ -224,3 +224,53 @@ it('issues materials against a lot from the detail dialog then refetches require
     await screen.findByText(/자재 불출했습니다. M-LIVE · 10.*TX-LIVE/)
     expect(posted).toMatchObject({ childItemId: 8, lotId: 21, qty: 10 })
 })
+
+const operations = { workOrderId: 42, workOrderNo: 'WO-LIVE', qty: 10, goodQty: 4, defectQty: 1,
+    status: '진행중', steps: [{ seq: 1, routingNo: 'RT-SNAPSHOT', process: '보관 공정', workCenter: 'WC-A',
+        stdTime: 0.2, subcontract: true, opStatus: '대기', startedAt: null, completedAt: null,
+        actualGoodQty: null, actualDefectQty: null }],
+    sumGoodQty: 0, sumDefectQty: 0, matched: false, notes: ['착수는 보관 순서대로'] }
+
+it('shows operation actuals with reconciliation in the detail dialog', async () => {
+    state.fetch.mockImplementation(async input => {
+        const url = new URL(String(input)); const lookup = options(url); if (lookup) return lookup
+        if (url.pathname.endsWith('/work-orders/42/operations')) return Response.json(operations)
+        return Response.json(url.pathname.endsWith('/42') ? order : page([order]))
+    })
+    mount(); const user = userEvent.setup(); await screen.findByText('WO-LIVE')
+    await user.click(screen.getByRole('button', { name: '상세' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByText('공정 실적')).toBeInTheDocument()
+    expect(await within(dialog).findByText(/합계 양품 0.*헤더 양품 4.*불일치/)).toBeInTheDocument()
+    expect(state.fetch.mock.calls.some(([url]) => String(url).endsWith('/work-orders/42/operations'))).toBe(true)
+})
+
+it('starts and completes an operation from the detail dialog then refetches reconciliation', async () => {
+    let posted: unknown = null
+    let started = false
+    const step = () => ({ ...operations.steps[0], opStatus: started ? '진행중' : '대기', startedAt: started ? '2026-10-06' : null })
+    state.fetch.mockImplementation(async (input, init) => {
+        const url = new URL(String(input)); const lookup = options(url); if (lookup) return lookup
+        if (url.pathname.endsWith('/work-orders/42/operations')) return Response.json({ ...operations, steps: [step()] })
+        if (init?.method === 'POST' && url.pathname.endsWith('/operations/1/complete')) {
+            posted = JSON.parse(String(init.body))
+            return Response.json({ ...operations.steps[0], opStatus: '완료', actualGoodQty: 4, actualDefectQty: 1 })
+        }
+        if (init?.method === 'POST' && url.pathname.endsWith('/operations/1/start')) {
+            started = true
+            return Response.json({ ...operations.steps[0], opStatus: '진행중', startedAt: '2026-10-06' })
+        }
+        return Response.json(url.pathname.endsWith('/42') ? order : page([order]))
+    })
+    mount(); const user = userEvent.setup(); await screen.findByText('WO-LIVE')
+    await user.click(screen.getByRole('button', { name: '상세' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText('공정 실적')
+    await user.click(within(dialog).getByRole('button', { name: '착수' }))
+    await screen.findByText(/공정을 착수했습니다. 1/)
+    await user.type(within(dialog).getByLabelText('공정 양품'), '4')
+    await user.type(within(dialog).getByLabelText('공정 불량'), '1')
+    await user.click(within(dialog).getByRole('button', { name: '완료 확인' }))
+    await screen.findByText(/공정을 완료했습니다. 1 · 양품 4 · 불량 1/)
+    expect(posted).toMatchObject({ goodQty: 4, defectQty: 1 })
+})

@@ -28,6 +28,9 @@ import com.erpapproid.core.api.production.WorkOrderDto.MaterialListResponse;
 import com.erpapproid.core.api.production.WorkOrderDto.MaterialMoveRequest;
 import com.erpapproid.core.api.production.WorkOrderDto.MaterialMoveResult;
 import com.erpapproid.core.api.production.WorkOrderDto.MaterialRequirement;
+import com.erpapproid.core.api.production.WorkOrderDto.OperationActualsRequest;
+import com.erpapproid.core.api.production.WorkOrderDto.OperationStep;
+import com.erpapproid.core.api.production.WorkOrderDto.OperationsResponse;
 import com.erpapproid.core.api.production.WorkOrderDto.Request;
 import com.erpapproid.core.api.production.WorkOrderDto.Response;
 import com.erpapproid.core.api.production.WorkOrderDto.UpdateRequest;
@@ -47,6 +50,7 @@ import com.erpapproid.core.domain.inventory.LotEntity;
 import com.erpapproid.core.domain.inventory.LotRepository;
 import com.erpapproid.core.domain.item.ItemEntity;
 import com.erpapproid.core.domain.item.ItemRepository;
+import com.erpapproid.core.domain.production.RoutingStepSnapshot;
 import com.erpapproid.core.domain.production.WorkOrderEntity;
 import com.erpapproid.core.domain.production.WorkOrderRepository;
 import com.erpapproid.core.domain.sales.SalesOrderEntity;
@@ -203,6 +207,7 @@ public class WorkOrderController {
         if (entity.getGoodQty().add(entity.getDefectQty()).compareTo(entity.getQty()) != 0) {
             throw new DomainException(ErrorCode.WORK_ORDER_QTY_MISMATCH, "완료하려면 양품+불량 누적 합계가 지시수량과 같아야 합니다.");
         }
+        requireOperationsMatched(entity);
         BigDecimal stockBefore = item.getStock();
         BigDecimal stockAfter = stockBefore.add(entity.getGoodQty());
         if (stockAfter.compareTo(new BigDecimal("99999999999999.9999")) > 0) {
@@ -252,6 +257,89 @@ public class WorkOrderController {
                 .lotNo(savedLot.getLotNo())
                 .inventoryTxnNo(savedTxn.getTxnNo())
                 .build());
+    }
+
+    @Operation(summary = "공정별 실적 조회: 보관 스냅샷·합계·대사")
+    @GetMapping("/{id}/operations")
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
+    public ResponseEntity<OperationsResponse> operations(@PathVariable Long id) {
+        WorkOrderEntity entity = workOrderRepository.findById(id)
+                .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND,
+                        "작업오더를 찾을 수 없습니다: " + id));
+        return ResponseEntity.ok(operationsOf(entity));
+    }
+
+    @Operation(summary = "공정 착수: 이전 공정 완료 순서로 진행중 전환")
+    @PostMapping("/{id}/operations/{seq}/start")
+    @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
+    public ResponseEntity<OperationStep> startOperation(@PathVariable Long id, @PathVariable Integer seq) {
+        WorkOrderEntity entity = workOrderRepository.findForUpdate(id)
+                .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND,
+                        "작업오더를 찾을 수 없습니다: " + id));
+        requireActive(entity);
+        var steps = new ArrayList<>(entity.getRoutingSteps());
+        RoutingStepSnapshot target = stepOf(steps, seq);
+        if (!Constants.WAITING.equals(opStatusOf(target))) {
+            throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "대기 상태의 공정만 착수할 수 있습니다: seq=" + seq);
+        }
+        for (RoutingStepSnapshot step : steps) {
+            if (step.seq() < seq && !Constants.WO_DONE.equals(opStatusOf(step))) {
+                throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
+                        "이전 공정을 먼저 완료하세요: seq=" + step.seq());
+            }
+        }
+        steps.replaceAll(s -> s.seq().equals(seq)
+                ? new RoutingStepSnapshot(s.routingId(), s.routingNo(), s.seq(), s.process(),
+                        s.workCenter(), s.stdTime(), s.isSubcontract(),
+                        Constants.WO_PROGRESS, today(), s.completedAt(), s.actualGoodQty(), s.actualDefectQty())
+                : s);
+        Response before = toResponse(entity);
+        entity.setRoutingSteps(java.util.List.copyOf(steps));
+        if (Constants.WO_OPEN.equals(entity.getStatus())) {
+            entity.setStatus(Constants.WO_PROGRESS);
+        }
+        WorkOrderEntity saved = workOrderRepository.save(entity);
+        auditService.record(AuditEvent.changed("OPERATION_START", "WORK_ORDER",
+                saved.getWorkOrderNo(), before, toResponse(saved)));
+        return ResponseEntity.ok(toOperationStep(saved.getRoutingSteps(), seq));
+    }
+
+    @Operation(summary = "공정 완료: 양품·불량 실적 기록")
+    @PostMapping("/{id}/operations/{seq}/complete")
+    @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @Transactional
+    public ResponseEntity<OperationStep> completeOperation(@PathVariable Long id, @PathVariable Integer seq,
+                                                          @Valid @RequestBody OperationActualsRequest request) {
+        WorkOrderEntity entity = workOrderRepository.findForUpdate(id)
+                .orElseThrow(() -> new DomainException(ErrorCode.WORK_ORDER_NOT_FOUND,
+                        "작업오더를 찾을 수 없습니다: " + id));
+        requireActive(entity);
+        var steps = new ArrayList<>(entity.getRoutingSteps());
+        RoutingStepSnapshot target = stepOf(steps, seq);
+        String current = opStatusOf(target);
+        if (!Constants.WO_PROGRESS.equals(current) && !Constants.WO_DONE.equals(current)) {
+            throw new DomainException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "진행중 상태의 공정만 완료할 수 있습니다: seq=" + seq);
+        }
+        if (request.getGoodQty().add(request.getDefectQty()).compareTo(entity.getQty()) > 0) {
+            throw new DomainException(ErrorCode.WORK_ORDER_QTY_EXCEEDED,
+                    "공정 실적 합계가 지시수량을 초과했습니다: seq=" + seq);
+        }
+        steps.replaceAll(s -> s.seq().equals(seq)
+                ? new RoutingStepSnapshot(s.routingId(), s.routingNo(), s.seq(), s.process(),
+                        s.workCenter(), s.stdTime(), s.isSubcontract(),
+                        Constants.WO_DONE, s.startedAt() == null ? today() : s.startedAt(), today(),
+                        request.getGoodQty(), request.getDefectQty())
+                : s);
+        Response before = toResponse(entity);
+        entity.setRoutingSteps(java.util.List.copyOf(steps));
+        WorkOrderEntity saved = workOrderRepository.save(entity);
+        auditService.record(AuditEvent.changed("OPERATION_COMPLETE", "WORK_ORDER",
+                saved.getWorkOrderNo(), before, toResponse(saved)));
+        return ResponseEntity.ok(toOperationStep(saved.getRoutingSteps(), seq));
     }
 
     @Operation(summary = "작업오더 소요량: BOM 전개·불출/반납 현황")
@@ -412,8 +500,7 @@ public class WorkOrderController {
     }
 
     @Operation(summary = "작업오더 마감 (완료 → 마감)")
-    @PostMapping("/{id}/close")
-    @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
+    @PostMapping("/{id}/close")    @PreAuthorize("hasAnyRole('PRODUCTION', 'ADMIN')")
     @Transactional
     public ResponseEntity<Response> close(@PathVariable Long id) {
         WorkOrderEntity entity = workOrderRepository.findForUpdate(id)
@@ -557,6 +644,89 @@ public class WorkOrderController {
         entity.setStatus(Constants.WO_CANCEL);
         auditService.record(AuditEvent.changed("CANCEL", "WORK_ORDER", entity.getWorkOrderNo(), before, toResponse(entity)));
         return ResponseEntity.ok(toResponse(entity));
+    }
+
+    private String opStatusOf(RoutingStepSnapshot s) {
+        return s.opStatus() == null ? Constants.WAITING : s.opStatus();
+    }
+
+    private RoutingStepSnapshot stepOf(java.util.List<RoutingStepSnapshot> steps, Integer seq) {
+        return steps.stream()
+                .filter(s -> s.seq().equals(seq))
+                .findFirst()
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND,
+                        "보관된 공정을 찾을 수 없습니다: seq=" + seq));
+    }
+
+    private OperationStep toOperationStep(java.util.List<RoutingStepSnapshot> steps, Integer seq) {
+        RoutingStepSnapshot s = stepOf(steps, seq);
+        return OperationStep.builder()
+                .seq(s.seq())
+                .routingNo(s.routingNo())
+                .process(s.process())
+                .workCenter(s.workCenter())
+                .stdTime(s.stdTime())
+                .subcontract(Boolean.TRUE.equals(s.isSubcontract()))
+                .opStatus(opStatusOf(s))
+                .startedAt(s.startedAt())
+                .completedAt(s.completedAt())
+                .actualGoodQty(s.actualGoodQty())
+                .actualDefectQty(s.actualDefectQty())
+                .build();
+    }
+
+    private OperationsResponse operationsOf(WorkOrderEntity entity) {
+        var steps = entity.getRoutingSteps().stream().map(s -> OperationStep.builder()
+                .seq(s.seq())
+                .routingNo(s.routingNo())
+                .process(s.process())
+                .workCenter(s.workCenter())
+                .stdTime(s.stdTime())
+                .subcontract(Boolean.TRUE.equals(s.isSubcontract()))
+                .opStatus(opStatusOf(s))
+                .startedAt(s.startedAt())
+                .completedAt(s.completedAt())
+                .actualGoodQty(s.actualGoodQty())
+                .actualDefectQty(s.actualDefectQty())
+                .build()).toList();
+        BigDecimal sumGood = entity.getRoutingSteps().stream()
+                .map(s -> s.actualGoodQty() == null ? BigDecimal.ZERO : s.actualGoodQty())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal sumDefect = entity.getRoutingSteps().stream()
+                .map(s -> s.actualDefectQty() == null ? BigDecimal.ZERO : s.actualDefectQty())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean matched = !entity.getRoutingSteps().isEmpty()
+                && entity.getRoutingSteps().stream().allMatch(s -> Constants.WO_DONE.equals(opStatusOf(s)))
+                && sumGood.compareTo(entity.getGoodQty()) == 0
+                && sumDefect.compareTo(entity.getDefectQty()) == 0;
+        return OperationsResponse.builder()
+                .workOrderId(entity.getId())
+                .workOrderNo(entity.getWorkOrderNo())
+                .qty(entity.getQty())
+                .goodQty(entity.getGoodQty())
+                .defectQty(entity.getDefectQty())
+                .status(entity.getStatus())
+                .steps(steps)
+                .sumGoodQty(sumGood)
+                .sumDefectQty(sumDefect)
+                .matched(matched)
+                .notes(java.util.List.of(
+                        "착수는 보관 순서대로 이전 공정 완료 후에만 가능하며, 완료 실적(양품+불량)은 지시수량을 초과할 수 없다.",
+                        "완료된 공정은 실적을 다시 기록할 수 있으나 착수는 한 번만 가능하다. 과거 마스터는 변경하지 않는다.",
+                        "보관 공정이 있는 작업오더의 생산완료는 모든 공정 완료와 헤더 양품·불량 합계 일치가 필요하다."))
+                .build();
+    }
+
+    private void requireOperationsMatched(WorkOrderEntity entity) {
+        if (entity.getRoutingSteps().isEmpty()) {
+            return;
+        }
+        OperationsResponse ops = operationsOf(entity);
+        if (!ops.isMatched()) {
+            throw new DomainException(ErrorCode.WORK_ORDER_QTY_MISMATCH,
+                    "공정 실적과 헤더 실적이 대사되지 않았습니다. 모든 공정 완료와 양품·불량 합계 일치가 필요합니다: "
+                            + entity.getWorkOrderNo());
+        }
     }
 
     private void requireActive(WorkOrderEntity entity) {
